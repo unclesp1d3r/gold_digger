@@ -1,12 +1,13 @@
 [package]
 name = "gold_digger"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
-mysql = { version = "22.0" }
+mysql = { version = "22.1" }
 anyhow = "1.0"
 csv = "1.1"
+openssl-sys = "0.9.73"
 
 [profile.release]
 lto = true
@@ -14,3 +15,7 @@ codegen-units = 1
 opt-level = 'z'
 debug = false
 debug-assertions = false
+
+[features]
+default = ["vendored"]
+vendored = ["openssl-sys/vendored"]
