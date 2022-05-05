@@ -24,7 +24,7 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-          - windows-latest
+          # - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -32,6 +32,6 @@ jobs:
         with:
           bin: gold_digger
           tar: unix
-          zip: windows
+          # zip: windows
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
