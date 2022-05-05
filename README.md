@@ -2,7 +2,7 @@
 <h1 align="center">Gold Digger</h1>
 <br />
 <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" />
-[![Rust](https://github.com/unclesp1d3r/gold_digger/actions/workflows/rust.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/rust.yml)
+<img alt="Rust" src="https://github.com/unclesp1d3r/gold_digger/actions/workflows/rust.yml/badge.svg" />
 <br>
 <br>
 A simple MySQL/MariaDB query tool that accepts parameters as environmental variables.
