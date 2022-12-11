@@ -4,7 +4,7 @@ version = "0.1.2"
 edition = "2021"
 
 [dependencies]
-mysql = { version = "23.0" }
+mysql = { version = "23.0.1" }
 anyhow = "1.0.61"
 csv = "1.1.6"
 openssl-sys = "0.9.75"
