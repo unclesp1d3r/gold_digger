@@ -2,6 +2,15 @@
 name = "gold_digger"
 version = "0.1.2"
 edition = "2021"
+authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
+description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
+readme = "README.md"
+repository = "https://github.com/unclesp1d3r/gold_digger"
+license = "MIT"
+keywords = ["mysql", "environmental", "variables", "query", "tool", "mariadb"]
+categories = ["command-line-utilities"]
+exclude = [".github/"]
+
 
 [dependencies]
 mysql = { version = "23.0.1" }
