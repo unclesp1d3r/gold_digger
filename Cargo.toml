@@ -7,7 +7,7 @@ description = "A simple MySQL/MariaDB query tool that accepts parameters as envi
 readme = "README.md"
 repository = "https://github.com/unclesp1d3r/gold_digger"
 license = "MIT"
-keywords = ["mysql", "environmental", "variables", "query", "tool", "mariadb"]
+keywords = ["mysql", "query", "tool", "mariadb"]
 categories = ["command-line-utilities"]
 exclude = [".github/"]
 
