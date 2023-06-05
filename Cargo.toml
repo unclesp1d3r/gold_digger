@@ -1,6 +1,6 @@
 [package]
 name = "gold_digger"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
@@ -19,11 +19,11 @@ exclude = [
 
 
 [dependencies]
-mysql = { version = "23.0.1", features = ["minimal"], default-features = false }
+mysql = { version = "24.0.0", features = ["minimal"], default-features = false }
 anyhow = "1.0.61"
 csv = "1.1.6"
 openssl-sys = { version = "0.9.80", optional = true }
-mysql_common = { version = "0.29.2", optional = true }
+mysql_common = { version = "0.30.4", optional = true }
 
 [profile.release]
 lto = true
@@ -40,11 +40,9 @@ json = []
 csv = []
 ssl = ["openssl-sys", "mysql/native-tls"]
 additional_mysql_types = [
-  "mysql_common?/bigdecimal03",
+  "mysql_common?/bigdecimal",
   "mysql_common?/rust_decimal",
-  "mysql_common?/uuid",
-  "mysql_common?/time03",
-  "mysql_common?/uuid",
+  "mysql_common?/time",
   "mysql_common?/frunk",
 ]
 vendored = ["openssl-sys?/vendored"]
