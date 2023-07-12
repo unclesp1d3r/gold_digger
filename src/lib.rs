@@ -1,5 +1,6 @@
-use mysql::{from_value, Row};
 use std::{ffi::OsStr, path::Path};
+
+use mysql::{from_value, Row};
 
 pub mod csv;
 pub mod json;

@@ -10,20 +10,20 @@ license = "MIT"
 keywords = ["mysql", "query", "tool", "mariadb"]
 categories = ["command-line-utilities", "database", "cli"]
 exclude = [
-  ".github/",
-  "CODE_OF_CONDUCT.md",
-  "CONTRIBUTING.md",
-  ".editorconfig",
-  ".gitignore",
+    ".github/",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    ".editorconfig",
+    ".gitignore",
 ]
 
 
 [dependencies]
-mysql = { version = "24.0.0", features = ["minimal"], default-features = false }
+mysql = { version = "24.0", features = ["minimal"], default-features = false }
 anyhow = "1.0.61"
 csv = "1.1.6"
 openssl-sys = { version = "0.9.80", optional = true }
-mysql_common = { version = "0.30.4", optional = true }
+mysql_common = { version = "0.30", optional = true }
 
 [profile.release]
 lto = true
@@ -40,10 +40,10 @@ json = []
 csv = []
 ssl = ["openssl-sys", "mysql/native-tls"]
 additional_mysql_types = [
-  "mysql_common?/bigdecimal",
-  "mysql_common?/rust_decimal",
-  "mysql_common?/time",
-  "mysql_common?/frunk",
+    "mysql_common?/bigdecimal",
+    "mysql_common?/rust_decimal",
+    "mysql_common?/time",
+    "mysql_common?/frunk",
 ]
 vendored = ["openssl-sys?/vendored"]
 verbose = []

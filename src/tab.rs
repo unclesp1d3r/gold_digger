@@ -1,5 +1,6 @@
-use csv::{QuoteStyle, WriterBuilder};
 use std::io::Write;
+
+use csv::{QuoteStyle, WriterBuilder};
 
 pub fn write<W>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>
 where

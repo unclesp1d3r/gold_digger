@@ -1,7 +1,10 @@
-use anyhow::Result;
-use gold_digger::{get_extension_from_filename, rows_to_strings};
-use mysql::prelude::Queryable;
 use std::{env, fs::File};
+
+use anyhow::Result;
+use mysql::prelude::Queryable;
+use mysql::Pool;
+
+use gold_digger::{get_extension_from_filename, rows_to_strings};
 
 fn main() -> Result<()> {
     let output_file = match env::var("OUTPUT_FILE") {
@@ -31,8 +34,8 @@ fn main() -> Result<()> {
         }
     };
 
-    let opts = mysql::Opts::from_url(&database_url)?;
-    let mut conn = mysql::Conn::new(opts)?;
+    let pool = Pool::new(database_url.as_str())?;
+    let mut conn = pool.get_conn()?;
 
     #[cfg(feature = "verbose")]
     println!("Connecting to database...");
