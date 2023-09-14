@@ -1,6 +1,6 @@
 [package]
 name = "gold_digger"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
@@ -22,7 +22,7 @@ exclude = [
 mysql = { version = "24.0", features = ["minimal"], default-features = false }
 anyhow = "1.0.61"
 csv = "1.1.6"
-openssl-sys = { version = "0.9.80", optional = true }
+openssl-sys = { version = "0.9.93", optional = true }
 mysql_common = { version = "0.30", optional = true }
 
 [profile.release]
