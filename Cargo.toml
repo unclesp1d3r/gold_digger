@@ -1,6 +1,6 @@
 [package]
 name = "gold_digger"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/unclesp1d3r/gold_digger"
 license = "MIT"
 keywords = ["mysql", "query", "tool", "mariadb"]
-categories = ["command-line-utilities", "database", "cli"]
+categories = ["command-line-utilities", "database"]
 exclude = [
     ".github/",
     "CODE_OF_CONDUCT.md",
@@ -19,11 +19,11 @@ exclude = [
 
 
 [dependencies]
-mysql = { version = "24.0", features = ["minimal"], default-features = false }
-anyhow = "1.0.61"
-csv = "1.1.6"
-openssl-sys = { version = "0.9.93", optional = true }
-mysql_common = { version = "0.30", optional = true }
+mysql = { version = "~24.0", features = ["minimal"], default-features = false }
+anyhow = "~1.0.71"
+csv = "~1.3.0"
+openssl-sys = { version = "~0.9.98", optional = true }
+mysql_common = { version = "~0.31", optional = true }
 
 [profile.release]
 lto = true
