@@ -8,13 +8,15 @@ readme = "README.md"
 repository = "https://github.com/unclesp1d3r/gold_digger"
 license = "MIT"
 keywords = ["mysql", "query", "tool", "mariadb"]
-categories = ["command-line-utilities", "database", "cli"]
+categories = ["command-line-utilities", "database"]
 exclude = [
     ".github/",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     ".editorconfig",
     ".gitignore",
+    ".gitlint",
+    ".chglog/",
 ]
 
 

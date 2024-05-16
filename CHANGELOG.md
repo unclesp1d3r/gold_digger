@@ -1,6 +1,25 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Documentation Update
+- Updated maintain tag
+
+
+<a name="v0.2.5"></a>
+## [v0.2.5] - 2024-05-15
+### Code Refactoring
+- Bumped version due to weird mismatch
+
+
+<a name="v0.2.4"></a>
+## [v0.2.4] - 2024-05-15
+### Bug Fixes
+- Bumped mysql crate version and tested
+
+### Maintenance
+- Add dependabot configuration
+- Add git-chglog support
+
 
 <a name="v0.2.3"></a>
 ## [v0.2.3] - 2023-09-14
@@ -35,7 +54,9 @@
 <a name="v0.1.0"></a>
 ## v0.1.0 - 2022-05-05
 
-[Unreleased]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.5...HEAD
+[v0.2.5]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.4...v0.2.5
+[v0.2.4]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.0...v0.2.1
