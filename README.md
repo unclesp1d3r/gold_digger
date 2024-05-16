@@ -6,7 +6,7 @@ Gold Digger is a Rust-based query tool that automates the routine collection of 
 ![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)
 ![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)
 ![GitHub last commit](https://img.shields.io/github/last-commit/unclesp1d3r/gold_digger)
-![Maintenance](https://img.shields.io/maintenance/yes/2023)
+![Maintenance](https://img.shields.io/maintenance/yes/2024)
 
 ## Description
 
