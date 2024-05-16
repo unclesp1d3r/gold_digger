@@ -1,7 +1,6 @@
 # Gold Digger
 
-Gold Digger is a Rust-based query tool that automates the routine collection of database queries for MySQL and MariaDB
-systems. This tool is designed to run headless, making it ideal for use in scheduled or routine tasks.
+Gold Digger is a Rust-based query tool that automates the routine collection of database queries for MySQL and MariaDB systems. This tool is designed to run headless, making it ideal for use in scheduled or routine tasks.
 
 ![GitHub](https://img.shields.io/github/license/unclesp1d3r/gold_digger)
 ![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)
@@ -11,12 +10,9 @@ systems. This tool is designed to run headless, making it ideal for use in sched
 
 ## Description
 
-This tool is configurable using environmental variables, allowing you to set up your database connection details and
-other parameters without modifying the source code. It accepts parameters such as output file path, database connection
-URL, and SQL query string, making it easy to use in a variety of settings and on different systems.
+This tool is configurable using environmental variables, allowing you to set up your database connection details and other parameters without modifying the source code. It accepts parameters such as output file path, database connection URL, and SQL query string, making it easy to use in a variety of settings and on different systems.
 
-Overall, Gold Digger is a practical solution for managing and analyzing data in MySQL and MariaDB environments. With its
-headless design and configurable options, it's well-suited for regular use in any database administration workflow.
+Overall, Gold Digger is a practical solution for managing and analyzing data in MySQL and MariaDB environments. With its headless design and configurable options, it's well-suited for regular use in any database administration workflow.
 
 ## Installation
 
@@ -32,13 +28,13 @@ cargo install
 
 To run Gold Digger, you will need to set the following environment variables in your .env file or in your environment:
 
-- `OUTPUT_FILE`: This is the path to a text file that will contain the output of the query. The extension of the file
-  will determine the format (csv, txt, or json).
+-   `OUTPUT_FILE`: This is the path to a text file that will contain the output of the query. The extension of the file
+    will determine the format (csv, txt, or json).
 
-- `DATABASE_URL`: The connection URL for accessing the database. This is formatted in the typical MySQL/MariaDB
-  format (`protocol://[host]/[database]?[properties]`).
+-   `DATABASE_URL`: The connection URL for accessing the database. This is formatted in the typical MySQL/MariaDB
+    format (`protocol://[host]/[database]?[properties]`).
 
-- `DATABASE_QUERY`: The SQL query string to be used to query the database server.
+-   `DATABASE_QUERY`: The SQL query string to be used to query the database server.
 
 ## Authors
 
