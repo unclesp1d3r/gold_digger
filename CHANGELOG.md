@@ -1,8 +1,18 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.2.6"></a>
+## [v0.2.6] - 2024-05-15
 ### Documentation Update
 - Updated maintain tag
+
+### Style
+- Remove unused category tag and added git types
+
+### Pull Requests
+- Merge pull request [#9](https://github.com/unclesp1d3r/gold_digger/issues/9) from unclesp1d3r/dependabot/github_actions/github/codeql-action-3
+- Merge pull request [#8](https://github.com/unclesp1d3r/gold_digger/issues/8) from unclesp1d3r/dependabot/github_actions/actions/checkout-4
 
 
 <a name="v0.2.5"></a>
@@ -54,7 +64,8 @@
 <a name="v0.1.0"></a>
 ## v0.1.0 - 2022-05-05
 
-[Unreleased]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.6...HEAD
+[v0.2.6]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/unclesp1d3r/gold_digger/compare/v0.2.2...v0.2.3
