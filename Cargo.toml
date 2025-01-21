@@ -21,7 +21,7 @@ exclude = [
 
 
 [dependencies]
-mysql = { version = "25.0.1", features = ["minimal"], default-features = false }
+mysql = { version = "26.0.0", features = ["minimal"], default-features = false }
 anyhow = "1.0.61"
 csv = "1.3.0"
 openssl-sys = { version = "0.9.102", optional = true }
