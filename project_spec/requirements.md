@@ -24,17 +24,21 @@
 - **Project Goals and Objectives**
   - Provide an offline-first, zero-dependency binary for reliable database query automation
   - Support deterministic output formats (CSV, JSON, TSV) for downstream processing
-  - Enable easy integration with cron jobs, systemd timers, and CI/CD pipelines
+  - Enable easy integration with development workflows, CI/CD pipelines, and automation systems
+  - Design as a composable component for larger data processing pipelines and toolsets
   - Maintain minimal operational friction with environment variable configuration
-  - Ensure cross-platform compatibility for diverse deployment environments
+  - Ensure cross-platform compatibility for diverse development and deployment environments
 
 - **Target Audience and Stakeholders**
+  - **Developers**: Database query automation for development workflows and testing
   - **Database Administrators (DBAs)**: Automated reporting and data extraction
-  - **Site Reliability Engineers (SREs)**: Monitoring queries and health checks
+  - **Automation Engineers**: CI/CD pipeline data validation and automated data processing
+  - **Data Engineers**: ETL pipeline integration and data processing workflows
+  - **Machine Learning Engineers**: Data extraction for ML training pipelines and model validation
+  - **System Administrators**: Monitoring queries and health checks
   - **Security Analysts**: Data collection for compliance and audit workflows
-  - **Platform Engineers**: Infrastructure automation and deployment validation
-  - **DevOps Teams**: CI/CD pipeline data validation steps
   - **Container Engineers**: Docker-based database query automation with environment variable configuration
+  - **Pipeline Architects**: Integration into complex data processing and automation systems
 
 - **Project Boundaries and Limitations**
   Gold Digger will *not* provide:
@@ -50,12 +54,13 @@
 - **In-scope Features and Functionality**
   - MySQL/MariaDB query execution with connection pooling
   - CSV, JSON, and tab-delimited (TSV) output formats
-  - Environment variable and CLI flag configuration
+  - Environment variable and CLI flag configuration for automation workflows
   - TLS/SSL connection support via MySQL native client
   - Cross-platform binary distribution (macOS, Windows, Linux)
   - Streaming output for large result sets
   - Comprehensive error handling with meaningful exit codes
   - Shell completion generation for major shells
+  - Pipeline-friendly design with standardized exit codes and output formats
 
 - **Out-of-scope Items**
   - Interactive terminal user interface (TUI)
@@ -64,6 +69,9 @@
   - Database schema introspection or documentation generation
   - Long-running server or daemon processes
   - Built-in query scheduling or cron functionality
+  - Real-time data streaming or change data capture
+  - Complex data transformation or ETL capabilities
+  - Orchestration or workflow management (designed to be orchestrated by external tools)
 
 - **Success Criteria and Acceptance Criteria**
   - **Functional**: Tool successfully executes queries and produces correct output formats
@@ -72,6 +80,7 @@
   - **Compliance**: FOSSA license scanning passes; SBOM and provenance attached to releases
   - **Cross-platform**: CI passes on Ubuntu, Windows, and macOS
   - **Documentation**: Complete installation, usage, and verification guides
+  - **Integration**: Successfully integrates with common data processing tools and pipeline frameworks
 
 - **Timeline and Milestones**
   - **v0.3.0** — CLI and Config Parity
@@ -81,7 +90,7 @@
 ### Context and Background
 
 - **Business Context and Justification**
-  Database query automation is a critical operational need across security, DevOps, and data engineering workflows. Existing solutions often require heavy runtime dependencies, complex configuration, or lack offline-first design principles essential for airgapped environments.
+  Database query automation is a critical need across development, data engineering, and various automation workflows. Existing solutions often require heavy runtime dependencies, complex configuration, or lack offline-first design principles essential for lightweight, self-contained deployments. This tool is designed to be a reliable, composable component that can be easily integrated into larger data processing pipelines, ETL workflows, and automation systems.
 
 - **Previous Work and Dependencies**
   Current implementation (v0.2.5) provides basic functionality with:
@@ -91,13 +100,13 @@
   - GitHub Actions CI/CD with semantic versioning
 
 - **Assumptions and Constraints**
-  - Operators provide trusted SQL queries (no query sanitization)
+  - Developers and automation engineers provide trusted SQL queries (no query sanitization)
   - Database connectivity and credentials managed externally
   - Results fit within reasonable memory constraints or use streaming
   - No telemetry or external service dependencies in runtime artifacts
 
 - **Risk Assessment Overview**
-  - **SQL Execution Risk**: Operator-provided queries trusted; no injection protection needed
+  - **SQL Execution Risk**: Developer-provided queries trusted; no injection protection needed
   - **Memory Usage Risk**: Large result sets require streaming implementation
   - **Credential Exposure Risk**: Database URLs must never be logged or displayed
   - **Dependency Risk**: Minimize external crate dependencies for supply chain security
@@ -175,9 +184,63 @@ gold_digger \
     --format csv
 ```
 
-#### Use Case 3: SRE Pipeline Validation
+#### Use Case 3: Data Pipeline Extraction
 
-**Scenario**: Pre-deployment health check in CI pipeline parsing JSON response.
+**Scenario**: Automated data extraction for various downstream processing workflows.
+
+```bash
+# Data pipeline extraction
+export DATABASE_URL="mysql://data_user:${DATA_DB_PASS}@${DB_HOST}/analytics"
+export DATABASE_QUERY="SELECT user_id, action, timestamp FROM user_events WHERE DATE(timestamp) = CURDATE()"
+
+if gold_digger --output /tmp/daily_events.json --allow-empty; then
+    echo "✅ Daily events extracted successfully"
+    # Continue with data processing pipeline...
+else
+    echo "❌ Data extraction failed"
+    exit 1
+fi
+```
+
+#### Use Case 4: Development Workflow Automation
+
+**Scenario**: Developer automating database queries for testing and development workflows.
+
+```bash
+# Development environment setup
+export DATABASE_URL="mysql://dev:dev_pass@localhost:3306/dev_db"
+export DATABASE_QUERY="SELECT COUNT(*) as user_count FROM users WHERE created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)"
+
+gold_digger --output /tmp/daily_users.csv --verbose
+echo "Daily user count: $(tail -n 1 /tmp/daily_users.csv | cut -d',' -f2)"
+```
+
+#### Use Case 5: Large-Scale Data Pipeline Integration
+
+**Scenario**: Integration into complex data processing pipelines and ETL workflows.
+
+```bash
+# Part of a larger data pipeline
+export DATABASE_URL="mysql://pipeline:${PIPELINE_PASS}@${DB_HOST}/warehouse"
+export DATABASE_QUERY="SELECT * FROM raw_events WHERE processed = 0 LIMIT 10000"
+
+# Extract data for processing
+if gold_digger --output /tmp/batch_events.json; then
+    # Process with other tools in the pipeline
+    jq -r '.data[] | select(.event_type == "purchase")' /tmp/batch_events.json | \
+    process_events.py --input - --output /tmp/processed_events.csv
+
+    # Update processing status
+    update_processing_status.py --batch-id $(date +%Y%m%d_%H%M%S)
+else
+    echo "❌ Data extraction failed"
+    exit 1
+fi
+```
+
+#### Use Case 6: Containerized Database Automation
+
+**Scenario**: Docker-based deployment with environment variable configuration for easy container orchestration.
 
 ```bash
 # CI pipeline step
@@ -240,7 +303,7 @@ OUTPUT_FILE=/app/output/daily-audit-$(date +%Y%m%d).json
 - **CLI Startup**: Tool initialization and argument parsing under 250ms on typical development hardware
 - **File Size Limits**: Verified operation with output files up to 2GB (document OS filesystem constraints)
 - **Time-to-Completion**: Tool overhead less than 5% of total query runtime when using streaming writers
-- **Memory Usage**: O(row_width) steady-state memory when streaming enabled; avoid Vec<Row> accumulation for large result sets
+- **Memory Usage**: O(row_width) steady-state memory when streaming enabled; avoid `Vec<Row>` accumulation for large result sets
 
 ---
 
@@ -254,7 +317,7 @@ OUTPUT_FILE=/app/output/daily-audit-$(date +%Y%m%d).json
 
 ### Command Line Interface
 
-```
+```text
 gold_digger [OPTIONS] [SUBCOMMAND]
 
 OPTIONS:
@@ -495,15 +558,15 @@ pub enum GoldDiggerError {
 
 ---
 
-## Compliance with EvilBit Labs Standards
+## Development and Automation Standards
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Offline-first** | No telemetry; self-contained binaries; airgap-ready operation |
-| **Operator-focused** | CLI-first interface; minimal flags; clear exit codes; comprehensive error messages |
+| **Offline-first** | No telemetry; self-contained binaries; development environment ready |
+| **Developer-focused** | CLI-first interface; minimal flags; clear exit codes; comprehensive error messages |
 | **Transparent outputs** | Documented CSV/JSON/TSV schemas; deterministic formatting |
 | **Ethical distribution** | No tracking; complete SBOM/signatures/provenance attached |
-| **Sustainable design** | Modular architecture; comprehensive tests; maintainable <8 hrs/week |
+| **Sustainable design** | Modular architecture; comprehensive tests; maintainable codebase |
 
 ### Pipeline Compliance
 
@@ -521,6 +584,7 @@ pub enum GoldDiggerError {
 - **Property Tests**: Data transformation correctness with proptest
 - **Snapshot Tests**: Output format validation with insta
 - **Benchmark Tests**: Performance regression detection with criterion
+- **Format Tests**: Output format validation for various downstream processing workflows
 
 ---
 
@@ -553,9 +617,6 @@ pub enum GoldDiggerError {
 
 - **MySQL Rust Crate**: <https://docs.rs/mysql/>
 - **Clap Argument Parser**: <https://docs.rs/clap/>
-- **EvilBit Pipeline Standard**: Internal documentation
-- **EvilBit Canonical Policies**: Internal documentation
-- **EvilBit Preferred Libraries**: Internal documentation
 - **Conventional Commits**: <https://conventionalcommits.org/>
 - **SLSA Framework**: <https://slsa.dev/>
 - **Cosign**: <https://docs.sigstore.dev/cosign/overview/>
@@ -565,8 +626,9 @@ pub enum GoldDiggerError {
 ## Guidance Notes
 
 - **Version Discrepancy**: Current codebase shows v0.2.5 in Cargo.toml but CHANGELOG.md references v0.2.6. Recommend resolving this discrepancy in next release.
-- **License Retention**: Maintain MIT license (do not change to Apache-2.0 per pipeline default).
+- **License Retention**: Maintain MIT license for open source compatibility.
 - **Single Maintainer**: Configure branch protection rules appropriate for single-maintainer workflow.
 - **Milestone Naming**: Use version numbers (v0.3.0, v0.4.0, v1.0.0) with descriptive context in milestone descriptions.
 - **Code Review**: Enable CodeRabbit.ai for automated PR reviews; disable GitHub Copilot automatic reviews per user preference.
 - **Testing Framework**: Emphasize criterion for benchmarking and insta for snapshot testing per user preference.
+- **General Purpose**: Ensure output formats are compatible with common data processing tools and workflows.
