@@ -127,7 +127,7 @@
 
 - **F005**: Provide standardized exit codes: 0 (success), 1 (no rows found), 2 (usage/config error), 3 (connection/auth error), 4 (query execution error), 5 (file I/O error)
 
-- **F006**: Support TLS/SSL connections via MySQL native-tls features; expose ssl-mode configuration through connection URL parameters
+- **F006**: Support TLS/SSL connections via MySQL native-tls features; TLS/SSL must be configurable programmatically via the crate's native-tls features using `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the chosen mysql crate (see [mysql crate SSL documentation](https://docs.rs/mysql/25.0.1/mysql/struct.SslOpts.html) for programmatic TLS setup examples)
 
 - **F007**: Implement streaming export mode for large result sets to avoid loading all rows into memory simultaneously
 
@@ -155,10 +155,34 @@
 # Environment file: /opt/reports/db.env
 DATABASE_URL="mysql://user:pass@db.internal:3306/audit?ssl-mode=REQUIRED"
 DATABASE_QUERY="SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()"
-OUTPUT_FILE="/var/reports/daily-audit-$(date +%Y%m%d).json"
+```
 
-# Systemd timer execution
-gold_digger --verbose
+```ini
+# Systemd service unit: /etc/systemd/system/daily-audit.service
+[Unit]
+Description=Daily audit log export
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/reports/db.env
+ExecStart=/bin/sh -lc 'gold_digger --verbose --output "/var/reports/daily-audit-$(date +%Y%m%d).json"'
+User=reports
+Group=reports
+```
+
+```ini
+# Systemd timer unit: /etc/systemd/system/daily-audit.timer
+[Unit]
+Description=Run daily audit export at 2 AM
+Requires=daily-audit.service
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
 ```
 
 #### Use Case 2: SOC Analyst Ad-hoc Query
@@ -265,15 +289,15 @@ fi
 **Scenario**: Docker-based deployment with environment variable configuration for easy container orchestration.
 
 ```bash
-# Docker run with environment variables
+# Docker run with shell expansion for dynamic filenames
 docker run --rm \
   -e DATABASE_URL="mysql://user:pass@db-host:3306/production?ssl-mode=REQUIRED" \
   -e DATABASE_QUERY="SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()" \
-  -e OUTPUT_FILE="/app/output/daily-audit-$(date +%Y%m%d).json" \
   -v $(pwd)/output:/app/output \
-  gold-digger:latest
+  gold-digger:latest \
+  /bin/sh -lc 'gold_digger --output "/app/output/daily-audit-$(date +%Y%m%d).json"'
 
-# Docker Compose with .env file
+# Docker Compose with .env file (static configuration)
 # docker-compose.yml
 version: '3.8'
 services:
@@ -283,11 +307,15 @@ services:
     volumes:
       - ./output:/app/output
     restart: "no"
+    command: ["/bin/sh", "-lc", "gold_digger --output \"/app/output/daily-audit-$(date +%Y%m%d).json\""]
 
-# .env file
+# .env file (no shell substitution - use static paths or generate in command)
 DATABASE_URL=mysql://user:pass@db-host:3306/production?ssl-mode=REQUIRED
 DATABASE_QUERY=SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()
-OUTPUT_FILE=/app/output/daily-audit-$(date +%Y%m%d).json
+
+# Note: Shell substitution $(date ...) doesn't work in .env files or environment variables.
+# Use /bin/sh -lc wrapper in command or implement --output-template flag in the tool.
+# Example: gold_digger --output-template "/app/output/daily-audit-{date}.json"
 ```
 
 ### Feature Priority Matrix
@@ -366,7 +394,7 @@ SUBCOMMANDS:
 #### Production Dependencies
 
 ```toml
-mysql = { version = "25", features = ["minimal", "native-tls"], default-features = false }
+mysql = { version = "26.0.1", features = ["minimal", "native-tls"], default-features = false }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 csv = "1.3"

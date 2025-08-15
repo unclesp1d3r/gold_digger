@@ -13,7 +13,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find OUTPUT_FILE in environment variable");
             std::process::exit(-1);
-        }
+        },
     };
 
     let database_url = match env::var("DATABASE_URL") {
@@ -22,7 +22,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_URL in environment variable");
             std::process::exit(-1);
-        }
+        },
     };
 
     let database_query = match env::var("DATABASE_QUERY") {
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_QUERY in environment variable");
             std::process::exit(-1);
-        }
+        },
     };
 
     let pool = Pool::new(database_url.as_str())?;
@@ -61,7 +61,7 @@ fn main() -> Result<()> {
                 #[cfg(feature = "verbose")]
                 eprintln!("Couldn't find extension");
                 std::process::exit(-1);
-            }
+            },
         }
     }
 
