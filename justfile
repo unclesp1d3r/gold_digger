@@ -211,6 +211,54 @@ status:
     @echo ""
     @echo "📖 See WARP.md for detailed information"
 
+# Local GitHub Actions Testing (requires act)
+act-setup:
+    @echo "📦 Setting up act for local GitHub Actions testing..."
+    @echo "Checking if act is installed..."
+    @which act || echo "❌ Please install act: brew install act (or see https://github.com/nektos/act)"
+    @echo "✅ Act configuration already exists in .actrc"
+    @echo "🐳 Pulling Docker images (this may take a while the first time)..."
+    docker pull catthehacker/ubuntu:act-22.04 || echo "⚠️  Could not pull Docker image - act may not work without it"
+    @echo "✅ Act setup complete!"
+
+# Run CI workflow locally (dry-run)
+act-ci-dry:
+    @echo "🧪 Running CI workflow dry-run with act..."
+    @echo "This simulates the GitHub Actions CI without actually executing commands"
+    act -j ci --dryrun
+
+# Run CI workflow locally (full execution)
+act-ci:
+    @echo "🧪 Running CI workflow locally with act..."
+    @echo "⚠️  This will execute the full CI pipeline in Docker containers"
+    @echo "📋 This includes: Rust setup, pre-commit, linting, testing, coverage"
+    act -j ci
+
+# Run release workflow dry-run (requires tag parameter)
+act-release-dry TAG:
+    @echo "🚀 Running release workflow dry-run for tag: {{TAG}}"
+    @echo "This simulates the full release pipeline without actually creating releases"
+    act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+
+# List all available GitHub Actions workflows
+act-list:
+    @echo "📋 Available GitHub Actions workflows:"
+    act --list
+
+# Test specific workflow job
+act-job JOB:
+    @echo "🎯 Running specific job: {{JOB}}"
+    act -j {{JOB}} --dryrun
+
+# Clean act cache and containers
+act-clean:
+    @echo "🧹 Cleaning act cache and containers..."
+    @echo "Removing act containers..."
+    -docker ps -a | grep "act-" | awk '{print $1}' | xargs docker rm -f
+    @echo "Removing act images cache..."
+    -docker images | grep "act-" | awk '{print $3}' | xargs docker rmi -f
+    @echo "✅ Act cleanup complete!"
+
 # Release preparation checklist
 release-check:
     @echo "🚀 Pre-release checklist:"
@@ -225,12 +273,16 @@ release-check:
     @echo "4. Build matrix test..."
     just build-all
     @echo ""
+    @echo "5. Local CI validation..."
+    just act-ci-dry
+    @echo ""
     @echo "📋 Manual checklist:"
     @echo "   □ Update CHANGELOG.md if needed"
     @echo "   □ Review project_spec/requirements.md for completeness"
     @echo "   □ Test with real database connections"
     @echo "   □ Verify all feature flag combinations work"
     @echo "   □ Check that credentials are never logged"
+    @echo "   □ Run 'just act-release-dry vX.Y.Z' to test release workflow"
 
 # Show help
 help:
@@ -266,6 +318,15 @@ help:
     @echo "  run OUTPUT_FILE DATABASE_URL DATABASE_QUERY  Run with custom env vars"
     @echo "  run-safe      Run with safe example query"
     @echo "  watch         Watch for changes (requires cargo-watch)"
+    @echo ""
+    @echo "Local GitHub Actions Testing (requires act):"
+    @echo "  act-setup     Set up act and pull Docker images"
+    @echo "  act-ci-dry    Run CI workflow dry-run (simulation)"
+    @echo "  act-ci        Run CI workflow locally (full execution)"
+    @echo "  act-release-dry TAG  Simulate release workflow for tag"
+    @echo "  act-list      List all available workflows"
+    @echo "  act-job JOB   Test specific workflow job"
+    @echo "  act-clean     Clean act cache and containers"
     @echo ""
     @echo "Documentation:"
     @echo "  docs          Generate and open documentation"
