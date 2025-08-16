@@ -30,7 +30,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install SARIF tools
-        run: cargo install clippy-sarif sarif-fmt
+        run: cargo +stable install clippy-sarif sarif-fmt
 
       - name: Clippy to SARIF (no warnings tolerated)
         run: |
@@ -70,10 +70,10 @@ jobs:
 
       - name: cargo-audit
         run: |
-          cargo install cargo-audit
-          cargo audit
+          cargo +stable install cargo-audit
+          cargo +stable audit
 
       - name: cargo-deny
         run: |
-          cargo install cargo-deny
-          cargo deny check
+          cargo +stable install cargo-deny
+          cargo +stable deny check
