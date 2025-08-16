@@ -10,13 +10,13 @@ license = "MIT"
 keywords = ["mysql", "query", "tool", "mariadb"]
 categories = ["command-line-utilities", "database"]
 exclude = [
-    ".github/",
-    "CODE_OF_CONDUCT.md",
-    "CONTRIBUTING.md",
-    ".editorconfig",
-    ".gitignore",
-    ".gitlint",
-    ".chglog/",
+  ".github/",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  ".editorconfig",
+  ".gitignore",
+  ".gitlint",
+  ".chglog/",
 ]
 
 
@@ -43,10 +43,10 @@ json = []
 csv = []
 ssl = ["openssl-sys", "mysql/native-tls"]
 additional_mysql_types = [
-    "mysql_common?/bigdecimal",
-    "mysql_common?/rust_decimal",
-    "mysql_common?/time",
-    "mysql_common?/frunk",
+  "mysql_common?/bigdecimal",
+  "mysql_common?/rust_decimal",
+  "mysql_common?/time",
+  "mysql_common?/frunk",
 ]
 vendored = ["openssl-sys?/vendored"]
 verbose = []

@@ -2,13 +2,23 @@ use std::{collections::HashMap, io::Write};
 
 use serde_json::json;
 
+/// Writes rows to a JSON output using the provided writer.
+///
+/// # Arguments
+///
+/// * `rows` - A vector of string vectors representing the data.
+/// * `output` - A writer to output the JSON data.
+///
+/// # Returns
+///
+/// A Result indicating success or failure.
 pub fn write<W>(rows: Vec<Vec<String>>, mut output: W) -> anyhow::Result<()>
 where
     W: Write,
 {
     let headers = match rows.first() {
         Some(header_row) => header_row.to_owned(),
-        None => panic!("No header row found"),
+        None => anyhow::bail!("No header row found"),
     };
     let mut results: Vec<HashMap<String, String>> = Vec::new();
 

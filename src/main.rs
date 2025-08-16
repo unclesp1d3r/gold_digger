@@ -6,13 +6,16 @@ use mysql::Pool;
 
 use gold_digger::{get_extension_from_filename, rows_to_strings};
 
+/// Main entry point for the gold_digger CLI tool.
+///
+/// Reads environment variables, executes a database query, and writes the output in the specified format.
 fn main() -> Result<()> {
     let output_file = match env::var("OUTPUT_FILE") {
         Ok(val) => val,
         Err(_) => {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find OUTPUT_FILE in environment variable");
-            std::process::exit(-1);
+            anyhow::bail!("Missing OUTPUT_FILE environment variable");
         },
     };
 
@@ -21,7 +24,7 @@ fn main() -> Result<()> {
         Err(_) => {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_URL in environment variable");
-            std::process::exit(-1);
+            anyhow::bail!("Missing DATABASE_URL environment variable");
         },
     };
 
@@ -30,7 +33,7 @@ fn main() -> Result<()> {
         Err(_) => {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_QUERY in environment variable");
-            std::process::exit(-1);
+            anyhow::bail!("Missing DATABASE_QUERY environment variable");
         },
     };
 
@@ -46,7 +49,7 @@ fn main() -> Result<()> {
     if result.is_empty() {
         #[cfg(feature = "verbose")]
         println!("No records found in database.");
-        std::process::exit(1);
+        anyhow::bail!("No records found in database.");
     } else {
         let rows = rows_to_strings(result)?;
         let output = File::create(&output_file)?;
@@ -60,7 +63,7 @@ fn main() -> Result<()> {
             None => {
                 #[cfg(feature = "verbose")]
                 eprintln!("Couldn't find extension");
-                std::process::exit(-1);
+                anyhow::bail!("Couldn't find extension for output file");
             },
         }
     }
