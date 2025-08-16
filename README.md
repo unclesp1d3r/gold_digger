@@ -75,7 +75,7 @@ Gold Digger is configured entirely through environment variables (no dotenv supp
 
 -   `OUTPUT_FILE`: Path to output file. Extension determines format:
     - `.csv` → CSV output with RFC 4180-ish formatting
-    - `.json` → JSON output with `{"data": [...]}` structure  
+    - `.json` → JSON output with `{"data": [...]}` structure
     - `.txt` or any other extension → TSV (tab-separated values)
 
 -   `DATABASE_URL`: MySQL/MariaDB connection URL in standard format:

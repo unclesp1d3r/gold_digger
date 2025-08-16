@@ -44,11 +44,14 @@ jobs:
         with:
           sarif_file: clippy.sarif
 
+      - name: Install syft and grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
       - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0
-        with:
-          format: cyclonedx-json
-          output-file: sbom.cdx.json
+        run: |
+          syft . -o cyclonedx-json=sbom.cdx.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
@@ -56,13 +59,9 @@ jobs:
           name: sbom-cyclonedx
           path: sbom.cdx.json
 
-      - name: Vulnerability scan with grype (SARIF)
-        uses: anchore/grype-action@v0
-        with:
-          sbom: sbom.cdx.json
-          output-format: sarif
-          fail-build: true
-          only-fixed: false
+      - name: Vulnerability scan with grype
+        run: |
+          grype sbom.cdx.json --fail-on critical,high --output sarif --file results.sarif
 
       - name: Upload grype SARIF
         uses: github/codeql-action/upload-sarif@v3

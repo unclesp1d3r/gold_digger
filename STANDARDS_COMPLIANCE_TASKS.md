@@ -1,8 +1,8 @@
 # Gold Digger - EvilBit Labs Standards Compliance Tasks
 
-**Generated:** 2025-08-16  
-**Project:** Gold Digger v0.2.5  
-**Target:** Full compliance with EvilBit Labs Development Standards  
+**Generated:** 2025-08-16
+**Project:** Gold Digger v0.2.5
+**Target:** Full compliance with EvilBit Labs Development Standards
 **Priority:** High - Required for v1.0 milestone
 
 ---
@@ -11,8 +11,8 @@
 
 This document outlines the tasks required to bring the Gold Digger project into full compliance with EvilBit Labs development standards. The project currently has some infrastructure in place but lacks critical components for CI/CD pipeline compliance, security controls, and modern release automation.
 
-**Current Status:** 🔴 Non-compliant  
-**Estimated Effort:** 2-3 weeks for full compliance  
+**Current Status:** 🔴 Non-compliant
+**Estimated Effort:** 2-3 weeks for full compliance
 **Critical Blockers:** 11 high-priority items
 
 ---
@@ -96,7 +96,7 @@ This document outlines the tasks required to bring the Gold Digger project into 
   [cargo-dist]
   targets = [
     "x86_64-unknown-linux-gnu",
-    "x86_64-apple-darwin", 
+    "x86_64-apple-darwin",
     "aarch64-apple-darwin",
     "x86_64-pc-windows-msvc"
   ]
@@ -290,7 +290,7 @@ jobs:
   - **Solution:** Implement safe type conversion with proper NULL handling
 
 - [ ] **Non-deterministic JSON**: Fix HashMap usage for deterministic output
-  - **Location:** `src/json.rs` 
+  - **Location:** `src/json.rs`
   - **Current:** Uses HashMap with non-deterministic key ordering
   - **Solution:** Use IndexMap or BTreeMap for consistent ordering
 
@@ -396,7 +396,7 @@ The project will be considered compliant when:
 ## 📚 Reference Documents
 
 - **EBL-STD-Pipeline**: Primary CI/CD pipeline requirements
-- **EBL-STD-BranchProtection**: Branch protection rule specifications  
+- **EBL-STD-BranchProtection**: Branch protection rule specifications
 - **CANONICAL_POLICIES**: Security and supply chain policies
 - **evilbit_requirements_standard**: Documentation requirements
 - **preferred_libraries**: Tool and library selections

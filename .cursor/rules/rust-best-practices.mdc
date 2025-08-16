@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
 # Rust Best Practices for gold_digger
@@ -48,4 +48,3 @@ alwaysApply: true
 - Use `.gitignore` to exclude build artifacts and sensitive files.
 - Use `.editorconfig` for consistent editor settings.
 - Follow the guidelines in [`CONTRIBUTING.md`](mdc:CONTRIBUTING.md) for code contributions.
-
