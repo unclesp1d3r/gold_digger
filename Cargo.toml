@@ -1,7 +1,7 @@
 [package]
 name = "gold_digger"
 version = "0.2.5"
-edition = "2021"
+edition = "2024"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
 readme = "README.md"

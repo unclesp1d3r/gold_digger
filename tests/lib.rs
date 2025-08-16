@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use gold_digger::{get_extension_from_filename, rows_to_strings};
-    use mysql::{Column, ColumnType, Row, Value};
+    use mysql::Row;
 
     #[test]
     fn test_get_extension_from_filename() {

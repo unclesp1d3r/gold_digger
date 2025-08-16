@@ -1,8 +1,8 @@
 use std::{env, fs::File};
 
 use anyhow::Result;
-use mysql::prelude::Queryable;
 use mysql::Pool;
+use mysql::prelude::Queryable;
 
 use gold_digger::{get_extension_from_filename, rows_to_strings};
 

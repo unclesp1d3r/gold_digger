@@ -129,10 +129,12 @@ cargo run --release
 match get_extension_from_filename(&output_file) {
     Some("csv") => gold_digger::csv::write(rows, output)?,
     Some("json") => gold_digger::json::write(rows, output)?,
-    Some(&_) => gold_digger::tab::write(rows, output)?,  // ⚠️ BUG: Should be Some(_)
+    Some(_) => gold_digger::tab::write(rows, output)?,
     None => { /* exits 255 */ }
 }
 ```
+
+**Note:** The original code used the incorrect pattern `Some(&_)` which was a historical bug. The correct pattern is `Some(_)` to match any string value that isn't "csv" or "json". The `&_` pattern incorrectly tried to destructure a reference, which doesn't work for string literals in this context.
 
 ### Known Issues
 
@@ -303,8 +305,26 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 
 - Default `ssl` feature enables `mysql/native-tls` dependency
 - Use `vendored` feature for static OpenSSL linking in deployment scenarios
-- **TLS configuration is programmatic only** - see code examples in `src/lib.rs` for `SslOpts` and `OptsBuilder::ssl_opts()` usage
-- URL-based SSL parameters are not supported by the mysql crate
+- **TLS configuration is programmatic only** - URL-based SSL parameters are not supported by the mysql crate
+
+**Example programmatic TLS configuration:**
+
+```rust
+use mysql::{OptsBuilder, SslOpts};
+
+let ssl_opts = SslOpts::default()
+    .with_root_cert_path("/path/to/ca.pem")
+    .with_client_cert_path("/path/to/client-cert.pem")
+    .with_client_key_path("/path/to/client-key.pem");
+
+let opts = OptsBuilder::new()
+    .ip_or_hostname(Some("localhost"))
+    .tcp_port(3306)
+    .user(Some("username"))
+    .pass(Some("password"))
+    .db_name(Some("database"))
+    .ssl_opts(ssl_opts);
+```
 
 ## First PR Checklist for AI Agents
 

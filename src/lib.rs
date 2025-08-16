@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, path::Path};
 
-use mysql::{from_value, Row};
+use mysql::{Row, from_value};
 
 /// CSV output module.
 pub mod csv;
