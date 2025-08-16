@@ -18,13 +18,13 @@ inclusion: always
 
 ## Error Handling
 
--   Use the [`anyhow`](mdc:https:/docs.rs/anyhow) crate for error propagation and context, as seen in function signatures like `Result<()>`.
+-   Use the [`anyhow`](https://docs.rs/anyhow) crate for error propagation and context, as seen in function signatures like `Result<()>`.
 -   Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases (e.g., missing header row in [`json.rs`](mdc:src/json.rs)).
 -   Use `?` for error propagation.
 
 ## Code Style
 
--   Follow [Rustfmt](mdc:https:/github.com/rust-lang/rustfmt) conventions for formatting. Run `cargo fmt` before committing.
+-   Follow [Rustfmt](https://github.com/rust-lang/rustfmt) conventions for formatting. Run `cargo fmt` before committing.
 -   Use `snake_case` for function and variable names, `CamelCase` for types and structs.
 -   Prefer iterators and combinators over manual loops where possible.
 -   Use explicit types for function signatures, especially for public APIs.

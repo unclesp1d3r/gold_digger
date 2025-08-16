@@ -34,7 +34,7 @@ DATABASE_URL   // MySQL connection string with optional SSL params
 DATABASE_QUERY // SQL to execute
 ```
 
-**No dotenv support** - despite README implications, use exported environment variables only.
+**No dotenv support** - use exported environment variables only.
 
 ## Module Structure
 
@@ -75,10 +75,10 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 ### Rust Style Guidelines
 
-- Use `anyhow::Result<T>` for fallible functions
-- Feature-gate verbose output: `#[cfg(feature = "verbose")]`
-- Never log DATABASE_URL or credentials
-- Handle NULL database values gracefully
+-   Use `anyhow::Result<T>` for fallible functions
+-   Feature-gate verbose output: `#[cfg(feature = "verbose")]`
+-   Never log DATABASE_URL or credentials
+-   Handle NULL database values gracefully
 
 ## Security Invariants
 
@@ -89,28 +89,28 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 ## Memory & Performance Characteristics
 
-- **Fully materialized results**: Loads all rows into memory (not streaming)
-- **Connection pooling**: Uses mysql::Pool but no optimization
-- **Memory scaling**: O(row_count × row_width)
-- **Streaming requirement**: F007 in requirements.md calls for streaming support
+-   **Fully materialized results**: Loads all rows into memory (not streaming)
+-   **Connection pooling**: Uses mysql::Pool but no optimization
+-   **Memory scaling**: O(row_count × row_width)
+-   **Streaming requirement**: F007 in requirements.md calls for streaming support
 
 ## Requirements Gap (High Priority)
 
 Current v0.2.5 → Target v1.0:
 
-- **Missing CLI**: No clap interface, config precedence, flags (F001-F003)
-- **Exit code standards**: Need proper error taxonomy (F005)
-- **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
-- **Streaming**: Memory-efficient large result processing (F007)
-- **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
+-   **Missing CLI**: No clap interface, config precedence, flags (F001-F003)
+-   **Exit code standards**: Need proper error taxonomy (F005)
+-   **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
+-   **Streaming**: Memory-efficient large result processing (F007)
+-   **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
 
 ## Development Workflow
 
 ### Commit Standards
 
-- **Format**: Conventional Commits
-- **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
-- **Scope**: Target small, reviewable changes for single-maintainer workflow
+-   **Format**: Conventional Commits
+-   **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
+-   **Scope**: Target small, reviewable changes for single-maintainer workflow
 
 ### Testing Strategy (Planned)
 
@@ -132,7 +132,7 @@ let var_name = match env::var("VAR_NAME") {
     Err(_) => {
         #[cfg(feature = "verbose")]
         eprintln!("couldn't find VAR_NAME in environment variable");
-        std::process::exit(-1);  // TODO: Use proper exit codes
+        std::process::exit(2);  // TODO: Use proper exit codes
     }
 };
 ```
@@ -157,7 +157,7 @@ match get_extension_from_filename(&output_file) {
     #[cfg(feature = "json")]
     Some("json") => gold_digger::json::write(rows, output)?,
     Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
-    None => std::process::exit(-1), // TODO: Proper error handling
+    None => anyhow::bail!("missing file extension for output_file"),
 }
 ```
 

@@ -20,9 +20,9 @@ src/
 
 ### Module Responsibilities
 
-- **main.rs**: Configuration resolution (CLI > env vars), database connection, format dispatch
-- **lib.rs**: Exposes public modules, contains shared utilities like `rows_to_strings()`
-- **Format modules**: Each has a `write<W: Write>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>` function
+-   **main.rs**: Configuration resolution (CLI > env vars), database connection, format dispatch
+-   **lib.rs**: Exposes public modules, contains shared utilities like `rows_to_strings()`
+-   **Format modules**: Each has a `write<W: Write>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>` function
 
 ## Configuration Patterns
 
@@ -42,9 +42,9 @@ OUTPUT_FILE      // Determines format by extension (.csv/.json/fallback to TSV)
 
 ### CLI Integration
 
-- Use `clap` with `derive` and `env` features
-- Support `--db-url`, `--query`, `--query-file`, `--output`, `--format`
-- Include completion generation and config dumping subcommands
+-   Use `clap` with `derive` and `env` features
+-   Support `--db-url`, `--query`, `--query-file`, `--output`, `--format`
+-   Include completion generation and config dumping subcommands
 
 ## Feature Flag Architecture
 
@@ -95,7 +95,8 @@ fn resolve_config_value(cli: &Cli) -> Result<String> {
 ### Connection Management
 
 ```rust
-let pool = Pool::new(database_url.as_str())?;
+let opts = Opts::from_url(database_url).unwrap();
+let pool = Pool::new(opts)?;
 let mut conn = pool.get_conn()?;
 let result: Vec<mysql::Row> = conn.query(database_query)?;
 ```
@@ -136,9 +137,9 @@ OutputFormat::from_extension(output_file)
 
 ### Format-Specific Settings
 
-- **CSV**: `QuoteStyle::NonNumeric` (RFC4180-compliant)
-- **JSON**: `{"data": [...]}` structure using HashMap
-- **TSV**: Tab delimiter with `QuoteStyle::Necessary`
+-   **CSV**: `QuoteStyle::NonNumeric` (RFC4180-compliant, CRLF line endings)
+-   **JSON**: `{"data": [...]}` structure using HashMap
+-   **TSV**: Tab delimiter with `QuoteStyle::Necessary`
 
 ## Import Organization
 
@@ -184,16 +185,16 @@ if cli.verbose > 0 && !cli.quiet {
 
 ### Configuration Files
 
-- `Cargo.toml`: Feature flags, dependencies, release profile optimization
-- `rustfmt.toml`: 100-character line limit
-- `deny.toml`: Security and license compliance
-- `rust-toolchain.toml`: Rust version specification
+-   `Cargo.toml`: Feature flags, dependencies, release profile optimization
+-   `rustfmt.toml`: 100-character line limit
+-   `deny.toml`: Security and license compliance
+-   `rust-toolchain.toml`: Rust version specification
 
 ### Development Files
 
-- `justfile`: Build automation and common tasks
-- `.pre-commit-config.yaml`: Code quality gates
-- `CHANGELOG.md`: Version history (conventional commits)
+-   `justfile`: Build automation and common tasks
+-   `.pre-commit-config.yaml`: Code quality gates
+-   `CHANGELOG.md`: Version history (conventional commits)
 
 ## Code Quality Standards
 
@@ -207,6 +208,6 @@ cargo test                  # Test execution
 
 ### Performance Optimization
 
-- Release profile: LTO enabled, size optimization (`opt-level = 'z'`)
-- Strip symbols and disable debug assertions in release builds
-- Use `panic = "abort"` for smaller binaries
+-   Release profile: LTO enabled, size optimization (`opt-level = 'z'`)
+-   Strip symbols and disable debug assertions in release builds
+-   Use `panic = "abort"` for smaller binaries
