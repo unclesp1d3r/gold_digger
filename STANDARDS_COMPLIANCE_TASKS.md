@@ -22,36 +22,43 @@ This document outlines the tasks required to bring the Gold Digger project into 
 ### CI/CD Pipeline Standard Compliance
 
 - [ ] **Branch Protection Issue**: Change default branch from `master` to `main` to align with EBL-STD-Pipeline
+
   - **Action:** Update GitHub repository default branch setting
   - **Files:** Update `.github/workflows/*.yml` references from `master` to `main`
   - **Impact:** Required for Release Please and modern CI/CD workflows
 
 - [ ] **Inadequate CI Workflows**: Current `rust.yml` and `rust-clippy.yml` don't meet pipeline standards
+
   - **Current:** Basic build on Ubuntu only, no cross-platform testing
   - **Required:** Cross-platform matrix (macOS, Windows, Linux), comprehensive quality gates
   - **Action:** Replace with EBL-STD-Pipeline compliant workflow
 
 - [ ] **Missing Release Please**: No automated versioning or changelog generation
+
   - **Action:** Implement Release Please workflow for conventional commits
   - **Files:** Create `.github/workflows/release-please.yml`
   - **Impact:** Required for semantic versioning and automated releases
 
 - [ ] **Non-compliant Release Workflow**: Current release.yml lacks security controls
+
   - **Missing:** SBOM generation, vulnerability scanning, SLSA provenance, Cosign signing
   - **Action:** Completely rewrite to meet EBL-STD-Pipeline requirements
 
 ### Security and Supply Chain (Critical)
 
 - [ ] **No FOSSA License Scanning**: Critical gap in license compliance
+
   - **Action:** Configure FOSSA GitHub App integration with PR enforcement
   - **Files:** Update CI workflow to include license scanning
   - **Impact:** Blocks PRs with non-compliant licenses
 
 - [ ] **Missing Security Controls**: No CodeQL, SBOM, or vulnerability scanning
+
   - **Required:** GitHub CodeQL, Syft SBOM generation, Grype vulnerability scanning
   - **Action:** Add security workflow jobs to CI pipeline
 
 - [ ] **No Supply Chain Security**: Missing signing and provenance
+
   - **Required:** Cosign keyless OIDC signing, SLSA Level 3 provenance
   - **Action:** Implement in release workflow using slsa-github-generator
 
@@ -62,14 +69,21 @@ This document outlines the tasks required to bring the Gold Digger project into 
 ### Missing Required Files
 
 - [ ] **renovate.json**: No automated dependency updates
+
   ```json
   {
-    "extends": ["config:base"],
-    "schedule": ["before 9am on Monday"],
+    "extends": [
+      "config:base"
+    ],
+    "schedule": [
+      "before 9am on Monday"
+    ],
     "groupName": "all dependencies",
     "packageRules": [
       {
-        "matchDepTypes": ["devDependencies"],
+        "matchDepTypes": [
+          "devDependencies"
+        ],
         "automerge": true
       }
     ]
@@ -77,6 +91,7 @@ This document outlines the tasks required to bring the Gold Digger project into 
   ```
 
 - [ ] **.pre-commit-config.yaml**: No pre-commit hooks for quality gates
+
   ```yaml
   repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -92,29 +107,33 @@ This document outlines the tasks required to bring the Gold Digger project into 
   ```
 
 - [ ] **cargo-dist.toml**: No standardized release artifact generation
+
   ```toml
   [cargo-dist]
   targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-apple-darwin",
     "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc"
+    "x86_64-pc-windows-msvc",
   ]
   installers = ["shell", "powershell"]
   checksum = "sha256"
   ```
 
 - [ ] **.github/.coderabbit.yaml**: Missing AI code review configuration
+
 - [ ] **mkdocs.yml**: No documentation site configuration
 
 ### GitHub Repository Configuration
 
 - [ ] **.github/CODEOWNERS**: No code ownership defined
-  ```
+
+  ```txt
   * @UncleSp1d3r
   ```
 
 - [ ] **Branch Protection Rules**: Apply EBL-STD-BranchProtection standard
+
   - **Required:** Status checks matching CI jobs exactly
   - **Settings:** Linear history, no force pushes, conversation resolution
   - **Command:** Use `gh api` with Rust project template from standard
@@ -126,12 +145,14 @@ This document outlines the tasks required to bring the Gold Digger project into 
 ### 1. Replace rust.yml with ci.yml
 
 **Current Issues:**
+
 - Single platform testing (Ubuntu only)
 - No coverage reporting
 - No security scanning
 - Missing quality gates
 
 **Required Implementation:**
+
 ```yaml
 name: CI
 on:
@@ -187,6 +208,7 @@ jobs:
 ### 2. Create release-please.yml
 
 **New File Required:**
+
 ```yaml
 name: Release Please
 on:
@@ -206,12 +228,14 @@ jobs:
 ### 3. Complete release.yml Rewrite
 
 **Current Issues:**
+
 - No Windows builds
 - Missing security controls
 - No artifact signing
 - Manual token usage instead of OIDC
 
 **Required Features:**
+
 - Cross-platform builds with cargo-dist
 - SLSA provenance attestation
 - Cosign keyless signing
@@ -225,6 +249,7 @@ jobs:
 ### MkDocs Documentation Site
 
 - [ ] **mkdocs.yml Configuration**: Create documentation site
+
   ```yaml
   site_name: Gold Digger
   site_description: MySQL/MariaDB query tool with structured output
@@ -243,6 +268,7 @@ jobs:
   ```
 
 - [ ] **Documentation Content**: Create comprehensive docs
+
   - `docs/index.md`: Project overview and quick start
   - `docs/installation.md`: All installation methods (Homebrew, direct download, cargo)
   - `docs/usage.md`: Command examples and environment variables
@@ -281,15 +307,18 @@ jobs:
 ### Critical Code Fixes (From WARP.md)
 
 - [ ] **Pattern Matching Bug**: Fix `Some(&_)` should be `Some(_)` in main.rs:59
+
   - **Location:** `src/main.rs` extension dispatch logic
   - **Impact:** Affects TSV output format selection
 
 - [ ] **Type Conversion Panics**: Fix NULL/non-string value handling
+
   - **Location:** `src/lib.rs` `rows_to_strings()` function
   - **Current:** Uses `mysql::from_value::<String>()` which panics on NULL
   - **Solution:** Implement safe type conversion with proper NULL handling
 
 - [ ] **Non-deterministic JSON**: Fix HashMap usage for deterministic output
+
   - **Location:** `src/json.rs`
   - **Current:** Uses HashMap with non-deterministic key ordering
   - **Solution:** Use IndexMap or BTreeMap for consistent ordering
@@ -354,6 +383,7 @@ jobs:
 ## 🎯 Implementation Timeline
 
 ### Phase 1 (Week 1): Critical Infrastructure
+
 1. Change default branch to `main`
 2. Implement Release Please workflow
 3. Configure FOSSA license scanning
@@ -361,6 +391,7 @@ jobs:
 5. Create renovate.json for dependency updates
 
 ### Phase 2 (Week 2): Security and Quality
+
 1. Implement comprehensive CI workflow
 2. Add SLSA provenance and Cosign signing
 3. Configure branch protection rules
@@ -368,6 +399,7 @@ jobs:
 5. Implement SBOM generation and vulnerability scanning
 
 ### Phase 3 (Week 3): Documentation and Polish
+
 1. Create MkDocs documentation site
 2. Add pre-commit hooks
 3. Configure CodeRabbit.ai

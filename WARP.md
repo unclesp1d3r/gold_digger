@@ -257,7 +257,7 @@ insta = "1"
 rstest = "0.18"
 assert_cmd = "2"
 tempfile = "3"
-testcontainers = "0.15"  # For real MySQL/MariaDB testing
+testcontainers = "0.15"                                      # For real MySQL/MariaDB testing
 ```
 
 ### Test Categories
@@ -279,12 +279,12 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 
 ```yaml
 # Add to .github/workflows/rust.yml
-- name: Check formatting
-  run: cargo fmt --check
-- name: Clippy (fail on warnings)
-  run: cargo clippy -- -D warnings
-- name: Run tests
-  run: cargo test
+  - name: Check formatting
+    run: cargo fmt --check
+  - name: Clippy (fail on warnings)
+    run: cargo clippy -- -D warnings
+  - name: Run tests
+    run: cargo test
 ```
 
 ### Future Release Engineering

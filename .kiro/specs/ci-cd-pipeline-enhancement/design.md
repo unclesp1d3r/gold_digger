@@ -12,12 +12,12 @@ The design consolidates and enhances existing workflows (`ci.yml`, `codeql.yml`,
 
 The project already has:
 
--   ✅ Cross-platform CI testing (Ubuntu 22.04, macOS 13, Windows 2022)
--   ✅ Pre-commit hook validation
--   ✅ Comprehensive security scanning (CodeQL, Syft, Grype, cargo-audit, cargo-deny)
--   ✅ Coverage reporting with Codecov integration
--   ✅ SLSA Level 3 provenance and Cosign keyless signing in releases
--   ✅ Justfile integration for consistent command execution
+- ✅ Cross-platform CI testing (Ubuntu 22.04, macOS 13, Windows 2022)
+- ✅ Pre-commit hook validation
+- ✅ Comprehensive security scanning (CodeQL, Syft, Grype, cargo-audit, cargo-deny)
+- ✅ Coverage reporting with Codecov integration
+- ✅ SLSA Level 3 provenance and Cosign keyless signing in releases
+- ✅ Justfile integration for consistent command execution
 
 ### Enhancement Areas
 
@@ -68,26 +68,26 @@ graph TD
 
 **Key Enhancements**:
 
--   Consolidate quality checks into single workflow
--   Optimize caching strategies for faster execution
--   Implement proper failure handling with actionable error messages
--   Integrate security scanning results into main CI flow
+- Consolidate quality checks into single workflow
+- Optimize caching strategies for faster execution
+- Implement proper failure handling with actionable error messages
+- Integrate security scanning results into main CI flow
 
 **Interface**:
 
 ```yaml
 # Triggers
 on:
-    push: { branches: [main] }
-    pull_request: { branches: [main] }
-    workflow_dispatch: {}
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
+  workflow_dispatch: {}
 
 # Jobs
 jobs:
-    pre-commit: # Pre-commit hook validation
-    test-matrix: # Cross-platform testing
-    quality-gates: # Format/lint/security checks
-    coverage: # Coverage reporting (Ubuntu only)
+  pre-commit:   # Pre-commit hook validation
+  test-matrix:   # Cross-platform testing
+  quality-gates:   # Format/lint/security checks
+  coverage:   # Coverage reporting (Ubuntu only)
 ```
 
 ### 2. Consolidated Security Workflow
@@ -96,20 +96,20 @@ jobs:
 
 **Key Enhancements**:
 
--   Merge CodeQL and security scanning into unified workflow
--   Implement proper failure thresholds for vulnerability scanning
--   Add security artifact management
--   Integrate with GitHub Security tab
+- Merge CodeQL and security scanning into unified workflow
+- Implement proper failure thresholds for vulnerability scanning
+- Add security artifact management
+- Integrate with GitHub Security tab
 
 **Interface**:
 
 ```yaml
 # Security scanning components
-- CodeQL Analysis (Rust)
-- Clippy SARIF generation
-- SBOM generation (CycloneDX format)
-- Vulnerability scanning (Grype with fail-on critical/high)
-- Dependency auditing (cargo-audit, cargo-deny)
+  - CodeQL Analysis (Rust)
+  - Clippy SARIF generation
+  - SBOM generation (CycloneDX format)
+  - Vulnerability scanning (Grype with fail-on critical/high)
+  - Dependency auditing (cargo-audit, cargo-deny)
 ```
 
 ### 3. Enhanced Release Pipeline
@@ -120,10 +120,10 @@ jobs:
 
 **Key Enhancements**:
 
--   Optimize build matrix execution
--   Improve SBOM generation per artifact
--   Add checksum validation
--   Enhance error handling and rollback capabilities
+- Optimize build matrix execution
+- Improve SBOM generation per artifact
+- Add checksum validation
+- Enhance error handling and rollback capabilities
 
 ### 4. Justfile Integration Layer
 
@@ -131,12 +131,12 @@ jobs:
 
 **Commands Used**:
 
--   `just setup` - Development environment setup
--   `just fmt-check` - Format validation (fail on violations)
--   `just lint` - Clippy with `-D warnings` (zero tolerance)
--   `just test-nextest` - Test execution with nextest
--   `just coverage-llvm` - Coverage generation for CI
--   `just ci-check` - Combined quality gates
+- `just setup` - Development environment setup
+- `just fmt-check` - Format validation (fail on violations)
+- `just lint` - Clippy with `-D warnings` (zero tolerance)
+- `just test-nextest` - Test execution with nextest
+- `just coverage-llvm` - Coverage generation for CI
+- `just ci-check` - Combined quality gates
 
 ## Data Models
 
@@ -145,45 +145,48 @@ jobs:
 ```yaml
 # Workflow configuration structure
 workflow:
-    name: string
-    triggers:
-        - push: { branches: [string] }
-        - pull_request: { branches: [string] }
+  name: string
+  triggers:
+    - push: {branches: [string]}
+    - pull_request: {branches: [string]}
 
-    jobs:
-        job_name:
-            strategy:
-                matrix:
-                    os: [ubuntu-22.04, macos-13, windows-2022]
-            steps:
-                - name: string
-                  uses: string
-                  with: object
-                  env: object
+  jobs:
+    job_name:
+      strategy:
+        matrix:
+          os: [ubuntu-22.04, macos-13, windows-2022]
+      steps:
+        - name: string
+          uses: string
+          with: object
+          env: object
 ```
 
 ### Security Artifact Schema
 
 ```json
 {
-    "sbom": {
-        "format": "cyclonedx-json",
-        "version": "1.5",
-        "artifacts": ["binary", "dependencies"]
-    },
-    "signatures": {
-        "cosign": {
-            "keyless": true,
-            "oidc": true,
-            "transparency_log": true
-        }
-    },
-    "attestations": {
-        "slsa_provenance": {
-            "level": 3,
-            "builder": "github-actions"
-        }
+  "sbom": {
+    "format": "cyclonedx-json",
+    "version": "1.5",
+    "artifacts": [
+      "binary",
+      "dependencies"
+    ]
+  },
+  "signatures": {
+    "cosign": {
+      "keyless": true,
+      "oidc": true,
+      "transparency_log": true
     }
+  },
+  "attestations": {
+    "slsa_provenance": {
+      "level": 3,
+      "builder": "github-actions"
+    }
+  }
 }
 ```
 
@@ -191,22 +194,22 @@ workflow:
 
 ```yaml
 quality_gates:
-    formatting:
-        tool: "cargo fmt --check"
-        tolerance: "zero_violations"
+  formatting:
+    tool: cargo fmt --check
+    tolerance: zero_violations
 
-    linting:
-        tool: "cargo clippy -- -D warnings"
-        tolerance: "zero_warnings"
+  linting:
+    tool: cargo clippy -- -D warnings
+    tolerance: zero_warnings
 
-    security:
-        vulnerability_scan:
-            fail_on: ["critical", "high"]
-            tool: "grype"
+  security:
+    vulnerability_scan:
+      fail_on: [critical, high]
+      tool: grype
 
-        dependency_audit:
-            tool: "cargo-audit"
-            fail_on_advisory: true
+    dependency_audit:
+      tool: cargo-audit
+      fail_on_advisory: true
 ```
 
 ## Error Handling
@@ -283,49 +286,49 @@ Isolation: Platform-specific issue detected
 
 **Workflow Validation**:
 
--   Test workflow syntax with `act` (local GitHub Actions runner)
--   Validate matrix strategy execution across all platforms
--   Test failure scenarios and error handling paths
--   Verify artifact generation and upload processes
+- Test workflow syntax with `act` (local GitHub Actions runner)
+- Validate matrix strategy execution across all platforms
+- Test failure scenarios and error handling paths
+- Verify artifact generation and upload processes
 
 **Integration Testing**:
 
--   Test justfile command integration in CI environment
--   Validate environment variable handling across platforms
--   Test caching strategies for performance optimization
--   Verify security tool integration and SARIF output
+- Test justfile command integration in CI environment
+- Validate environment variable handling across platforms
+- Test caching strategies for performance optimization
+- Verify security tool integration and SARIF output
 
 ### 2. Security Testing
 
 **SBOM Validation**:
 
--   Verify SBOM completeness for all artifacts
--   Test SBOM format compliance (CycloneDX)
--   Validate dependency tracking accuracy
--   Test SBOM integration with vulnerability scanning
+- Verify SBOM completeness for all artifacts
+- Test SBOM format compliance (CycloneDX)
+- Validate dependency tracking accuracy
+- Test SBOM integration with vulnerability scanning
 
 **Signing and Attestation**:
 
--   Test Cosign keyless signing process
--   Validate SLSA provenance generation
--   Test signature verification workflows
--   Verify transparency log integration
+- Test Cosign keyless signing process
+- Validate SLSA provenance generation
+- Test signature verification workflows
+- Verify transparency log integration
 
 ### 3. Quality Gate Testing
 
 **Zero-Tolerance Policies**:
 
--   Test format checking with intentional violations
--   Test clippy warnings with various warning types
--   Test security scan failure scenarios
--   Validate proper CI failure and blocking behavior
+- Test format checking with intentional violations
+- Test clippy warnings with various warning types
+- Test security scan failure scenarios
+- Validate proper CI failure and blocking behavior
 
 **Performance Testing**:
 
--   Measure CI execution time improvements
--   Test caching effectiveness across runs
--   Validate parallel job execution
--   Monitor resource usage optimization
+- Measure CI execution time improvements
+- Test caching effectiveness across runs
+- Validate parallel job execution
+- Monitor resource usage optimization
 
 ## Implementation Phases
 
@@ -342,10 +345,10 @@ Isolation: Platform-specific issue detected
 
 **Success Criteria**:
 
--   CI execution time reduced by 15-20%
--   Error messages provide actionable guidance
--   All justfile commands work consistently in CI
--   No regression in existing functionality
+- CI execution time reduced by 15-20%
+- Error messages provide actionable guidance
+- All justfile commands work consistently in CI
+- No regression in existing functionality
 
 ### Phase 2: Security Integration Enhancement
 
@@ -360,10 +363,10 @@ Isolation: Platform-specific issue detected
 
 **Success Criteria**:
 
--   Security issues clearly visible in GitHub Security tab
--   Vulnerability scan results include remediation guidance
--   SBOM coverage includes all release artifacts
--   Security metrics tracked over time
+- Security issues clearly visible in GitHub Security tab
+- Vulnerability scan results include remediation guidance
+- SBOM coverage includes all release artifacts
+- Security metrics tracked over time
 
 ### Phase 3: Quality Gate Enforcement
 
@@ -378,10 +381,10 @@ Isolation: Platform-specific issue detected
 
 **Success Criteria**:
 
--   Zero tolerance for format violations and clippy warnings
--   Quality metrics visible in PR comments
--   Pre-commit hooks prevent most CI failures
--   Quality trends tracked and reported
+- Zero tolerance for format violations and clippy warnings
+- Quality metrics visible in PR comments
+- Pre-commit hooks prevent most CI failures
+- Quality trends tracked and reported
 
 ### Phase 4: Documentation and Cleanup
 
@@ -396,10 +399,10 @@ Isolation: Platform-specific issue detected
 
 **Success Criteria**:
 
--   Documentation reflects actual CI capabilities
--   Troubleshooting guides available for common issues
--   No deprecated workflows remain
--   Best practices documented for contributors
+- Documentation reflects actual CI capabilities
+- Troubleshooting guides available for common issues
+- No deprecated workflows remain
+- Best practices documented for contributors
 
 ## Performance Considerations
 
@@ -407,43 +410,43 @@ Isolation: Platform-specific issue detected
 
 **Rust Compilation Cache**:
 
--   Use `Swatinem/rust-cache@v2` for Cargo registry and build cache
--   Implement cache key optimization for better hit rates
--   Use separate cache keys for different feature combinations
+- Use `Swatinem/rust-cache@v2` for Cargo registry and build cache
+- Implement cache key optimization for better hit rates
+- Use separate cache keys for different feature combinations
 
 **Pre-commit Cache**:
 
--   Cache pre-commit environments across runs
--   Use OS-specific cache keys for better performance
--   Implement cache cleanup for storage optimization
+- Cache pre-commit environments across runs
+- Use OS-specific cache keys for better performance
+- Implement cache cleanup for storage optimization
 
 ### Parallel Execution
 
 **Matrix Strategy Optimization**:
 
--   Use `fail-fast: false` for complete platform coverage
--   Implement job dependencies for optimal resource usage
--   Use concurrency groups to prevent resource conflicts
+- Use `fail-fast: false` for complete platform coverage
+- Implement job dependencies for optimal resource usage
+- Use concurrency groups to prevent resource conflicts
 
 **Security Scanning Parallelization**:
 
--   Run CodeQL analysis in parallel with other security scans
--   Optimize SBOM generation for faster execution
--   Use artifact sharing between jobs for efficiency
+- Run CodeQL analysis in parallel with other security scans
+- Optimize SBOM generation for faster execution
+- Use artifact sharing between jobs for efficiency
 
 ### Resource Usage Optimization
 
 **Runner Selection**:
 
--   Use appropriate runner sizes for different job types
--   Optimize Windows runner usage (most expensive)
--   Implement job timeout limits for resource protection
+- Use appropriate runner sizes for different job types
+- Optimize Windows runner usage (most expensive)
+- Implement job timeout limits for resource protection
 
 **Artifact Management**:
 
--   Optimize artifact size and retention policies
--   Use compression for large artifacts
--   Implement artifact cleanup for storage management
+- Optimize artifact size and retention policies
+- Use compression for large artifacts
+- Implement artifact cleanup for storage management
 
 ## Security Considerations
 
@@ -451,40 +454,40 @@ Isolation: Platform-specific issue detected
 
 **SLSA Compliance**:
 
--   Maintain SLSA Level 3 provenance for all releases
--   Ensure build environment isolation and integrity
--   Implement proper artifact signing and verification
+- Maintain SLSA Level 3 provenance for all releases
+- Ensure build environment isolation and integrity
+- Implement proper artifact signing and verification
 
 **Dependency Management**:
 
--   Regular dependency auditing with cargo-audit
--   License compliance checking with cargo-deny
--   Vulnerability scanning with Grype and fail-on policies
+- Regular dependency auditing with cargo-audit
+- License compliance checking with cargo-deny
+- Vulnerability scanning with Grype and fail-on policies
 
 ### Credential Management
 
 **OIDC Authentication**:
 
--   Use GitHub OIDC for release authentication (already implemented)
--   Avoid personal access tokens where possible
--   Implement proper secret management for third-party integrations
+- Use GitHub OIDC for release authentication (already implemented)
+- Avoid personal access tokens where possible
+- Implement proper secret management for third-party integrations
 
 **Environment Security**:
 
--   Ensure DATABASE_URL never appears in logs
--   Implement credential redaction in verbose output
--   Use secure environment variable handling
+- Ensure DATABASE_URL never appears in logs
+- Implement credential redaction in verbose output
+- Use secure environment variable handling
 
 ### Artifact Security
 
 **Signing and Attestation**:
 
--   Cosign keyless signing for all release artifacts
--   SLSA provenance attestation for build integrity
--   Transparency log integration for public verification
+- Cosign keyless signing for all release artifacts
+- SLSA provenance attestation for build integrity
+- Transparency log integration for public verification
 
 **SBOM Security**:
 
--   Complete software bill of materials for all artifacts
--   Vulnerability scanning of SBOM contents
--   Regular SBOM updates with dependency changes
+- Complete software bill of materials for all artifacts
+- Vulnerability scanning of SBOM contents
+- Regular SBOM updates with dependency changes
