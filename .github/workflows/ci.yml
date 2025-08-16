@@ -27,6 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Windows-specific setup for OpenSSL (needed by reqwest/native-tls)
+      - name: Setup Windows dependencies
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install openssl:x64-windows-static
+          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
         with:
