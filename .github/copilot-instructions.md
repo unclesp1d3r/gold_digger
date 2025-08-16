@@ -134,9 +134,9 @@ Use these testing crates when adding tests:
 ```toml
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-insta = "1"          # Snapshot testing
-assert_cmd = "2"     # CLI testing
-testcontainers = "0.15"  # Database integration tests
+insta = "1"                                                  # Snapshot testing
+assert_cmd = "2"                                             # CLI testing
+testcontainers = "0.15"                                      # Database integration tests
 ```
 
 ## Common Mistakes to Avoid
@@ -176,4 +176,5 @@ cargo fmt --check && cargo clippy -- -D warnings
 ```
 
 ---
+
 **Note:** This project uses CodeRabbit.ai for reviews. Disable automatic GitHub Copilot PR reviews per maintainer preference.

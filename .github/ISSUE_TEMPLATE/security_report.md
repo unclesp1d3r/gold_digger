@@ -2,8 +2,8 @@
 name: Security Report
 about: Report a security vulnerability in gold_digger
 title: '[SECURITY] '
-labels: ['security']
-assignees: ['UncleSp1d3r']
+labels: [security]
+assignees: [UncleSp1d3r]
 ---
 
 ## Vulnerability Description
@@ -42,7 +42,7 @@ A clear and concise description of the security vulnerability.
 
 ## Proof of Concept
 
-```
+```text
 # Include any proof-of-concept code or output
 # Be careful not to include sensitive information
 ```
@@ -74,7 +74,7 @@ A clear and concise description of how you think this should be fixed.
 
 **For sensitive security issues, please contact the maintainer directly:**
 
-- **GitHub**: @UncleSp1d3r
-- **Email**: [if available]
+- **GitHub**: [UncleSp1d3r](https://github.com/UncleSp1d3r)
+- **Email**: <unclespider@pm.me>
 
 **Note**: This is a single-maintainer project. Response times may vary, but security issues will be prioritized.
