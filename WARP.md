@@ -346,7 +346,7 @@ Before submitting any changes:
 # Minimal build (no TLS, no extra types)
 cargo build --no-default-features --features "csv json"
 
-# Full static build
+# Full static build (opt-in vendored OpenSSL)
 cargo build --release --features "default vendored"
 
 # Database admin build (all MySQL types)

@@ -47,6 +47,8 @@ graph TB
 
 ```rust
 use clap::{Parser, Subcommand};
+use std::collections::BTreeMap;
+use std::io::Write;
 
 #[derive(Parser)]
 #[command(name = "gold_digger")]
@@ -144,17 +146,14 @@ pub struct DatabaseConnector {
 
 impl DatabaseConnector {
     pub fn new(database_url: &str) -> Result<Self> {
-        let opts =
-            OptsBuilder::from_opts(Opts::from_url(database_url)?).ssl_opts(SslOpts::default());
+        let opts = OptsBuilder::from_opts(Opts::from_url(database_url)?).ssl_opts(SslOpts::default());
 
         let pool = Pool::new(opts)?;
         Ok(Self { pool })
     }
 
     pub fn get_connection(&self) -> Result<PooledConn> {
-        self.pool
-            .get_conn()
-            .map_err(|e| GoldDiggerError::Connection(e))
+        self.pool.get_conn().map_err(|e| GoldDiggerError::Connection(e))
     }
 }
 ```
@@ -170,10 +169,7 @@ pub struct QueryExecutor {
 
 impl QueryExecutor {
     pub fn execute_streaming(&mut self, query: &str) -> Result<RowStream> {
-        let result = self
-            .conn
-            .query_iter(query)
-            .map_err(|e| GoldDiggerError::Query(e))?;
+        let result = self.conn.query_iter(query).map_err(|e| GoldDiggerError::Query(e))?;
 
         Ok(RowStream::new(result))
     }
@@ -205,9 +201,7 @@ impl TypeTransformer {
         let mut values = Vec::with_capacity(columns.len());
 
         for column in columns {
-            let value = row
-                .get_opt(column.name_str().as_ref())
-                .unwrap_or(Some(Value::NULL));
+            let value = row.get_opt(column.name_str().as_ref()).unwrap_or(Some(Value::NULL));
 
             let string_value = match value {
                 Some(Value::NULL) => String::new(),
@@ -224,9 +218,7 @@ impl TypeTransformer {
     fn value_to_string(value: Value) -> Result<String> {
         match value {
             Value::NULL => Ok(String::new()),
-            Value::Bytes(bytes) => {
-                String::from_utf8(bytes).map_err(|_| GoldDiggerError::TypeConversion)
-            },
+            Value::Bytes(bytes) => String::from_utf8(bytes).map_err(|_| GoldDiggerError::TypeConversion),
             Value::Int(i) => Ok(i.to_string()),
             Value::UInt(u) => Ok(u.to_string()),
             Value::Float(f) => Ok(f.to_string()),
@@ -285,6 +277,7 @@ pub struct JsonWriter<W: Write> {
     writer: W,
     first_row: bool,
     pretty: bool,
+    columns: Vec<String>,
 }
 
 impl<W: Write> FormatWriter for JsonWriter<W> {

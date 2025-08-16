@@ -323,8 +323,9 @@ services:
 DATABASE_URL=mysql://user:pass@db-host:3306/production
 DATABASE_QUERY=SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()
 
-# Note: Shell substitution $(date ...) doesn't work in .env files or environment variables.
-# Use /bin/sh -lc wrapper in command or implement --output-template flag in the tool.
+# Note: Shell substitution $(date ...) is performed by the shell and works in shell-evaluated commands
+# but not in Docker Compose .env files or environment files that are not processed by a shell.
+# Use /bin/sh -lc wrapper for command evaluation or implement --output-template flag in the tool.
 # Example: gold_digger --output-template "/app/output/daily-audit-{date}.json"
 ```
 

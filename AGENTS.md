@@ -8,7 +8,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 **Key Characteristics:**
 
-- Environment variable driven (no CLI interface yet)
+- CLI-first (uses Clap) with environment variable overrides
 - Outputs to structured formats based on file extension
 - Fully materialized result sets (no streaming)
 - Single-maintainer project by UncleSp1d3r
@@ -24,7 +24,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 3. **Non-Standard Exit Codes:** `exit(-1)` becomes exit code 255, not the standard codes specified in requirements.
 
-4. **Non-Deterministic JSON:** Uses HashMap which doesn't guarantee key order. Requirements call for deterministic output.
+4. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
 
 5. **Pattern Matching Bug:** In `src/main.rs`, line 59 has `Some(&_)` which should be `Some(_)` in the match expression.
 
@@ -112,7 +112,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 1. **Never log DATABASE_URL or credentials** - implement redaction
 2. **No telemetry or external calls** at runtime
 3. **Respect system umask** for output files
-4. **Use URL parameters for SSL:** `?ssl-mode=REQUIRED`
+4. **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
 
 ## Common Tasks for AI Assistants
 

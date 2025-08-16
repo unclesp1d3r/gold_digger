@@ -1,13 +1,10 @@
 {
     "enabled": true,
     "name": "Manual CI Check",
-    "description": "Manually run `just ci-check` and resolve any failures, repeating this process until the ci checks complete without any failures or warnings",
+    "description": "Manually run `just ci-check` and resolve any failures, repeating this process until the CI checks complete without any failures or warnings",
     "version": "1",
     "when": {
-        "type": "userTriggered",
-        "patterns": [
-            "**/*"
-        ]
+        "type": "userTriggered"
     },
     "then": {
         "type": "askAgent",

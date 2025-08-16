@@ -20,6 +20,8 @@ A clear and concise description of what the bug is.
    export DATABASE_QUERY="..."
    ```
 
+   **⚠️ Security Note**: Before posting this issue, please redact or obfuscate any sensitive credentials in your DATABASE_URL. Replace usernames, passwords, and hostnames with `<redacted>` or use a sanitized example like `mysql://user:pass@host:3306/db`.
+
 2. Run the command:
 
    ```bash
@@ -47,7 +49,7 @@ A clear and concise description of what actually happened.
 
 ```bash
 # How did you build gold_digger?
-cargo build --release --features "default vendored"
+cargo build --release --features "vendored"
 ```
 
 ## Error Output

@@ -28,7 +28,7 @@ from_value::<String>(row[column.name_str().as_ref()])
 ### Environment Variable Interface (Current)
 
 ```rust
-// Required environment variables (no CLI yet)
+// Required environment variables (CLI present with env fallback)
 OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
 DATABASE_URL   // MySQL connection string with optional SSL params
 DATABASE_QUERY // SQL to execute
@@ -46,6 +46,8 @@ src/
 ├── json.rs     # {"data":[{...}]} using HashMap (non-deterministic)
 └── tab.rs      # TSV with \t delimiter, QuoteStyle::Necessary
 ```
+
+**CSV Quote Style Rationale**: Using `QuoteStyle::Necessary` provides better RFC4180 compliance by only quoting fields when required (containing delimiters, quotes, or newlines), resulting in smaller output files while maintaining full compatibility with standard CSV parsers. This balances readability with file size efficiency.
 
 ## Known Bugs & Issues
 
@@ -98,7 +100,7 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 Current v0.2.5 → Target v1.0:
 
-- **CLI present**: Clap-based interface exists; finalize config precedence and UX polish (F001–F003)
+- **CLI present (clap-based)**: Clap-based interface exists; finalize config precedence and UX polish (F001–F003)
 - **Exit code standards**: Need proper error taxonomy (F005)
 - **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
 - **Streaming**: Memory-efficient large result processing (F007)
