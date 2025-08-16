@@ -298,13 +298,13 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 1. **Never log DATABASE_URL or credentials** - implement redaction
 2. **No telemetry or external calls** at runtime
 3. **Respect system umask** for output files
-4. **Use URL parameters** for SSL configuration: `?ssl-mode=REQUIRED`
 
 ### TLS Configuration
 
-- Default `ssl` feature enables `mysql/native-tls`
-- Use `vendored` feature for static linking scenarios
-- Document SSL mode examples in connection strings
+- Default `ssl` feature enables `mysql/native-tls` dependency
+- Use `vendored` feature for static OpenSSL linking in deployment scenarios
+- **TLS configuration is programmatic only** - see code examples in `src/lib.rs` for `SslOpts` and `OptsBuilder::ssl_opts()` usage
+- URL-based SSL parameters are not supported by the mysql crate
 
 ## First PR Checklist for AI Agents
 
