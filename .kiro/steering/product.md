@@ -16,9 +16,9 @@ Gold Digger is a Rust MySQL/MariaDB query tool that exports structured data (CSV
 
 ### Output Format Requirements
 
-- **CSV**: RFC4180-compliant, `QuoteStyle::NonNumeric`
-- **JSON**: `{"data": [...]}` structure, deterministic ordering (BTreeMap not HashMap)
-- **TSV**: Tab-separated, `QuoteStyle::Necessary` (fallback format)
+- **CSV**: RFC4180-compliant, `QuoteStyle::Necessary`, NULL values rendered as empty strings
+- **JSON**: `{"data": [...]}` structure, deterministic ordering (BTreeMap not HashMap), NULL values rendered as `null`
+- **TSV**: Tab-separated (byte value b'\\t'), `QuoteStyle::Necessary` (fallback format), NULL values rendered as empty strings
 - Format detection by file extension (.csv/.json) or `--format` override
 
 ### Database Safety (CRITICAL)
@@ -37,7 +37,7 @@ Gold Digger is a Rust MySQL/MariaDB query tool that exports structured data (CSV
 
 ## CLI Interface Specification
 
-### Required CLI Flags
+### CLI Flags (required unless corresponding env var is set)
 
 - `--db-url <URL>`: Database connection (overrides `DATABASE_URL`)
 - `--query <SQL>`: Inline SQL (mutually exclusive with `--query-file`)
@@ -48,6 +48,8 @@ Gold Digger is a Rust MySQL/MariaDB query tool that exports structured data (CSV
 - `--verbose`: Structured logging (repeatable)
 - `--quiet`: Suppress non-error output
 - `--allow-empty`: Exit 0 on empty results
+
+Flags take precedence over environment variables; provide either the flag or the corresponding env var.
 
 ### Environment Variables (Fallback)
 
@@ -92,11 +94,26 @@ Gold Digger is a Rust MySQL/MariaDB query tool that exports structured data (CSV
 // NEVER use this - causes panics on NULL
 from_value::<String>(row[column.name_str().as_ref()])
 
-// ALWAYS use this pattern
+// ALWAYS use this pattern - format-aware conversion
 match database_value {
-    mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val)
-        .unwrap_or_else(|_| format!("{:?}", val))
+    mysql::Value::NULL => {
+        match output_format {
+            OutputFormat::Json => serde_json::Value::Null,
+            _ => "".to_string() // CSV/TSV use empty string
+        }
+    },
+    val => {
+        match output_format {
+            OutputFormat::Json => {
+                // Try to parse as JSON-compatible value
+                serde_json::to_value(val).unwrap_or_else(|_| {
+                    serde_json::Value::String(format!("{:?}", val))
+                })
+            },
+            _ => from_value::<String>(val)
+                .unwrap_or_else(|_| format!("{:?}", val))
+        }
+    }
 }
 ```
 

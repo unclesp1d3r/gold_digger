@@ -23,12 +23,14 @@ from_value::<String>(row[column.name_str().as_ref()])
 ```
 
 **Issue**: Panics on NULL values or non-string types (numbers, dates, binary data)
-**Always recommend SQL casting**: `SELECT CAST(column AS CHAR) AS column`
+**PRIMARY SOLUTION**: Use SQL-side casting for reliable string extraction
+**Example**: `SELECT CAST(column AS CHAR) AS column FROM table`
+**Fallback**: Use `from_value_opt` with proper error handling in Rust code
 
 ### Environment Variable Interface (Current)
 
 ```rust
-// Required environment variables (no CLI yet)
+// Required environment variables (CLI present but env vars still supported)
 OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
 DATABASE_URL   // MySQL connection string with optional SSL params
 DATABASE_QUERY // SQL to execute
@@ -42,10 +44,12 @@ DATABASE_QUERY // SQL to execute
 src/
 ├── main.rs     # Entry point, env var handling, format dispatch
 ├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
-├── csv.rs      # RFC4180-ish, QuoteStyle::NonNumeric
+├── csv.rs      # RFC4180-ish, QuoteStyle::Necessary
 ├── json.rs     # {"data":[{...}]} using HashMap (non-deterministic)
 └── tab.rs      # TSV with \t delimiter, QuoteStyle::Necessary
 ```
+
+**CSV Quote Style Rationale**: Using `QuoteStyle::Necessary` provides better RFC4180 compliance by only quoting fields when required (containing delimiters, quotes, or newlines), resulting in smaller output files while maintaining full compatibility with standard CSV parsers. This balances readability with file size efficiency.
 
 ## Known Bugs & Issues
 
@@ -98,7 +102,7 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 Current v0.2.5 → Target v1.0:
 
-- **Missing CLI**: No clap interface, config precedence, flags (F001-F003)
+- **CLI present; finalize precedence/UX**: Config precedence, flags, user experience (F001-F003)
 - **Exit code standards**: Need proper error taxonomy (F005)
 - **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
 - **Streaming**: Memory-efficient large result processing (F007)
@@ -141,23 +145,33 @@ let var_name = match env::var("VAR_NAME") {
 
 ```rust
 // Instead of panic-prone from_value::<String>()
+// PREFERRED: Use SQL-side casting for reliable string extraction
+// SELECT CAST(column AS CHAR) AS column FROM table
+
+// Fallback: Safe Rust-side conversion with proper error handling
 match database_value {
     mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val)
-        .unwrap_or_else(|_| format!("{:?}", val))
+    val => from_value_opt::<String>(val)
+        .map_or_else(
+            || format!("{:?}", val),
+            |s| s
+        )
 }
 ```
 
 ### Format Dispatch Pattern
 
 ```rust
-match get_extension_from_filename(&output_file) {
-    #[cfg(feature = "csv")]
-    Some("csv") => gold_digger::csv::write(rows, output)?,
-    #[cfg(feature = "json")]
-    Some("json") => gold_digger::json::write(rows, output)?,
-    Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
-    None => std::process::exit(-1), // TODO: Proper error handling
+fn write_output(rows: &[Row], output_file: &str, output: &mut impl Write) -> Result<()> {
+    match get_extension_from_filename(output_file) {
+        #[cfg(feature = "csv")]
+        Some("csv") => gold_digger::csv::write(rows, output)?,
+        #[cfg(feature = "json")]
+        Some("json") => gold_digger::json::write(rows, output)?,
+        Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
+        None => return Err(anyhow::anyhow!("No file extension found in output filename: {}", output_file)),
+    }
+    Ok(())
 }
 ```
 

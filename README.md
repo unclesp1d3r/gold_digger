@@ -69,22 +69,51 @@ just build-release  # Build optimized release binary
 
 See `just help` for a complete list of available commands.
 
-## Environment Variables
+## Usage (CLI-first with env fallback)
 
-Gold Digger is configured entirely through environment variables (no dotenv support). You must export these variables or set them when running the command:
+Gold Digger supports CLI-first configuration with environment variable fallbacks. CLI flags take precedence over environment variables.
 
--   `OUTPUT_FILE`: Path to output file. Extension determines format:
-    - `.csv` → CSV output with RFC 4180-ish formatting
-    - `.json` → JSON output with `{"data": [...]}` structure
-    - `.txt` or any other extension → TSV (tab-separated values)
+### CLI Usage
 
--   `DATABASE_URL`: MySQL/MariaDB connection URL in standard format:
-    `mysql://username:password@host:port/database`
+```bash
+# Basic usage with CLI flags
+gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --output /tmp/results.json
 
--   `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
-    ```sql
-    SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users;
-    ```
+# Pretty-print JSON output
+gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --output /tmp/results.json --pretty
+
+# Use query file instead of inline query
+gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query-file query.sql --output /tmp/results.csv
+
+# Force output format regardless of file extension
+gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --output /tmp/results --format csv
+```
+
+### Environment Variables (Fallback)
+
+When CLI flags are not provided, Gold Digger falls back to environment variables (no dotenv support). You must export these variables or set them when running the command:
+
+- `OUTPUT_FILE`: Path to output file. Extension determines format:
+
+  - `.csv` → CSV output with RFC 4180-ish formatting
+  - `.json` → JSON output with `{"data": [...]}` structure
+  - `.txt` or any other extension → TSV (tab-separated values)
+
+- `DATABASE_URL`: MySQL/MariaDB connection URL in standard format:
+  `mysql://username:password@host:port/database`
+
+- `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
+
+  ```sql
+  SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users;
+  ```
 
 ### Example Usage
 
@@ -110,24 +139,28 @@ just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
 Gold Digger follows strict quality gates and security practices:
 
 ### Quality Gates
+
 - **Formatting:** Code must pass `cargo fmt --check` (zero tolerance)
 - **Linting:** Code must pass `cargo clippy -- -D warnings` (zero tolerance)
 - **Testing:** All tests must pass on Ubuntu 22.04, macOS 13, and Windows 2022
 - **Coverage:** Code coverage tracked via Codecov
 
 ### Security Scanning
+
 - **CodeQL:** Static analysis for security vulnerabilities
 - **SBOM Generation:** Software Bill of Materials for all releases
 - **Vulnerability Scanning:** Grype scanning of dependencies
 - **Supply Chain Security:** `cargo-audit` and `cargo-deny` checks
 
 ### Release Security
+
 - **Keyless Signing:** All release artifacts signed with Cosign using OIDC
 - **SLSA Attestation:** Level 3 provenance for supply chain integrity
 - **Multi-Platform:** Automated builds for Linux, macOS, and Windows
 - **Comprehensive Artifacts:** Binaries, SBOMs, signatures, and attestations
 
 ### Testing Recommendations
+
 - Use [criterion](https://crates.io/crates/criterion) for benchmarking
 - Use [insta](https://crates.io/crates/insta) for snapshot testing
 - Run `cargo-llvm-cov` for coverage analysis

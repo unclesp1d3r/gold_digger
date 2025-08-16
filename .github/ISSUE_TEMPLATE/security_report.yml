@@ -1,0 +1,176 @@
+name: Security Report
+description: Report a security vulnerability in gold_digger
+title: "[SECURITY] "
+labels: [security]
+assignees: [UncleSp1d3r]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **⚠️ IMPORTANT: For security vulnerabilities, please use GitHub's private vulnerability reporting instead of opening a public issue.**
+        >
+        > **Preferred method**: Go to the [Security tab](https://github.com/UncleSp1d3r/gold_digger/security) and click "Report a vulnerability" for private disclosure.
+        >
+        > **If you must disclose publicly**: Redact all exploit details, sensitive information, and proof-of-concept code. Only include enough information for the maintainer to understand the issue scope.
+        >
+        > **Contact maintainer directly**: For urgent or highly sensitive issues, contact [UncleSp1d3r](https://github.com/UncleSp1d3r) or email <unclespider@pm.me>.
+
+  - type: textarea
+    id: vulnerability-description
+    attributes:
+      label: Vulnerability Description
+      description: A clear and concise description of the security vulnerability
+      placeholder: Describe the security vulnerability...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity-impact
+    attributes:
+      label: Impact Severity
+      description: Select the severity level of this vulnerability
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: dropdown
+    id: exploitability
+    attributes:
+      label: Exploitability
+      description: How can this vulnerability be exploited?
+      options:
+        - Remote
+        - Local
+        - Physical
+    validations:
+      required: true
+
+  - type: input
+    id: cvss-score
+    attributes:
+      label: CVSS Score (if applicable)
+      description: CVSS score if available ([NVD CVSS Calculator](https://nvd.nist.gov/vuln-metrics/cvss-calculator))
+      placeholder: e.g., 7.5, 9.8, etc.
+
+  - type: textarea
+    id: affected-components
+    attributes:
+      label: Affected Components
+      description: List affected files, features, and versions
+      placeholder: |
+        Files: [List affected source files]
+        Features: [List affected features or functionality]
+        Versions: [List affected versions]
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: OS where the vulnerability was discovered
+      placeholder: e.g., macOS 14.6.0, Ubuntu 22.04, Windows 11
+
+  - type: input
+    id: architecture
+    attributes:
+      label: Architecture
+      description: System architecture
+      placeholder: e.g., x86_64, aarch64, arm64
+
+  - type: input
+    id: gold-digger-version
+    attributes:
+      label: gold_digger Version/Commit
+      description: Version or commit hash where the vulnerability was found
+      placeholder: e.g., v0.2.5, commit abc1234
+
+  - type: input
+    id: enabled-features
+    attributes:
+      label: Enabled Features
+      description: Features enabled during testing
+      placeholder: e.g., "default", "ssl vendored", "csv json ssl"
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the vulnerability
+      placeholder: |
+        1. Set up environment:
+           export OUTPUT_FILE="..."
+           export DATABASE_URL="..."
+           export DATABASE_QUERY="..."
+
+        2. Build and run:
+           cargo build --release
+
+        3. Trigger the vulnerability:
+           [commands that trigger the issue]
+
+        4. Observe the security issue
+
+  - type: textarea
+    id: proof-of-concept
+    attributes:
+      label: Proof of Concept
+      description: Minimal proof-of-concept code or output (REDACT sensitive information)
+      placeholder: |
+        Include minimal proof-of-concept code or output necessary to demonstrate the issue
+        FORBIDDEN: secrets, tokens, passwords, private keys, database URLs, customer data
+        REDACT: hostnames, IP addresses, and internal identifiers unless essential to the PoC
+
+  - type: checkboxes
+    id: impact-assessment
+    attributes:
+      label: Impact Assessment
+      description: Select all applicable impact categories
+      options:
+        - label: Data Exposure - What data could be exposed?
+        - label: Privilege Escalation - Could this lead to elevated privileges?
+        - label: Denial of Service - Could this cause service disruption?
+        - label: Remote Code Execution - Could this lead to RCE?
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: How you think this should be fixed
+      placeholder: Describe your suggested approach to fixing this vulnerability...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Discovery method, timeline, references
+      placeholder: |
+        Discovery Method: [How was this vulnerability discovered?]
+        Timeline: [When was this discovered?]
+        References: [Links to related CVEs, advisories, or research]
+
+  - type: checkboxes
+    id: responsible-disclosure
+    attributes:
+      label: Responsible Disclosure Agreement
+      description: You must agree to all of the following before submitting this security report
+      options:
+        - label: I agree to responsible disclosure practices
+        - label: I will not publicly disclose this issue until it's resolved
+        - label: I understand this is a single-maintainer project
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Contact Information
+
+        **For sensitive security issues, please contact the maintainer directly:**
+
+        - **GitHub**: [UncleSp1d3r](https://github.com/UncleSp1d3r)
+        - **Email**: <unclespider@pm.me>
+
+        **Note**: This is a single-maintainer project. Response times may vary, but security issues will be prioritized.

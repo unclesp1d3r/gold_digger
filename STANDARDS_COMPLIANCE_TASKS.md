@@ -196,9 +196,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/init@v3
         with:
           languages: rust
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
       - name: SBOM Generation
         run: syft . -o spdx-json=sbom.json
       - name: Vulnerability Scan
