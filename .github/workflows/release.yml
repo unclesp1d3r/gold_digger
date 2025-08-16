@@ -3,35 +3,114 @@ name: Release
 on:
   push:
     tags:
-      - v[0-9]+.*
+      - 'v[0-9]+.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
   create-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/create-gh-release-action@v1
-        #with:
-        # (optional)
-        #changelog: CHANGELOG.md
+      - uses: actions/checkout@v4
+      - name: Create GitHub Release
+        uses: taiki-e/create-gh-release-action@v1
         env:
-          # (required)
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  upload-assets:
+  build-and-package:
+    needs: create-release
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          # - windows-latest
+        os: [ubuntu-22.04, macos-13, windows-2022]
     runs-on: ${{ matrix.os }}
+    env:
+      BIN_NAME: gold_digger
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Build release
+        shell: bash
+        run: just build-release
+
+      - name: Upload binaries to Release
+        uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: gold_digger
+          bin: ${{ env.BIN_NAME }}
           tar: unix
-          # zip: windows
+          zip: windows
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom-sign-attest:
+    name: SBOM + Cosign (keyless) + Attestation
+    needs: build-and-package
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release assets
+        run: |
+          gh release download ${{ github.ref_name }} --dir dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.6.0
+
+      - name: Generate SBOMs per artifact
+        shell: bash
+        run: |
+          mkdir -p sbom
+          for f in dist/*; do
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
+            fi
+          done
+
+      - name: Upload SBOMs to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sbom/*.sbom.cdx.json
+
+      - name: Keyless sign artifacts with Cosign (OIDC)
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          for f in dist/*; do
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              cosign sign-blob --yes "$f" \
+                --output-signature "${f}.sig" \
+                --output-certificate "${f}.crt"
+            fi
+          done
+
+      - name: Upload signatures to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.sig
+            dist/*.crt
