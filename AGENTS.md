@@ -110,7 +110,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 ### Security Rules
 
 1. **Never log DATABASE_URL or credentials** - implement redaction
-2. **No telemetry or external calls** at runtime  
+2. **No telemetry or external calls** at runtime
 3. **Respect system umask** for output files
 4. **Use URL parameters for SSL:** `?ssl-mode=REQUIRED`
 
@@ -186,5 +186,5 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 ---
 
 **Maintainer:** UncleSp1d3r
-**Workflow:** Single-maintainer with CodeRabbit.ai reviews  
+**Workflow:** Single-maintainer with CodeRabbit.ai reviews
 **Status:** Active development toward v1.0

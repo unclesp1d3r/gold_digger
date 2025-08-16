@@ -58,7 +58,7 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 ### Current Structure (Don't Change Without Requirements)
 
 - **Entry:** `src/main.rs` handles env vars and dispatch
-- **Core:** `src/lib.rs` contains `rows_to_strings()` and utilities  
+- **Core:** `src/lib.rs` contains `rows_to_strings()` and utilities
 - **Writers:** `src/{csv,json,tab}.rs` handle format-specific output
 - **No CLI:** Project uses environment variables only (CLI planned for v1.0)
 
