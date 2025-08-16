@@ -326,6 +326,31 @@ let opts = OptsBuilder::new()
     .ssl_opts(ssl_opts);
 ```
 
+## GitHub Interactions
+
+**⚠️ Important:** When directed to interact with GitHub (issues, pull requests, repositories, etc.), prioritize using the `gh` CLI tool if available. The `gh` tool provides comprehensive GitHub functionality including:
+
+- Creating and managing issues and pull requests
+- Repository operations (cloning, forking, etc.)
+- GitHub Actions workflow management
+- Release management
+- Authentication with GitHub API
+
+**Usage examples:**
+
+```bash
+# Check if gh is available
+gh --version
+
+# Common operations
+gh issue create --title "Bug: Type conversion panic" --body "Details..."
+gh pr create --title "Fix: Extension dispatch pattern" --body "Fixes the Some(&_) bug"
+gh repo view UncleSp1d3r/gold_digger
+gh workflow list
+```
+
+Fall back to other GitHub integration methods only if `gh` is not available or doesn't support the required functionality.
+
 ## First PR Checklist for AI Agents
 
 Before submitting any changes:
