@@ -24,8 +24,9 @@ install-tools:
     @echo "✅ Tools installed!"
 
 # Format code
-fmt:
+format:
     @echo "📝 Formatting code..."
+    pre-commit run -a
     cargo fmt
 
 # Check formatting
@@ -107,7 +108,7 @@ ci-check: fmt-check lint test-nextest
     @echo "✅ All CI checks passed!"
 
 # Quick development check
-check: fmt lint test
+check: format lint test
     @echo "✅ Quick development checks passed!"
 
 # Clean build artifacts
@@ -240,7 +241,7 @@ help:
     @echo "  install       Install locally from workspace"
     @echo ""
     @echo "Code Quality:"
-    @echo "  fmt           Format code"
+    @echo "  format           Format code"
     @echo "  fmt-check     Check formatting"
     @echo "  lint          Run clippy linting"
     @echo "  fix           Run clippy with automatic fixes"
