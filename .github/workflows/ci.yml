@@ -35,14 +35,14 @@ jobs:
 
       # Windows-specific setup for OpenSSL (needed by reqwest/native-tls)
       - name: Setup Windows dependencies
-        if: runner.os == 'Windows' && env.INSTALL_VCPKG_OPENSSL == 'true'
+        if: runner.os == 'Windows'
         shell: bash
         run: |
           vcpkg install openssl:x64-windows-static
           {
-            printf 'OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static\n'
+            printf 'OPENSSL_DIR=C:\\vcpkg\\installed\\x64-windows-static\n'
             printf 'OPENSSL_STATIC=1\n'
-            printf 'VCPKG_ROOT=C:\vcpkg\n'
+            printf 'VCPKG_ROOT=C:\\vcpkg\n'
           } >> "$GITHUB_ENV"
 
       - name: Install Rust (stable)
@@ -70,7 +70,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
-          cache: pip
 
       - name: Install pre-commit
         shell: bash

@@ -46,15 +46,14 @@ jobs:
         with:
           sarif_file: clippy.sarif
 
-      - name: Install syft
-        uses: anchore/syft-action@v1
-        with:
-          command: install
-
-      - name: Install grype
-        uses: anchore/grype-action@v1
-        with:
-          command: install
+      - name: Install syft and grype
+        shell: bash
+        run: |
+          # Install syft
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          
+          # Install grype
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
 
       - name: Generate SBOM (CycloneDX)
         run: |
