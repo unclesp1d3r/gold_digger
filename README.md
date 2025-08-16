@@ -2,11 +2,14 @@
 
 Gold Digger is a Rust-based query tool that automates the routine collection of database queries for MySQL and MariaDB systems. This tool is designed to run headless, making it ideal for use in scheduled or routine tasks.
 
-![GitHub](https://img.shields.io/github/license/unclesp1d3r/gold_digger)
-![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)
-![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)
-![GitHub last commit](https://img.shields.io/github/last-commit/unclesp1d3r/gold_digger)
-![Maintenance](https://img.shields.io/maintenance/yes/2024)
+[![CI](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml)
+[![Security](https://github.com/unclesp1d3r/gold_digger/actions/workflows/security.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/security.yml)
+[![codecov](https://codecov.io/github/unclesp1d3r/gold_digger/graph/badge.svg)](https://codecov.io/github/unclesp1d3r/gold_digger)
+[![GitHub](https://img.shields.io/github/license/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/blob/main/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/issues)
+[![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)](https://github.com/unclesp1d3r/gold_digger/stargazers)
+[![Maintenance](https://img.shields.io/maintenance/yes/2024)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
 
 ## Description
 
@@ -21,20 +24,113 @@ To build and install Gold Digger, use the following commands in your terminal:
 ```bash
 git clone git@github.com:unclesp1d3r/gold_digger.git
 cd gold_digger
-cargo install
+cargo install --path .
 ```
+
+## Development Setup
+
+For developers wanting to contribute to Gold Digger:
+
+### Prerequisites
+
+- Rust 1.70+ with `rustfmt` and `clippy` components
+- [just](https://github.com/casey/just) task runner
+- [pre-commit](https://pre-commit.com/) (optional but recommended)
+
+### Setup
+
+```bash
+# Clone and enter directory
+git clone git@github.com:unclesp1d3r/gold_digger.git
+cd gold_digger
+
+# Set up development environment
+just setup
+
+# Install pre-commit hooks (optional but recommended)
+pre-commit install
+
+# Run development checks
+just ci-check
+```
+
+### Available Commands
+
+Use `just` to run common development tasks:
+
+```bash
+just fmt-check      # Check code formatting
+just lint           # Run clippy with zero warnings tolerance
+just test-nextest   # Run tests with nextest
+just coverage-llvm  # Generate coverage report
+just ci-check       # Run all CI checks locally
+just build-release  # Build optimized release binary
+```
+
+See `just help` for a complete list of available commands.
 
 ## Environment Variables
 
-To run Gold Digger, you will need to set the following environment variables in your .env file or in your environment:
+Gold Digger is configured entirely through environment variables (no dotenv support). You must export these variables or set them when running the command:
 
--   `OUTPUT_FILE`: This is the path to a text file that will contain the output of the query. The extension of the file
-    will determine the format (csv, txt, or json).
+-   `OUTPUT_FILE`: Path to output file. Extension determines format:
+    - `.csv` → CSV output with RFC 4180-ish formatting
+    - `.json` → JSON output with `{"data": [...]}` structure  
+    - `.txt` or any other extension → TSV (tab-separated values)
 
--   `DATABASE_URL`: The connection URL for accessing the database. This is formatted in the typical MySQL/MariaDB
-    format (`protocol://[host]/[database]?[properties]`).
+-   `DATABASE_URL`: MySQL/MariaDB connection URL in standard format:
+    `mysql://username:password@host:port/database`
 
--   `DATABASE_QUERY`: The SQL query string to be used to query the database server.
+-   `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
+    ```sql
+    SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users;
+    ```
+
+### Example Usage
+
+```bash
+# Linux/macOS
+OUTPUT_FILE=/tmp/results.json \
+DATABASE_URL="mysql://user:pass@localhost:3306/mydb" \
+DATABASE_QUERY="SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users LIMIT 10" \
+gold_digger
+
+# Windows PowerShell
+$env:OUTPUT_FILE="C:\temp\results.json"
+$env:DATABASE_URL="mysql://user:pass@localhost:3306/mydb"
+$env:DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 10"
+gold_digger
+
+# Using justfile for development
+just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
+```
+
+## CI/CD Policy
+
+Gold Digger follows strict quality gates and security practices:
+
+### Quality Gates
+- **Formatting:** Code must pass `cargo fmt --check` (zero tolerance)
+- **Linting:** Code must pass `cargo clippy -- -D warnings` (zero tolerance)
+- **Testing:** All tests must pass on Ubuntu 22.04, macOS 13, and Windows 2022
+- **Coverage:** Code coverage tracked via Codecov
+
+### Security Scanning
+- **CodeQL:** Static analysis for security vulnerabilities
+- **SBOM Generation:** Software Bill of Materials for all releases
+- **Vulnerability Scanning:** Grype scanning of dependencies
+- **Supply Chain Security:** `cargo-audit` and `cargo-deny` checks
+
+### Release Security
+- **Keyless Signing:** All release artifacts signed with Cosign using OIDC
+- **SLSA Attestation:** Level 3 provenance for supply chain integrity
+- **Multi-Platform:** Automated builds for Linux, macOS, and Windows
+- **Comprehensive Artifacts:** Binaries, SBOMs, signatures, and attestations
+
+### Testing Recommendations
+- Use [criterion](https://crates.io/crates/criterion) for benchmarking
+- Use [insta](https://crates.io/crates/insta) for snapshot testing
+- Run `cargo-llvm-cov` for coverage analysis
 
 ## Authors
 

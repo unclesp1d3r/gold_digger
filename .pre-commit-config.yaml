@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: just-fmt-check
+        name: just fmt-check
+        entry: bash -lc 'just fmt-check'
+        language: system
+        pass_filenames: false
+
+      - id: just-lint
+        name: just lint
+        entry: bash -lc 'just lint'
+        language: system
+        pass_filenames: false

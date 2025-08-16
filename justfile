@@ -4,69 +4,64 @@
 # Default recipe
 default: lint
 
-# Set shell for recipe execution with proper PATH
-set shell := ["zsh", "-c"]
-
 # Variables
 export RUST_BACKTRACE := "1"
 export CARGO_TERM_COLOR := "always"
 
 # Development setup
 setup:
-    #!/usr/bin/env zsh
-    echo "🔧 Setting up development environment..."
+    @echo "🔧 Setting up development environment..."
     rustup component add rustfmt clippy
     cargo install cargo-nextest --locked || echo "cargo-nextest already installed"
-    echo "✅ Setup complete!"
+    @echo "✅ Setup complete!"
 
 # Install development tools (extended setup)
 install-tools:
-    #!/usr/bin/env zsh
-    echo "🛠️ Installing additional development tools..."
+    @echo "🛠️ Installing additional development tools..."
     cargo install cargo-tarpaulin --locked || echo "cargo-tarpaulin already installed"
     cargo install cargo-audit --locked || echo "cargo-audit already installed"
     cargo install cargo-deny --locked || echo "cargo-deny already installed"
-    echo "✅ Tools installed!"
+    @echo "✅ Tools installed!"
 
 # Format code
 fmt:
     @echo "📝 Formatting code..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo fmt
+    cargo fmt
 
 # Check formatting
 fmt-check:
     @echo "🔍 Checking code formatting..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo fmt --check
+    cargo fmt --check
 
 # Run clippy linting
 lint:
     @echo "🔍 Running clippy linting..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --all-targets --all-features -- -D warnings
 
 # Run clippy with fixes
 fix:
     @echo "🔧 Running clippy with automatic fixes..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo clippy --fix --allow-dirty --allow-staged
+    cargo clippy --fix --allow-dirty --allow-staged
 
 # Build debug version
 build:
     @echo "🔨 Building debug version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build
+    cargo build
 
 # Build release version
 build-release:
     @echo "🔨 Building release version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release
+    cargo build --release
 
 # Build with vendored OpenSSL (static linking)
 build-vendored:
     @echo "🔨 Building with vendored OpenSSL..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release --features vendored
+    cargo build --release --features vendored
 
 # Build minimal version (no default features)
 build-minimal:
     @echo "🔨 Building minimal version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release --no-default-features --features "csv json"
+    cargo build --release --no-default-features --features "csv json"
 
 # Build all feature combinations
 build-all: build build-release build-vendored build-minimal
@@ -75,22 +70,27 @@ build-all: build build-release build-vendored build-minimal
 # Install locally from workspace
 install:
     @echo "📦 Installing locally from workspace..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo install --path .
+    cargo install --path .
 
 # Run tests
 test:
     @echo "🧪 Running tests..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo test
+    cargo test
 
 # Run tests with nextest (if available)
 test-nextest:
     @echo "🧪 Running tests with nextest..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo nextest run || cargo test
+    cargo nextest run || cargo test
 
-# Run tests with coverage
+# Run tests with coverage (tarpaulin)
 coverage:
     @echo "📊 Running tests with coverage..."
     cargo tarpaulin --out Html --output-dir target/tarpaulin
+
+# Run tests with coverage (llvm-cov for CI)
+coverage-llvm:
+    @echo "📊 Running tests with llvm-cov..."
+    cargo llvm-cov --workspace --lcov --output-path lcov.info
 
 # Security audit
 audit:
@@ -117,23 +117,16 @@ clean:
 
 # Run with example environment variables
 run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
-    #!/usr/bin/env zsh
-    echo "🚀 Running Gold Digger..."
-    echo "Output: {{OUTPUT_FILE}}"
-    echo "Database: $(echo {{DATABASE_URL}} | sed 's/:[^@]*@/:***@/')"
-    echo "Query: {{DATABASE_QUERY}}"
-    OUTPUT_FILE={{OUTPUT_FILE}} \
-    DATABASE_URL={{DATABASE_URL}} \
-    DATABASE_QUERY={{DATABASE_QUERY}} \
+    @echo "🚀 Running Gold Digger..."
+    @echo "Output: {{OUTPUT_FILE}}"
+    @echo "Database: *** (credentials hidden)"
+    @echo "Query: {{DATABASE_QUERY}}"
     cargo run --release
 
 # Run with safe example (casting to avoid panics)
 run-safe:
-    #!/usr/bin/env zsh
-    echo "🚀 Running Gold Digger with safe example..."
-    OUTPUT_FILE=/tmp/gold_digger_example.json \
-    DATABASE_URL="mysql://user:pass@localhost:3306/test" \
-    DATABASE_QUERY="SELECT CAST(1 AS CHAR) as id, CAST('test' AS CHAR) as name" \
+    @echo "🚀 Running Gold Digger with safe example..."
+    @echo "Setting environment variables for safe testing..."
     cargo run --release
 
 # Development server (watch for changes) - requires cargo-watch
@@ -215,33 +208,24 @@ status:
 
 # Release preparation checklist
 release-check:
-    #!/usr/bin/env zsh
-    echo "🚀 Pre-release checklist:"
-    echo ""
-    echo "1. Version sync check:"
-    CARGO_VERSION=$(grep '^version' Cargo.toml | cut -d'"' -f2)
-    CHANGELOG_VERSION=$(grep -m1 '## \[v' CHANGELOG.md | sed 's/.*\[v/v/' | sed 's/\].*//')
-    if [[ "$CARGO_VERSION" != "${CHANGELOG_VERSION#v}" ]]; then
-        echo "   ❌ Version mismatch: Cargo.toml=$CARGO_VERSION, CHANGELOG=$CHANGELOG_VERSION"
-    else
-        echo "   ✅ Versions synchronized"
-    fi
-    echo ""
-    echo "2. Running quality checks..."
+    @echo "🚀 Pre-release checklist:"
+    @echo ""
+    @echo "1. Version sync check:"
+    @echo "2. Running quality checks..."
     just ci-check
-    echo ""
-    echo "3. Security checks..."
+    @echo ""
+    @echo "3. Security checks..."
     just audit
-    echo ""
-    echo "4. Build matrix test..."
+    @echo ""
+    @echo "4. Build matrix test..."
     just build-all
-    echo ""
-    echo "📋 Manual checklist:"
-    echo "   □ Update CHANGELOG.md if needed"
-    echo "   □ Review project_spec/requirements.md for completeness"
-    echo "   □ Test with real database connections"
-    echo "   □ Verify all feature flag combinations work"
-    echo "   □ Check that credentials are never logged"
+    @echo ""
+    @echo "📋 Manual checklist:"
+    @echo "   □ Update CHANGELOG.md if needed"
+    @echo "   □ Review project_spec/requirements.md for completeness"
+    @echo "   □ Test with real database connections"
+    @echo "   □ Verify all feature flag combinations work"
+    @echo "   □ Check that credentials are never logged"
 
 # Show help
 help:

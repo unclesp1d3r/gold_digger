@@ -150,3 +150,9 @@ Cargo.lock
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,macos,visualstudiocode,rider
+
+# Coverage files
+lcov.info
+coverage/
+target/tarpaulin/
+*.profraw
