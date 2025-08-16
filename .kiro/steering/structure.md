@@ -13,8 +13,8 @@ src/
 ├── main.rs     # CLI entry point, argument parsing, format dispatch
 ├── lib.rs      # Public API, shared utilities (rows_to_strings, file extensions)
 ├── cli.rs      # Clap CLI definitions and configuration
-├── csv.rs      # CSV output format (RFC4180, QuoteStyle::NonNumeric)
-├── json.rs     # JSON output format ({"data": [...]} structure)
+├── csv.rs      # CSV output format (RFC4180, QuoteStyle::Necessary)
+├── json.rs     # JSON output format ({"data": [...]} structure with BTreeMap)
 └── tab.rs      # TSV output format (QuoteStyle::Necessary)
 ```
 
@@ -159,8 +159,8 @@ OutputFormat::from_extension(output_file)
 
 ### Format-Specific Settings
 
-- **CSV**: `QuoteStyle::NonNumeric` (RFC4180-compliant, CRLF line endings)
-- **JSON**: `{"data": [...]}` structure using HashMap
+- **CSV**: `QuoteStyle::Necessary` (RFC4180-compliant, CRLF line endings)
+- **JSON**: `{"data": [...]}` structure using BTreeMap (deterministic ordering)
 - **TSV**: Tab delimiter with `QuoteStyle::Necessary`
 
 ## Import Organization

@@ -61,10 +61,10 @@ Gold Digger is a Rust-based command-line tool that executes MySQL and MariaDB da
 
 #### Acceptance Criteria
 
-1. WHEN database URL contains SSL parameters THEN the system SHALL establish TLS connection
-2. WHEN TLS connection is configured THEN the system SHALL use MySQL native-tls features
-3. WHEN TLS handshake fails THEN the system SHALL exit with code 3 (connection error)
-4. WHEN credentials are processed THEN the system SHALL never log or display DATABASE_URL contents
+1. WHEN TLS connection is configured programmatically THEN the system SHALL use MySQL native-tls features via OptsBuilder::ssl_opts()
+2. WHEN TLS handshake fails THEN the system SHALL exit with code 3 (connection error)
+3. WHEN credentials are processed THEN the system SHALL never log or display DATABASE_URL contents
+4. NOTE: URL-based SSL parameters are not supported by the mysql crate; see F006 in project_spec/requirements.md for programmatic TLS configuration
 
 ### Requirement 6
 
@@ -96,6 +96,7 @@ Gold Digger is a Rust-based command-line tool that executes MySQL and MariaDB da
 1. WHEN completion subcommand is called with bash THEN the system SHALL generate bash completion script
 2. WHEN completion subcommand is called with zsh THEN the system SHALL generate zsh completion script
 3. WHEN completion subcommand is called with fish THEN the system SHALL generate fish completion script
+4. WHEN completion subcommand is called with PowerShell THEN the system SHALL generate PowerShell completion script
 
 ### Requirement 9
 

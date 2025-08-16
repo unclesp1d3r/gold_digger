@@ -146,7 +146,7 @@ let var_name = match env::var("VAR_NAME") {
 match database_value {
     mysql::Value::NULL => "".to_string(),
     val => from_value_opt::<String>(val)
-        .unwrap_or_else(|| format!("{:?}", val))
+        .unwrap_or_else(|_| format!("{:?}", val))
 }
 ```
 

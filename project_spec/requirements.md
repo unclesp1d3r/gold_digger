@@ -362,7 +362,7 @@ gold_digger [OPTIONS] [SUBCOMMAND]
 OPTIONS:
     -o, --output <FILE>           Output file path (overrides OUTPUT_FILE env)
     --db-url <URL>                Database connection URL (overrides DATABASE_URL env)
-    -q, --query <SQL>             SQL query string (mutually exclusive with --query-file)
+    --query <SQL>                  SQL query string (mutually exclusive with --query-file)
     --query-file <FILE>           File containing SQL query (mutually exclusive with --query)
     --format <FORMAT>             Output format override [csv|json|tsv]
     -v, --verbose                 Enable verbose logging (repeatable for levels)
@@ -379,7 +379,7 @@ SUBCOMMANDS:
 
 ### Output Formats
 
-- **CSV**: RFC 4180 compliant with QuoteStyle::NonNumeric; headers in first row
+- **CSV**: RFC 4180 compliant with QuoteStyle::Necessary; headers in first row
 - **JSON**: Structured as `{"data": [{"col": "val", ...}]}` with deterministic key ordering
 - **TSV**: Tab-delimited with minimal quoting (QuoteStyle::Necessary)
 

@@ -175,12 +175,12 @@ impl QueryExecutor {
     }
 }
 
-pub struct RowStream {
-    result: QueryResult<'static>,
-    columns: Vec<Column>,
+pub struct RowStream<'a> {
+    result: mysql::QueryResult<'a>,
+    columns: Vec<mysql::consts::Column>,
 }
 
-impl Iterator for RowStream {
+impl<'a> Iterator for RowStream<'a> {
     type Item = Result<Vec<String>>;
 
     fn next(&mut self) -> Option<Self::Item> {

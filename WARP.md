@@ -103,7 +103,7 @@ cargo run --release
 
 **Output Writers:**
 
-- `csv.rs`: RFC 4180-ish with `QuoteStyle::NonNumeric`
+- `csv.rs`: RFC 4180-ish with `QuoteStyle::Necessary`
 - `json.rs`: Produces `{"data": [{...}]}` structure using HashMap (non-deterministic key order)
 - `tab.rs`: TSV with `\t` delimiter and `QuoteStyle::Necessary`
 
@@ -145,7 +145,7 @@ match get_extension_from_filename(&output_file) {
 
 ### Output Schemas
 
-- **CSV:** Headers in first row, `QuoteStyle::NonNumeric`
+- **CSV:** Headers in first row, `QuoteStyle::Necessary`
 - **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}`
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
