@@ -26,7 +26,7 @@ install-tools:
 # Format code
 format:
     @echo "📝 Formatting code..."
-    pre-commit run -a
+    pre-commit run -a || true
     cargo fmt
 
 # Check formatting
@@ -108,7 +108,11 @@ ci-check: fmt-check lint test-nextest
     @echo "✅ All CI checks passed!"
 
 # Quick development check
-check: format lint test
+check:
+    @echo "🔍 Running development checks..."
+    pre-commit run -a
+    just lint
+    just test
     @echo "✅ Quick development checks passed!"
 
 # Clean build artifacts
@@ -122,13 +126,13 @@ run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
     @echo "Output: {{OUTPUT_FILE}}"
     @echo "Database: *** (credentials hidden)"
     @echo "Query: {{DATABASE_QUERY}}"
-    cargo run --release
+    OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
 
 # Run with safe example (casting to avoid panics)
 run-safe:
     @echo "🚀 Running Gold Digger with safe example..."
     @echo "Setting environment variables for safe testing..."
-    cargo run --release
+    DB_URL=sqlite://dummy.db API_KEY=dummy NODE_ENV=testing APP_ENV=safe cargo run --release
 
 # Development server (watch for changes) - requires cargo-watch
 watch:

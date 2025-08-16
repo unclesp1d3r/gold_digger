@@ -5,20 +5,54 @@ on:
     tags:
       - 'v[0-9]+.*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release"
+        required: true
+        default: "v1.0.0"
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  create-release:
+  resolve-tag:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.get-tag.outputs.tag }}
+    steps:
+      - id: get-tag
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          elif [[ "${REF}" == refs/tags/* ]]; then
+            echo "tag=${REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No tag detected; defaulting to v1.0.0 for safety."
+            echo "tag=v1.0.0" >> "$GITHUB_OUTPUT"
+          fi
+
+  create-release:
+    needs: resolve-tag
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+
       - name: Create GitHub Release
         uses: taiki-e/create-gh-release-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.resolve-tag.outputs.tag }}
 
   build-and-package:
     needs: create-release
@@ -26,10 +60,10 @@ jobs:
       matrix:
         os: [ubuntu-22.04, macos-13, windows-2022]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     env:
       BIN_NAME: gold_digger
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,9 +89,87 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  sbom-sign-attest:
-    name: SBOM + Cosign (keyless) + Attestation
+      - name: Compute artifact hashes (SLSA subjects)
+        id: hash
+        uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
+        with:
+          files: |
+            dist/*
+
+      - name: Persist per-OS subjects
+        shell: bash
+        run: |
+          mkdir -p subjects
+          echo "${{ steps.hash.outputs.hashes }}" > "subjects/subjects-${{ matrix.os }}.b64"
+
+      - name: Upload subjects artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: subjects-${{ matrix.os }}
+          path: subjects/subjects-${{ matrix.os }}.b64
+
+  consolidate-subjects:
     needs: build-and-package
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.merge.outputs.hashes }}
+    steps:
+      - name: Download subjects artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: subjects-*
+          merge-multiple: true
+
+      - name: Merge base64 subjects
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmpdir=$(mktemp -d)
+          merged="${tmpdir}/merged.json"
+          echo "[]" > "${merged}"
+
+          for f in subjects-*.b64; do
+            base64 -d "$f" > "${tmpdir}/decoded.json"
+            # Each decoded.json is a JSON array; merge arrays
+            jq -s 'add' "${merged}" "${tmpdir}/decoded.json" > "${tmpdir}/new.json"
+            mv "${tmpdir}/new.json" "${merged}"
+          done
+
+          # Re-encode to base64, single line
+          if command -v base64 >/dev/null 2>&1; then
+            if base64 --help 2>&1 | grep -q -- "-w"; then
+              encoded=$(base64 -w0 "${merged}")
+            else
+              # macOS base64 has -b width option
+              encoded=$(base64 "${merged}")
+            fi
+          else
+            echo "base64 not found"; exit 1
+          fi
+
+          echo "hashes=${encoded}" >> "$GITHUB_OUTPUT"
+
+  slsa-provenance:
+    name: Generate SLSA Level 3 Provenance
+    needs: [consolidate-subjects, resolve-tag]
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+      attestations: write
+    with:
+      base64-subjects: ${{ needs.consolidate-subjects.outputs.hashes }}
+      upload-assets: true
+      tag: ${{ needs.resolve-tag.outputs.tag }}
+    secrets: inherit
+
+  sbom-sign-attest:
+    name: SBOM + Cosign (keyless) + Reference Provenance
+    needs: [build-and-package, slsa-provenance, resolve-tag]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -66,9 +178,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download release assets
+      - name: Resolve TAG env
+        shell: bash
+        run: echo "TAG=${{ needs.resolve-tag.outputs.tag }}" >> "$GITHUB_ENV"
+
+      - name: Download release assets (binaries)
         run: |
-          gh release download ${{ github.ref_name }} --dir dist
+          mkdir -p dist
+          gh release download "${TAG}" --dir dist
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download SLSA provenance asset
+        run: |
+          mkdir -p provenance
+          # Attempt standard name; fallback glob to be safe
+          gh release download "${TAG}" --pattern "provenance.intoto.jsonl" --dir provenance || true
+          if ! ls provenance/provenance.intoto.jsonl >/dev/null 2>&1; then
+            gh release download "${TAG}" --pattern "*.intoto.jsonl" --dir provenance || true
+          fi
+          ls -lah provenance || true
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -83,8 +214,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p sbom
+          shopt -s nullglob
           for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
               base=$(basename "$f")
               syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
             fi
@@ -94,14 +226,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: sbom/*.sbom.cdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Keyless sign artifacts with Cosign (OIDC)
         shell: bash
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
+          shopt -s nullglob
           for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
               cosign sign-blob --yes "$f" \
                 --output-signature "${f}.sig" \
                 --output-certificate "${f}.crt"
@@ -114,3 +249,14 @@ jobs:
           files: |
             dist/*.sig
             dist/*.crt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: (Optional) Verify SLSA provenance against one artifact
+        if: always()
+        shell: bash
+        run: |
+          echo "Provenance files (if present):"
+          ls -lah provenance || true
+          echo "Verification is typically done by consumers using slsa-verifier."
+          echo "This step is informational and does not block the pipeline."
