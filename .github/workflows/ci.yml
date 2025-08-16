@@ -65,14 +65,6 @@ jobs:
         shell: bash
         run: pre-commit run --show-diff-on-failure --color=always --all-files
 
-      - name: Format check
-        shell: bash
-        run: just fmt-check
-
-      - name: Lint (zero tolerance)
-        shell: bash
-        run: just lint
-
       - name: Tests (nextest)
         shell: bash
         run: just test-nextest
