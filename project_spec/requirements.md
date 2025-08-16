@@ -14,7 +14,7 @@
 
 ---
 
-## 🪪 Introduction & Scope
+## Introduction & Scope
 
 ### Project Overview
 
@@ -127,7 +127,7 @@
 
 - **F005**: Provide standardized exit codes: 0 (success), 1 (no rows found), 2 (usage/config error), 3 (connection/auth error), 4 (query execution error), 5 (file I/O error)
 
-- **F006**: Support TLS/SSL connections via MySQL native-tls features; TLS/SSL must be configurable programmatically via the crate's native-tls features using `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the chosen mysql crate (see [mysql crate SSL documentation](https://docs.rs/mysql/25.0.1/mysql/struct.SslOpts.html) for programmatic TLS setup examples)
+- **F006**: Support TLS/SSL connections via MySQL native-tls features; TLS/SSL must be configurable programmatically via the crate's native-tls features using `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the chosen mysql crate (see [mysql crate SSL documentation](https://docs.rs/mysql/26.0.1/mysql/struct.SslOpts.html) for programmatic TLS setup examples)
 
 - **F007**: Implement streaming export mode for large result sets to avoid loading all rows into memory simultaneously
 
@@ -153,7 +153,7 @@
 
 ```bash
 # Environment file: /opt/reports/db.env
-DATABASE_URL="mysql://user:pass@db.internal:3306/audit?ssl-mode=REQUIRED"
+DATABASE_URL="mysql://user:pass@db.internal:3306/audit"
 DATABASE_QUERY="SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()"
 ```
 
@@ -218,10 +218,10 @@ export DATABASE_URL="mysql://data_user:${DATA_DB_PASS}@${DB_HOST}/analytics"
 export DATABASE_QUERY="SELECT user_id, action, timestamp FROM user_events WHERE DATE(timestamp) = CURDATE()"
 
 if gold_digger --output /tmp/daily_events.json --allow-empty; then
-    echo "✅ Daily events extracted successfully"
+    echo "Daily events extracted successfully"
     # Continue with data processing pipeline...
 else
-    echo "❌ Data extraction failed"
+    echo "Data extraction failed"
     exit 1
 fi
 ```
@@ -257,7 +257,7 @@ if gold_digger --output /tmp/batch_events.json; then
     # Update processing status
     update_processing_status.py --batch-id $(date +%Y%m%d_%H%M%S)
 else
-    echo "❌ Data extraction failed"
+    echo "Data extraction failed"
     exit 1
 fi
 ```
@@ -274,28 +274,28 @@ export DATABASE_QUERY="SELECT service, status FROM service_health WHERE status !
 if gold_digger --output /tmp/health.json --allow-empty; then
     UNHEALTHY=$(jq '.data | length' /tmp/health.json)
     if [ "$UNHEALTHY" -gt 0 ]; then
-        echo "❌ $UNHEALTHY unhealthy services found"
+        echo "$UNHEALTHY unhealthy services found"
         exit 1
     fi
-    echo "✅ All services healthy"
+    echo "All services healthy"
 else
-    echo "❌ Health check query failed"
+    echo "Health check query failed"
     exit 1
 fi
 ```
 
-#### Use Case 4: Containerized Database Automation
+#### Use Case 7: Containerized Database Automation
 
 **Scenario**: Docker-based deployment with environment variable configuration for easy container orchestration.
 
 ```bash
 # Docker run with shell expansion for dynamic filenames
 docker run --rm \
-  -e DATABASE_URL="mysql://user:pass@db-host:3306/production?ssl-mode=REQUIRED" \
+  -e DATABASE_URL="mysql://user:pass@db-host:3306/production" \
   -e DATABASE_QUERY="SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()" \
   -v $(pwd)/output:/app/output \
   gold-digger:latest \
-  /bin/sh -lc 'gold_digger --output "/app/output/daily-audit-$(date +%Y%m%d).json"'
+  /bin/sh -lc "gold_digger --output \"/app/output/daily-audit-\$(date +%Y%m%d).json\""
 
 # Docker Compose with .env file (static configuration)
 # docker-compose.yml
@@ -310,7 +310,7 @@ services:
     command: ["/bin/sh", "-lc", "gold_digger --output \"/app/output/daily-audit-$(date +%Y%m%d).json\""]
 
 # .env file (no shell substitution - use static paths or generate in command)
-DATABASE_URL=mysql://user:pass@db-host:3306/production?ssl-mode=REQUIRED
+DATABASE_URL=mysql://user:pass@db-host:3306/production
 DATABASE_QUERY=SELECT user_id, action, timestamp FROM audit_log WHERE DATE(timestamp) = CURDATE()
 
 # Note: Shell substitution $(date ...) doesn't work in .env files or environment variables.
@@ -335,7 +335,7 @@ DATABASE_QUERY=SELECT user_id, action, timestamp FROM audit_log WHERE DATE(times
 
 ---
 
-## 🧑‍💻 User Interface Requirements
+## User Interface Requirements
 
 ### CLI Framework
 

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write};
 
-use mysql::serde_json::json;
+use serde_json::json;
 
 pub fn write<W>(rows: Vec<Vec<String>>, mut output: W) -> anyhow::Result<()>
 where
