@@ -61,7 +61,7 @@ jobs:
 
       - name: Vulnerability scan with grype
         run: |
-          grype sbom.cdx.json --fail-on critical,high --output sarif --file results.sarif
+          grype sbom.cdx.json --fail-on critical --fail-on high --output sarif --file results.sarif
 
       - name: Upload grype SARIF
         uses: github/codeql-action/upload-sarif@v3
