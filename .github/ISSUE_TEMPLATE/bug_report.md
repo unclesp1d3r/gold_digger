@@ -2,8 +2,8 @@
 name: Bug Report
 about: Create a report to help us improve gold_digger
 title: '[BUG] '
-labels: ['bug']
-assignees: ['UncleSp1d3r']
+labels: [bug]
+assignees: [UncleSp1d3r]
 ---
 
 ## Bug Description
@@ -38,7 +38,7 @@ A clear and concise description of what actually happened.
 
 ## Environment
 
-- **OS**: [e.g. macOS 14.0, Ubuntu 22.04, Windows 11]
+- **OS**: [e.g. macOS 15.0, Ubuntu 22.04 LTS, Windows 11]
 - **Rust Version**: [e.g. 1.89.0]
 - **gold_digger Version**: [e.g. v0.2.5]
 - **MySQL/MariaDB Version**: [e.g. MySQL 8.0, MariaDB 10.11]
@@ -52,7 +52,7 @@ cargo build --release --features "default vendored"
 
 ## Error Output
 
-```
+```text
 # Paste the full error output here
 ```
 

@@ -2,8 +2,8 @@
 name: Feature Request
 about: Suggest an idea for gold_digger
 title: '[FEATURE] '
-labels: ['enhancement']
-assignees: ['UncleSp1d3r']
+labels: [enhancement]
+assignees: [UncleSp1d3r]
 ---
 
 ## Problem Statement
@@ -45,7 +45,6 @@ export DATABASE_QUERY="..."
 ## Related Issues
 
 - Links to related issues or pull requests
-- References to requirements in `project_spec/requirements.md`
 
 ## Additional Context
 
