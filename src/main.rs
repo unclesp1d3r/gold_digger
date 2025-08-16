@@ -1,8 +1,8 @@
 use std::{env, fs::File};
 
 use anyhow::Result;
-use mysql::prelude::Queryable;
 use mysql::Pool;
+use mysql::prelude::Queryable;
 
 use gold_digger::{get_extension_from_filename, rows_to_strings};
 
@@ -16,7 +16,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find OUTPUT_FILE in environment variable");
             anyhow::bail!("Missing OUTPUT_FILE environment variable");
-        }
+        },
     };
 
     let database_url = match env::var("DATABASE_URL") {
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_URL in environment variable");
             anyhow::bail!("Missing DATABASE_URL environment variable");
-        }
+        },
     };
 
     let database_query = match env::var("DATABASE_QUERY") {
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
             #[cfg(feature = "verbose")]
             eprintln!("couldn't find DATABASE_QUERY in environment variable");
             anyhow::bail!("Missing DATABASE_QUERY environment variable");
-        }
+        },
     };
 
     let pool = Pool::new(database_url.as_str())?;
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
                 #[cfg(feature = "verbose")]
                 eprintln!("Couldn't find extension");
                 anyhow::bail!("Couldn't find extension for output file");
-            }
+            },
         }
     }
 

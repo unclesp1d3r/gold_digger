@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use gold_digger::{get_extension_from_filename, rows_to_strings};
-    use mysql::{Row, Value, Column, ColumnType};
+    use mysql::Row;
 
     #[test]
     fn test_get_extension_from_filename() {
@@ -19,4 +19,4 @@ mod tests {
 
     // More comprehensive tests would require constructing mock mysql::Row objects,
     // which is non-trivial without a database or more advanced mocking.
-} 
+}

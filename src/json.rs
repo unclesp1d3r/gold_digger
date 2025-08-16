@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write};
 
-use mysql::serde_json::json;
+use serde_json::json;
 
 /// Writes rows to a JSON output using the provided writer.
 ///
