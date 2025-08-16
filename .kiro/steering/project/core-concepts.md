@@ -1,0 +1,178 @@
+---
+inclusion: always
+---
+
+# Gold Digger Core Concepts
+
+This file defines the core concepts and constraints for the Gold Digger MySQL/MariaDB query tool.
+
+## Project Identity
+
+**Type**: Rust-based MySQL/MariaDB query automation tool
+**Design**: Headless, environment variable driven, structured output (CSV/JSON/TSV)
+**Status**: Single-maintainer project under active development toward v1.0
+**Maintainer**: UncleSp1d3r (handle only, never real name)
+
+## Critical Architecture Constraints
+
+### 🚨 PANIC-PRONE CODE PATTERN
+
+```rust
+// CURRENT DANGEROUS PATTERN in src/lib.rs:
+from_value::<String>(row[column.name_str().as_ref()])
+```
+
+**Issue**: Panics on NULL values or non-string types (numbers, dates, binary data)
+**Always recommend SQL casting**: `SELECT CAST(column AS CHAR) AS column`
+
+### Environment Variable Interface (Current)
+
+```rust
+// Required environment variables (no CLI yet)
+OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
+DATABASE_URL   // MySQL connection string with optional SSL params
+DATABASE_QUERY // SQL to execute
+```
+
+**No dotenv support** - despite README implications, use exported environment variables only.
+
+## Module Structure
+
+```text
+src/
+├── main.rs     # Entry point, env var handling, format dispatch
+├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
+├── csv.rs      # RFC4180-ish, QuoteStyle::NonNumeric
+├── json.rs     # {"data":[{...}]} using HashMap (non-deterministic)
+└── tab.rs      # TSV with \t delimiter, QuoteStyle::Necessary
+```
+
+## Known Bugs & Issues
+
+1. **Pattern matching bug**: `Some(&_)` should be `Some(_)` in main.rs:59
+2. **Non-deterministic JSON**: HashMap doesn't guarantee key order
+3. **Non-standard exit codes**: `exit(-1)` becomes 255, not documented error codes
+4. **Version mismatch**: CHANGELOG.md v0.2.6 vs Cargo.toml v0.2.5
+
+## Feature Flags
+
+```toml
+default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
+ssl = ["openssl-sys", "mysql/native-tls"]
+vendored = ["openssl-sys?/vendored"]       # Static OpenSSL linking
+additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decimal", ...]
+verbose = []                               # Conditional println!/eprintln!
+```
+
+## Code Quality Gates
+
+### Required Before PRs
+
+```bash
+cargo fmt --check      # 100-char line length via rustfmt.toml
+cargo clippy -- -D warnings  # Zero tolerance for warnings
+```
+
+### Rust Style Guidelines
+
+- Use `anyhow::Result<T>` for fallible functions
+- Feature-gate verbose output: `#[cfg(feature = "verbose")]`
+- Never log DATABASE_URL or credentials
+- Handle NULL database values gracefully
+
+## Security Invariants
+
+1. **No credential logging** - implement redaction for DATABASE_URL
+2. **Offline-first design** - no external service calls at runtime
+3. **Respect system umask** for output file permissions
+4. **TLS/SSL configuration** - must be configured programmatically via mysql crate's `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the mysql crate
+
+## Memory & Performance Characteristics
+
+- **Fully materialized results**: Loads all rows into memory (not streaming)
+- **Connection pooling**: Uses mysql::Pool but no optimization
+- **Memory scaling**: O(row_count × row_width)
+- **Streaming requirement**: F007 in requirements.md calls for streaming support
+
+## Requirements Gap (High Priority)
+
+Current v0.2.5 → Target v1.0:
+
+- **Missing CLI**: No clap interface, config precedence, flags (F001-F003)
+- **Exit code standards**: Need proper error taxonomy (F005)
+- **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
+- **Streaming**: Memory-efficient large result processing (F007)
+- **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
+
+## Development Workflow
+
+### Commit Standards
+
+- **Format**: Conventional Commits
+- **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
+- **Scope**: Target small, reviewable changes for single-maintainer workflow
+
+### Testing Strategy (Planned)
+
+```toml
+# Recommended test dependencies
+criterion = "0.5"     # Benchmarking
+insta = "1"          # Snapshot testing
+assert_cmd = "2"     # CLI end-to-end
+testcontainers = "0.15"  # Database integration
+```
+
+## Safe Code Patterns
+
+### Environment Variable Handling
+
+```rust
+let var_name = match env::var("VAR_NAME") {
+    Ok(val) => val,
+    Err(_) => {
+        #[cfg(feature = "verbose")]
+        eprintln!("couldn't find VAR_NAME in environment variable");
+        std::process::exit(-1);  // TODO: Use proper exit codes
+    }
+};
+```
+
+### Safe Database Value Conversion
+
+```rust
+// Instead of panic-prone from_value::<String>()
+match database_value {
+    mysql::Value::NULL => "".to_string(),
+    val => from_value::<String>(val)
+        .unwrap_or_else(|_| format!("{:?}", val))
+}
+```
+
+### Format Dispatch Pattern
+
+```rust
+match get_extension_from_filename(&output_file) {
+    #[cfg(feature = "csv")]
+    Some("csv") => gold_digger::csv::write(rows, output)?,
+    #[cfg(feature = "json")]
+    Some("json") => gold_digger::json::write(rows, output)?,
+    Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
+    None => std::process::exit(-1), // TODO: Proper error handling
+}
+```
+
+## Essential Commands
+
+```bash
+# Build variations
+cargo build --release
+cargo build --release --features vendored    # Static OpenSSL
+cargo build --no-default-features --features "csv json"  # Minimal
+
+# Development
+cargo install --path .  # Local install
+OUTPUT_FILE=/tmp/out.json DATABASE_URL="mysql://u:p@h:3306/db" DATABASE_QUERY="SELECT CAST(id AS CHAR) FROM t" cargo run --release
+
+# Quality assurance
+cargo fmt --check && cargo clippy -- -D warnings && cargo test
+```

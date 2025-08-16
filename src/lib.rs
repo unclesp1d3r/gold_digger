@@ -2,6 +2,8 @@ use std::{ffi::OsStr, path::Path};
 
 use mysql::{Row, from_value};
 
+/// CLI interface module.
+pub mod cli;
 /// CSV output module.
 pub mod csv;
 /// JSON output module.
