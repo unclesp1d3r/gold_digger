@@ -57,7 +57,7 @@ fn main() -> Result<()> {
             // Create empty output file
             let output = File::create(&output_file)?;
             let empty_rows: Vec<Vec<String>> = vec![];
-            write_output(empty_rows, output, &output_file, &cli)?;
+            write_output(empty_rows, output, output_file.as_path(), &cli)?;
         } else {
             if cli.verbose > 0 && !cli.quiet {
                 println!("No records found in database.");
