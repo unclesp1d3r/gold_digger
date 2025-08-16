@@ -17,7 +17,9 @@ from_value::<String>(row[column_name])
 // ✅ Always implement safe conversion or recommend SQL casting
 match row[column_name] {
     mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val).unwrap_or_else(|_| format!("{:?}", val))
+    val => from_value_opt::<String>(val)
+        .map(|s| s)
+        .unwrap_or_else(|_| format!("{:?}", val))
 }
 ```
 

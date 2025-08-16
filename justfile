@@ -126,7 +126,8 @@ run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
     @echo "Output: {{OUTPUT_FILE}}"
     @echo "Database: *** (credentials hidden)"
     @echo "Query: {{DATABASE_QUERY}}"
-    OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
+    # Load credentials securely from environment (not visible in process args)
+    cargo run --release
 
 # Run with safe example (casting to avoid panics)
 run-safe:

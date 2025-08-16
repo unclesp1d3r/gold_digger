@@ -4,7 +4,7 @@
     "description": "Automatically runs `just format` when any file is saved to ensure consistent code formatting across the project",
     "version": "1",
     "when": {
-        "type": "fileEdited",
+        "type": "fileSaved",
         "patterns": [
             "**/*.md",
             "**/*.py",

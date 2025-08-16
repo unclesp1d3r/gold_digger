@@ -50,8 +50,8 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 **Output Writers:**
 
-- `csv.rs`: RFC 4180-ish with `QuoteStyle::NonNumeric`
-- `json.rs`: `{"data": [{...}]}` using HashMap (non-deterministic)
+- `csv.rs`: RFC 4180-ish with `QuoteStyle::Necessary`
+- `json.rs`: `{"data": [{...}]}` using BTreeMap (deterministic ordering)
 - `tab.rs`: TSV with `\t` delimiter and `QuoteStyle::Necessary`
 
 ## Development Commands
@@ -87,7 +87,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 ### High Priority Missing Features
 
-- **F001-F003:** No CLI interface (clap), config precedence, `--query-file`/`--format` flags
+- **F001-F003:** CLI interface exists (clap-based); finalize CLI flag precedence and documented flags
 - **F005:** Non-standard exit codes (should be 0=success, 1=no rows, 2=config error, etc.)
 - **F014:** Type conversion panics on NULL/non-string values
 - **Extension dispatch bug fix**
@@ -96,7 +96,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 - **F007:** Streaming output (currently loads all rows into memory)
 - **F008:** Structured logging with credential redaction
-- **F010:** Deterministic JSON output, pretty-print option
+- **F010:** JSON output uses BTreeMap for deterministic ordering, pretty-print option
 
 ## Code Quality Standards
 

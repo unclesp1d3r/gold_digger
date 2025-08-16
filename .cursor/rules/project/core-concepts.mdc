@@ -136,7 +136,7 @@ let var_name = match env::var("VAR_NAME") {
     Err(_) => {
         #[cfg(feature = "verbose")]
         eprintln!("couldn't find VAR_NAME in environment variable");
-        std::process::exit(-1);  // TODO: Use proper exit codes
+        std::process::exit(2);  // Configuration error
     }
 };
 ```
@@ -152,10 +152,7 @@ let var_name = match env::var("VAR_NAME") {
 match database_value {
     mysql::Value::NULL => "".to_string(),
     val => from_value_opt::<String>(val)
-        .map_or_else(
-            || format!("{:?}", val),
-            |s| s
-        )
+        .unwrap_or_else(|_| format!("{:?}", val))
 }
 ```
 

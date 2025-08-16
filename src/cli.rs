@@ -12,7 +12,7 @@ pub struct Cli {
     pub db_url: Option<String>,
 
     /// SQL query string
-    #[arg(long, conflicts_with = "query_file")]
+    #[arg(short = 'q', long, conflicts_with = "query_file")]
     pub query: Option<String>,
 
     /// File containing SQL query
