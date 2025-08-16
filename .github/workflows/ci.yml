@@ -34,6 +34,7 @@ jobs:
           vcpkg install openssl:x64-windows-static
           echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $GITHUB_ENV
           echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "VCPKG_ROOT=C:\vcpkg" >> $GITHUB_ENV
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -50,6 +51,11 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: nextest
+
+      # Build dependencies first to avoid compilation issues during linting
+      - name: Build project dependencies
+        shell: bash
+        run: cargo check --all-targets --all-features
 
       - name: Install pre-commit
         shell: bash
