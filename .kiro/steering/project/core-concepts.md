@@ -42,7 +42,7 @@ DATABASE_QUERY // SQL to execute
 src/
 ├── main.rs     # Entry point, env var handling, format dispatch
 ├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
-├── csv.rs      # RFC4180-ish, QuoteStyle::NonNumeric
+├── csv.rs      # RFC4180-ish, QuoteStyle::Necessary
 ├── json.rs     # {"data":[{...}]} using HashMap (non-deterministic)
 └── tab.rs      # TSV with \t delimiter, QuoteStyle::Necessary
 ```
@@ -75,10 +75,10 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 ### Rust Style Guidelines
 
--   Use `anyhow::Result<T>` for fallible functions
--   Feature-gate verbose output: `#[cfg(feature = "verbose")]`
--   Never log DATABASE_URL or credentials
--   Handle NULL database values gracefully
+- Use `anyhow::Result<T>` for fallible functions
+- Feature-gate verbose output: `#[cfg(feature = "verbose")]`
+- Never log DATABASE_URL or credentials
+- Handle NULL database values gracefully
 
 ## Security Invariants
 
@@ -89,37 +89,37 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 ## Memory & Performance Characteristics
 
--   **Fully materialized results**: Loads all rows into memory (not streaming)
--   **Connection pooling**: Uses mysql::Pool but no optimization
--   **Memory scaling**: O(row_count × row_width)
--   **Streaming requirement**: F007 in requirements.md calls for streaming support
+- **Fully materialized results**: Loads all rows into memory (not streaming)
+- **Connection pooling**: Uses mysql::Pool but no optimization
+- **Memory scaling**: O(row_count × row_width)
+- **Streaming requirement**: F007 in requirements.md calls for streaming support
 
 ## Requirements Gap (High Priority)
 
 Current v0.2.5 → Target v1.0:
 
--   **Missing CLI**: No clap interface, config precedence, flags (F001-F003)
--   **Exit code standards**: Need proper error taxonomy (F005)
--   **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
--   **Streaming**: Memory-efficient large result processing (F007)
--   **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
+- **CLI present**: Clap-based interface exists; finalize config precedence and UX polish (F001–F003)
+- **Exit code standards**: Need proper error taxonomy (F005)
+- **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
+- **Streaming**: Memory-efficient large result processing (F007)
+- **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
 
 ## Development Workflow
 
 ### Commit Standards
 
--   **Format**: Conventional Commits
--   **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
--   **Scope**: Target small, reviewable changes for single-maintainer workflow
+- **Format**: Conventional Commits
+- **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
+- **Scope**: Target small, reviewable changes for single-maintainer workflow
 
 ### Testing Strategy (Planned)
 
 ```toml
 # Recommended test dependencies
-criterion = "0.5"     # Benchmarking
-insta = "1"          # Snapshot testing
-assert_cmd = "2"     # CLI end-to-end
-testcontainers = "0.15"  # Database integration
+criterion = "0.5"       # Benchmarking
+insta = "1"             # Snapshot testing
+assert_cmd = "2"        # CLI end-to-end
+testcontainers = "0.15" # Database integration
 ```
 
 ## Safe Code Patterns
@@ -143,8 +143,8 @@ let var_name = match env::var("VAR_NAME") {
 // Instead of panic-prone from_value::<String>()
 match database_value {
     mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val)
-        .unwrap_or_else(|_| format!("{:?}", val))
+    val => from_value_opt::<String>(val)
+        .unwrap_or_else(|| format!("{:?}", val))
 }
 ```
 

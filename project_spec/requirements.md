@@ -22,6 +22,7 @@
   Gold Digger is a Rust-based command-line tool that executes MySQL and MariaDB database queries and exports results to structured data files. The tool is designed for headless operation, making it ideal for automated database reporting, monitoring, and data extraction workflows.
 
 - **Project Goals and Objectives**
+
   - Provide an offline-first, zero-dependency binary for reliable database query automation
   - Support deterministic output formats (CSV, JSON, TSV) for downstream processing
   - Enable easy integration with development workflows, CI/CD pipelines, and automation systems
@@ -30,6 +31,7 @@
   - Ensure cross-platform compatibility for diverse development and deployment environments
 
 - **Target Audience and Stakeholders**
+
   - **Developers**: Database query automation for development workflows and testing
   - **Database Administrators (DBAs)**: Automated reporting and data extraction
   - **Automation Engineers**: CI/CD pipeline data validation and automated data processing
@@ -42,6 +44,7 @@
 
 - **Project Boundaries and Limitations**
   Gold Digger will *not* provide:
+
   - Interactive database client functionality
   - Query composition or SQL generation features
   - Schema migration or database administration tools
@@ -52,6 +55,7 @@
 ### Scope Definition
 
 - **In-scope Features and Functionality**
+
   - MySQL/MariaDB query execution with connection pooling
   - CSV, JSON, and tab-delimited (TSV) output formats
   - Environment variable and CLI flag configuration for automation workflows
@@ -63,6 +67,7 @@
   - Pipeline-friendly design with standardized exit codes and output formats
 
 - **Out-of-scope Items**
+
   - Interactive terminal user interface (TUI)
   - Multi-database engine support (PostgreSQL, SQLite, etc.)
   - Query planning, optimization, or performance analysis
@@ -74,6 +79,7 @@
   - Orchestration or workflow management (designed to be orchestrated by external tools)
 
 - **Success Criteria and Acceptance Criteria**
+
   - **Functional**: Tool successfully executes queries and produces correct output formats
   - **Performance**: Startup time under 250ms; memory usage scales with row width, not row count
   - **Security**: No telemetry; credentials never logged; all CI security gates pass
@@ -83,6 +89,7 @@
   - **Integration**: Successfully integrates with common data processing tools and pipeline frameworks
 
 - **Timeline and Milestones**
+
   - **v0.3.0** — CLI and Config Parity
   - **v0.4.0** — Streaming and Pipeline Compliance
   - **v1.0.0** — GA Hardening
@@ -94,18 +101,21 @@
 
 - **Previous Work and Dependencies**
   Current implementation (v0.2.5) provides basic functionality with:
+
   - Environment variable configuration (DATABASE_URL, DATABASE_QUERY, OUTPUT_FILE)
   - Modular output format writers (CSV, JSON, TSV)
   - Rust-based implementation using mysql crate with minimal features
   - GitHub Actions CI/CD with semantic versioning
 
 - **Assumptions and Constraints**
+
   - Developers and automation engineers provide trusted SQL queries (no query sanitization)
   - Database connectivity and credentials managed externally
   - Results fit within reasonable memory constraints or use streaming
   - No telemetry or external service dependencies in runtime artifacts
 
 - **Risk Assessment Overview**
+
   - **SQL Execution Risk**: Developer-provided queries trusted; no injection protection needed
   - **Memory Usage Risk**: Large result sets require streaming implementation
   - **Credential Exposure Risk**: Database URLs must never be logged or displayed
@@ -320,11 +330,11 @@ DATABASE_QUERY=SELECT user_id, action, timestamp FROM audit_log WHERE DATE(times
 
 ### Feature Priority Matrix
 
-| Priority | Features | Rationale |
-|----------|----------|-----------|
-| **High** | F001-F006, F011, F012 | Core operation, security, config precedence, help/version |
+| Priority   | Features                     | Rationale                                                                    |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| **High**   | F001-F006, F011, F012        | Core operation, security, config precedence, help/version                    |
 | **Medium** | F007, F008, F009, F010, F013 | Streaming, logging, shell completion, JSON formatting, empty result handling |
-| **Low** | Future enhancements | NDJSON output, Parquet format, query timing statistics |
+| **Low**    | Future enhancements          | NDJSON output, Parquet format, query timing statistics                       |
 
 ### Performance Requirements
 
@@ -394,7 +404,10 @@ SUBCOMMANDS:
 #### Production Dependencies
 
 ```toml
-mysql = { version = "26.0.1", features = ["minimal", "native-tls"], default-features = false }
+mysql = { version = "26.0.1", features = [
+  "minimal",
+  "native-tls",
+], default-features = false }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 csv = "1.3"
@@ -412,7 +425,7 @@ insta = "1"
 rstest = "0.18"
 assert_cmd = "2"
 tempfile = "3"
-proptest = "1" # optional
+proptest = "1"                                               # optional
 ```
 
 ### Build Tools and Automation
@@ -468,10 +481,10 @@ cargo-dist-version = "0.8.0"
 ci = ["github"]
 installers = ["shell", "powershell"]
 targets = [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc"
+  "x86_64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
 ]
 ```
 
@@ -588,13 +601,13 @@ pub enum GoldDiggerError {
 
 ## Development and Automation Standards
 
-| Principle | Implementation |
-|-----------|----------------|
-| **Offline-first** | No telemetry; self-contained binaries; development environment ready |
-| **Developer-focused** | CLI-first interface; minimal flags; clear exit codes; comprehensive error messages |
-| **Transparent outputs** | Documented CSV/JSON/TSV schemas; deterministic formatting |
-| **Ethical distribution** | No tracking; complete SBOM/signatures/provenance attached |
-| **Sustainable design** | Modular architecture; comprehensive tests; maintainable codebase |
+| Principle                | Implementation                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| **Offline-first**        | No telemetry; self-contained binaries; development environment ready               |
+| **Developer-focused**    | CLI-first interface; minimal flags; clear exit codes; comprehensive error messages |
+| **Transparent outputs**  | Documented CSV/JSON/TSV schemas; deterministic formatting                          |
+| **Ethical distribution** | No tracking; complete SBOM/signatures/provenance attached                          |
+| **Sustainable design**   | Modular architecture; comprehensive tests; maintainable codebase                   |
 
 ### Pipeline Compliance
 
@@ -618,13 +631,13 @@ pub enum GoldDiggerError {
 
 ## Document Metadata
 
-| Field | Value |
-|-------|-------|
-| **Version** | 1.0 |
-| **Created Date** | 2025-01-15 |
-| **Last Modified** | 2025-01-15 |
-| **Author(s)** | UncleSp1d3r |
-| **Approval Status** | Draft |
+| Field               | Value       |
+| ------------------- | ----------- |
+| **Version**         | 1.0         |
+| **Created Date**    | 2025-01-15  |
+| **Last Modified**   | 2025-08-16  |
+| **Author(s)**       | UncleSp1d3r |
+| **Approval Status** | Draft       |
 
 ---
 

@@ -20,9 +20,9 @@ src/
 
 ### Module Responsibilities
 
--   **main.rs**: Configuration resolution (CLI > env vars), database connection, format dispatch
--   **lib.rs**: Exposes public modules, contains shared utilities like `rows_to_strings()`
--   **Format modules**: Each has a `write<W: Write>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>` function
+- **main.rs**: Configuration resolution (CLI > env vars), database connection, format dispatch
+- **lib.rs**: Exposes public modules, contains shared utilities like `rows_to_strings()`
+- **Format modules**: Each has a `write<W: Write>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>` function
 
 ## Configuration Patterns
 
@@ -42,9 +42,9 @@ OUTPUT_FILE      // Determines format by extension (.csv/.json/fallback to TSV)
 
 ### CLI Integration
 
--   Use `clap` with `derive` and `env` features
--   Support `--db-url`, `--query`, `--query-file`, `--output`, `--format`
--   Include completion generation and config dumping subcommands
+- Use `clap` with `derive` and `env` features
+- Support `--db-url`, `--query`, `--query-file`, `--output`, `--format`
+- Include completion generation and config dumping subcommands
 
 ## Feature Flag Architecture
 
@@ -95,7 +95,12 @@ fn resolve_config_value(cli: &Cli) -> Result<String> {
 ### Connection Management
 
 ```rust
-let opts = Opts::from_url(database_url).unwrap();
+use mysql::prelude::Queryable;
+use anyhow::Result;
+
+// Fallible database connection setup
+let opts = Opts::from_url(database_url)
+    .map_err(|e| anyhow::anyhow!("Invalid database URL: {}", e))?;
 let pool = Pool::new(opts)?;
 let mut conn = pool.get_conn()?;
 let result: Vec<mysql::Row> = conn.query(database_query)?;
@@ -104,15 +109,32 @@ let result: Vec<mysql::Row> = conn.query(database_query)?;
 ### Safe Value Conversion
 
 ```rust
-// AVOID: Panic-prone pattern
-from_value::<String>(row[column.name_str().as_ref()])
+// AVOID: Panic-prone pattern with unsafe indexed access
+let data_row: Vec<String> = row
+    .columns_ref()
+    .to_vec()
+    .iter()
+    .map(|column| from_value::<String>(row[column.name_str().as_ref()].to_owned()))
+    .collect::<Vec<String>>();
 
-// PREFER: Safe conversion with NULL handling
-match database_value {
-    mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val)
-        .unwrap_or_else(|_| format!("{:?}", val))
-}
+// PREFER: Safe iteration with proper NULL and conversion error handling
+let data_row: Vec<String> = row
+    .as_ref()
+    .iter()
+    .map(|value| match value {
+        mysql::Value::NULL => "".to_string(),
+        val => from_value_opt::<String>(val.clone())
+            .unwrap_or_else(|_| format!("{:?}", val))
+    })
+    .collect::<Vec<String>>();
+
+// ALTERNATIVE: When column types are known, use get_opt for type safety
+let data_row: Vec<String> = (0..row.len())
+    .map(|i| match row.get_opt::<String, _>(i) {
+        Some(Ok(val)) => val,
+        _ => "".to_string()
+    })
+    .collect::<Vec<String>>();
 ```
 
 ## Output Format Conventions
@@ -137,9 +159,9 @@ OutputFormat::from_extension(output_file)
 
 ### Format-Specific Settings
 
--   **CSV**: `QuoteStyle::NonNumeric` (RFC4180-compliant, CRLF line endings)
--   **JSON**: `{"data": [...]}` structure using HashMap
--   **TSV**: Tab delimiter with `QuoteStyle::Necessary`
+- **CSV**: `QuoteStyle::NonNumeric` (RFC4180-compliant, CRLF line endings)
+- **JSON**: `{"data": [...]}` structure using HashMap
+- **TSV**: Tab delimiter with `QuoteStyle::Necessary`
 
 ## Import Organization
 
@@ -185,16 +207,16 @@ if cli.verbose > 0 && !cli.quiet {
 
 ### Configuration Files
 
--   `Cargo.toml`: Feature flags, dependencies, release profile optimization
--   `rustfmt.toml`: 100-character line limit
--   `deny.toml`: Security and license compliance
--   `rust-toolchain.toml`: Rust version specification
+- `Cargo.toml`: Feature flags, dependencies, release profile optimization
+- `rustfmt.toml`: 100-character line limit
+- `deny.toml`: Security and license compliance
+- `rust-toolchain.toml`: Rust version specification
 
 ### Development Files
 
--   `justfile`: Build automation and common tasks
--   `.pre-commit-config.yaml`: Code quality gates
--   `CHANGELOG.md`: Version history (conventional commits)
+- `justfile`: Build automation and common tasks
+- `.pre-commit-config.yaml`: Code quality gates
+- `CHANGELOG.md`: Version history (conventional commits)
 
 ## Code Quality Standards
 
@@ -208,6 +230,6 @@ cargo test                  # Test execution
 
 ### Performance Optimization
 
--   Release profile: LTO enabled, size optimization (`opt-level = 'z'`)
--   Strip symbols and disable debug assertions in release builds
--   Use `panic = "abort"` for smaller binaries
+- Release profile: LTO enabled, size optimization (`opt-level = 'z'`)
+- Strip symbols and disable debug assertions in release builds
+- Use `panic = "abort"` for smaller binaries

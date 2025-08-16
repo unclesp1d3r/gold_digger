@@ -23,11 +23,12 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 
 #### Acceptance Criteria
 
-1. WHEN code is submitted THEN the CI pipeline SHALL validate pre-commit hooks using pre-commit/action@v3.0.0
+1. WHEN code is submitted THEN the CI pipeline SHALL validate pre-commit hooks using pre-commit with OS-aware caching (e.g., actions/cache) and without sharing caches across operating systems
 2. WHEN code formatting violations exist THEN the CI pipeline SHALL fail with `just fmt-check` and block the merge
 3. WHEN clippy warnings are present THEN the CI pipeline SHALL fail with `just lint` using zero-tolerance policy
 4. WHEN code quality checks pass THEN the CI pipeline SHALL proceed to testing phases
 5. IF quality gates fail THEN the pipeline SHALL NOT use continue-on-error and SHALL block progression
+6. Pre-commit caches SHALL include runner-specific keys (e.g., `${{ runner.os }}`) to prevent cross-platform cache pollution
 
 ### Requirement 3
 

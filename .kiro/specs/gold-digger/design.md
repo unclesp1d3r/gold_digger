@@ -6,11 +6,11 @@ Gold Digger is architected as a single-purpose CLI tool that transforms MySQL/Ma
 
 ### Design Principles
 
--   **Offline-first**: No external service dependencies at runtime
--   **Fail-fast**: Clear error messages with standardized exit codes
--   **Memory-efficient**: Streaming processing for large result sets
--   **Security-focused**: Credential protection and safe type handling
--   **Pipeline-friendly**: Deterministic output formats and exit codes
+- **Offline-first**: No external service dependencies at runtime
+- **Fail-fast**: Clear error messages with standardized exit codes
+- **Memory-efficient**: Streaming processing for large result sets
+- **Security-focused**: Credential protection and safe type handling
+- **Pipeline-friendly**: Deterministic output formats and exit codes
 
 ## Architecture
 
@@ -136,7 +136,7 @@ impl Config {
 ### Database Connection Module
 
 ```rust
-use mysql::{Pool, PooledConn, OptsBuilder, SslOpts};
+use mysql::{OptsBuilder, Pool, PooledConn, SslOpts};
 
 pub struct DatabaseConnector {
     pool: Pool,
@@ -144,15 +144,16 @@ pub struct DatabaseConnector {
 
 impl DatabaseConnector {
     pub fn new(database_url: &str) -> Result<Self> {
-        let opts = OptsBuilder::from_opts(Opts::from_url(database_url)?)
-            .ssl_opts(SslOpts::default());
+        let opts =
+            OptsBuilder::from_opts(Opts::from_url(database_url)?).ssl_opts(SslOpts::default());
 
         let pool = Pool::new(opts)?;
         Ok(Self { pool })
     }
 
     pub fn get_connection(&self) -> Result<PooledConn> {
-        self.pool.get_conn()
+        self.pool
+            .get_conn()
             .map_err(|e| GoldDiggerError::Connection(e))
     }
 }
@@ -161,7 +162,7 @@ impl DatabaseConnector {
 ### Query Execution and Streaming
 
 ```rust
-use mysql::{Row, QueryResult};
+use mysql::{QueryResult, Row};
 
 pub struct QueryExecutor {
     conn: PooledConn,
@@ -169,7 +170,9 @@ pub struct QueryExecutor {
 
 impl QueryExecutor {
     pub fn execute_streaming(&mut self, query: &str) -> Result<RowStream> {
-        let result = self.conn.query_iter(query)
+        let result = self
+            .conn
+            .query_iter(query)
             .map_err(|e| GoldDiggerError::Query(e))?;
 
         Ok(RowStream::new(result))
@@ -193,7 +196,7 @@ impl Iterator for RowStream {
 ### Type Transformation System
 
 ```rust
-use mysql::{Value, from_value};
+use mysql::{from_value, Value};
 
 pub struct TypeTransformer;
 
@@ -202,7 +205,8 @@ impl TypeTransformer {
         let mut values = Vec::with_capacity(columns.len());
 
         for column in columns {
-            let value = row.get_opt(column.name_str().as_ref())
+            let value = row
+                .get_opt(column.name_str().as_ref())
                 .unwrap_or(Some(Value::NULL));
 
             let string_value = match value {
@@ -220,20 +224,27 @@ impl TypeTransformer {
     fn value_to_string(value: Value) -> Result<String> {
         match value {
             Value::NULL => Ok(String::new()),
-            Value::Bytes(bytes) => String::from_utf8(bytes)
-                .map_err(|_| GoldDiggerError::TypeConversion),
+            Value::Bytes(bytes) => {
+                String::from_utf8(bytes).map_err(|_| GoldDiggerError::TypeConversion)
+            },
             Value::Int(i) => Ok(i.to_string()),
             Value::UInt(u) => Ok(u.to_string()),
             Value::Float(f) => Ok(f.to_string()),
             Value::Double(d) => Ok(d.to_string()),
-            Value::Date(year, month, day, hour, minute, second, microsecond) => {
-                Ok(format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:06}",
-                    year, month, day, hour, minute, second, microsecond))
-            },
+            Value::Date(year, month, day, hour, minute, second, microsecond) => Ok(format!(
+                "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:06}",
+                year, month, day, hour, minute, second, microsecond
+            )),
             Value::Time(neg, days, hours, minutes, seconds, microseconds) => {
                 let sign = if neg { "-" } else { "" };
-                Ok(format!("{}{}:{:02}:{:02}:{:02}.{:06}",
-                    sign, days * 24 + hours as u32, minutes, seconds, microseconds))
+                Ok(format!(
+                    "{}{}:{:02}:{:02}:{:02}.{:06}",
+                    sign,
+                    days * 24 + hours as u32,
+                    minutes,
+                    seconds,
+                    microseconds
+                ))
             },
         }
     }
@@ -399,66 +410,66 @@ impl fmt::Display for RedactedUrl {
 
 ### Unit Testing
 
--   **Type Transformer**: Test safe conversion of all MySQL types including NULL values
--   **Format Writers**: Validate RFC compliance and deterministic output
--   **Configuration Resolver**: Test precedence rules and validation logic
--   **Error Handling**: Verify correct exit codes for all error conditions
+- **Type Transformer**: Test safe conversion of all MySQL types including NULL values
+- **Format Writers**: Validate RFC compliance and deterministic output
+- **Configuration Resolver**: Test precedence rules and validation logic
+- **Error Handling**: Verify correct exit codes for all error conditions
 
 ### Integration Testing
 
--   **Database Connectivity**: Use testcontainers for MySQL/MariaDB testing
--   **End-to-End CLI**: Use assert_cmd for complete workflow testing
--   **Format Validation**: Use insta for snapshot testing of output formats
+- **Database Connectivity**: Use testcontainers for MySQL/MariaDB testing
+- **End-to-End CLI**: Use assert_cmd for complete workflow testing
+- **Format Validation**: Use insta for snapshot testing of output formats
 
 ### Property Testing
 
--   **Type Safety**: Use proptest to verify no panics on arbitrary MySQL values
--   **Output Determinism**: Verify consistent output across multiple runs
+- **Type Safety**: Use proptest to verify no panics on arbitrary MySQL values
+- **Output Determinism**: Verify consistent output across multiple runs
 
 ### Performance Testing
 
--   **Memory Usage**: Benchmark streaming vs. materialized approaches
--   **Startup Time**: Ensure CLI initialization under 250ms
--   **Large Result Sets**: Test with multi-GB result sets
+- **Memory Usage**: Benchmark streaming vs. materialized approaches
+- **Startup Time**: Ensure CLI initialization under 250ms
+- **Large Result Sets**: Test with multi-GB result sets
 
 ## Security Considerations
 
 ### Credential Handling
 
--   Never log DATABASE_URL contents
--   Redact connection strings in error messages
--   Support secure environment variable passing
--   No credential persistence or caching
+- Never log DATABASE_URL contents
+- Redact connection strings in error messages
+- Support secure environment variable passing
+- No credential persistence or caching
 
 ### Input Validation
 
--   Validate file paths for directory traversal
--   Sanitize error messages to prevent information disclosure
--   Proper handling of special characters in output formats
+- Validate file paths for directory traversal
+- Sanitize error messages to prevent information disclosure
+- Proper handling of special characters in output formats
 
 ### Memory Safety
 
--   Use Rust's ownership system to prevent buffer overflows
--   Avoid unsafe code blocks
--   Proper resource cleanup on error conditions
+- Use Rust's ownership system to prevent buffer overflows
+- Avoid unsafe code blocks
+- Proper resource cleanup on error conditions
 
 ## Performance Characteristics
 
 ### Memory Usage
 
--   **Streaming Mode**: O(row_width) memory usage
--   **Connection Pooling**: Reuse connections for multiple queries
--   **Buffer Management**: Configurable write buffer sizes
+- **Streaming Mode**: O(row_width) memory usage
+- **Connection Pooling**: Reuse connections for multiple queries
+- **Buffer Management**: Configurable write buffer sizes
 
 ### Startup Performance
 
--   **Lazy Loading**: Initialize components only when needed
--   **Minimal Dependencies**: Reduce binary size and startup time
--   **Efficient Argument Parsing**: Use clap's derive macros for speed
+- **Lazy Loading**: Initialize components only when needed
+- **Minimal Dependencies**: Reduce binary size and startup time
+- **Efficient Argument Parsing**: Use clap's derive macros for speed
 
 ### Scalability Limits
 
--   **File Size**: Support up to 2GB output files (filesystem dependent)
--   **Row Count**: No theoretical limit with streaming
--   **Column Count**: Limited by MySQL protocol (4096 columns)
--   **Connection Timeout**: Configurable via database URL parameters
+- **File Size**: Support up to 2GB output files (filesystem dependent)
+- **Row Count**: No theoretical limit with streaming
+- **Column Count**: Limited by MySQL protocol (4096 columns)
+- **Connection Timeout**: Configurable via database URL parameters

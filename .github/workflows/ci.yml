@@ -34,11 +34,14 @@ jobs:
       # Windows-specific setup for OpenSSL (needed by reqwest/native-tls)
       - name: Setup Windows dependencies
         if: runner.os == 'Windows'
+        shell: bash
         run: |
           vcpkg install openssl:x64-windows-static
-          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $GITHUB_ENV
-          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
-          echo "VCPKG_ROOT=C:\vcpkg" >> $GITHUB_ENV
+          {
+            printf 'OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static\n'
+            printf 'OPENSSL_STATIC=1\n'
+            printf 'VCPKG_ROOT=C:\vcpkg\n'
+          } >> "$GITHUB_ENV"
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -62,17 +65,10 @@ jobs:
         run: cargo check --all-targets --all-features
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
+          cache: pip
 
       - name: Install pre-commit
         shell: bash
@@ -80,7 +76,7 @@ jobs:
 
       - name: Create pre-commit cache directory
         shell: bash
-        run: mkdir -p $PRE_COMMIT_HOME
+        run: mkdir -p "$PRE_COMMIT_HOME"
 
       - name: Pre-commit cache
         uses: actions/cache@v4
