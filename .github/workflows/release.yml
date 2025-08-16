@@ -31,9 +31,18 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
+            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Provided tag '${INPUT_TAG}' does not match semantic versioning pattern." >&2
+              exit 1
+            fi
             echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
           elif [[ "${REF}" == refs/tags/* ]]; then
-            echo "tag=${REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            TAG="${REF#refs/tags/}"
+            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Extracted tag '${TAG}' does not match semantic versioning pattern." >&2
+              exit 1
+            fi
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           else
             echo "No tag detected; defaulting to v1.0.0 for safety."
             echo "tag=v1.0.0" >> "$GITHUB_OUTPUT"
@@ -89,6 +98,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify dist directory
+        shell: bash
+        run: |
+          if [[ ! -d "dist" || -z $(ls -A "dist") ]]; then
+            echo "Error: dist directory is empty or does not exist." >&2
+            exit 1
+          fi
+
       - name: Compute artifact hashes (SLSA subjects)
         id: hash
         uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
@@ -127,13 +144,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s nullglob
           tmpdir=$(mktemp -d)
           merged="${tmpdir}/merged.json"
           echo "[]" > "${merged}"
 
-          for f in subjects-*.b64; do
+          files=(subjects-*.b64)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No subjects-*.b64 files found; skipping merge." >&2
+            exit 0
+          fi
+
+          for f in "${files[@]}"; do
             base64 -d "$f" > "${tmpdir}/decoded.json"
-            # Each decoded.json is a JSON array; merge arrays
             jq -s 'add' "${merged}" "${tmpdir}/decoded.json" > "${tmpdir}/new.json"
             mv "${tmpdir}/new.json" "${merged}"
           done
@@ -142,9 +165,11 @@ jobs:
           if command -v base64 >/dev/null 2>&1; then
             if base64 --help 2>&1 | grep -q -- "-w"; then
               encoded=$(base64 -w0 "${merged}")
+            elif base64 --help 2>&1 | grep -q -- "-b"; then
+              encoded=$(base64 -b0 "${merged}")
             else
-              # macOS base64 has -b width option
-              encoded=$(base64 "${merged}")
+              echo "Error: base64 does not support disabling wrapping." >&2
+              exit 1
             fi
           else
             echo "base64 not found"; exit 1
