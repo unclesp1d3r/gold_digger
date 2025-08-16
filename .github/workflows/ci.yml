@@ -12,6 +12,7 @@ env:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   ci:
@@ -23,6 +24,9 @@ jobs:
     concurrency:
       group: ci-${{ github.ref }}-${{ matrix.os }}
       cancel-in-progress: true
+
+    env:
+      PRE_COMMIT_HOME: ${{ github.workspace }}/.cache/pre-commit
 
     steps:
       - uses: actions/checkout@v4
@@ -57,19 +61,44 @@ jobs:
         shell: bash
         run: cargo check --all-targets --all-features
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
       - name: Install pre-commit
         shell: bash
         run: python -m pip install pre-commit
 
+      - name: Create pre-commit cache directory
+        shell: bash
+        run: mkdir -p $PRE_COMMIT_HOME
+
       - name: Pre-commit cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pre-commit
+          path: ${{ env.PRE_COMMIT_HOME }}
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Pre-commit validation
         shell: bash
         run: pre-commit run --show-diff-on-failure --color=always --all-files
+
+      - name: Format check
+        shell: bash
+        run: just fmt-check
+
+      - name: Lint check
+        shell: bash
+        run: just clippy
 
       - name: Tests (nextest)
         shell: bash
