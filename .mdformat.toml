@@ -6,7 +6,6 @@ exclude = [
     "**/*.mdc",
     "**/*.tpl.md",
     "**/CHANGELOG.md",
-    "**/*.mdc",
     "rust_migration/index.md",
 ]
 validate = true

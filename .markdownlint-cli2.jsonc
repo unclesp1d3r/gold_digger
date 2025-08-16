@@ -1,6 +1,8 @@
 {
     "config": {
         "default": true,
+        // Line length enforcement: disabled for markdown (MD013: false)
+        // Rust uses 119 characters via rustfmt.toml
         "heading-increment": true,
         "ul-style": {
             "style": "dash"

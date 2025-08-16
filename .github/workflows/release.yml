@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.*'
+      - "v[0-9]+.*"
   workflow_dispatch:
     inputs:
       tag:
@@ -31,21 +31,21 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
-            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
               echo "Error: Provided tag '${INPUT_TAG}' does not match semantic versioning pattern." >&2
               exit 1
             fi
             echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
           elif [[ "${REF}" == refs/tags/* ]]; then
             TAG="${REF#refs/tags/}"
-            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
               echo "Error: Extracted tag '${TAG}' does not match semantic versioning pattern." >&2
               exit 1
             fi
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           else
-            echo "No tag detected; defaulting to v1.0.0 for safety."
-            echo "tag=v1.0.0" >> "$GITHUB_OUTPUT"
+            echo "Error: No valid tag detected. Please provide a valid semantic version tag." >&2
+            exit 1
           fi
 
   create-release:
@@ -87,7 +87,7 @@ jobs:
 
       - name: Build release
         shell: bash
-        run: just build-release
+        run: just build-vendored
 
       - name: Upload binaries to Release
         uses: taiki-e/upload-rust-binary-action@v1
@@ -162,17 +162,13 @@ jobs:
           done
 
           # Re-encode to base64, single line
-          if command -v base64 >/dev/null 2>&1; then
-            if base64 --help 2>&1 | grep -q -- "-w"; then
-              encoded=$(base64 -w0 "${merged}")
-            elif base64 --help 2>&1 | grep -q -- "-b"; then
-              encoded=$(base64 -b0 "${merged}")
-            else
-              echo "Error: base64 does not support disabling wrapping." >&2
-              exit 1
-            fi
+          if command -v openssl >/dev/null 2>&1; then
+            encoded=$(openssl base64 -A < "${merged}")
+          elif command -v base64 >/dev/null 2>&1; then
+            encoded=$(base64 < "${merged}" | tr -d '\n')
           else
-            echo "base64 not found"; exit 1
+            echo "Error: Neither openssl nor base64 found." >&2
+            exit 1
           fi
 
           echo "hashes=${encoded}" >> "$GITHUB_OUTPUT"

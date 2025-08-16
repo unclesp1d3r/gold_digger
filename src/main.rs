@@ -7,12 +7,13 @@ use mysql::Pool;
 use mysql::prelude::Queryable;
 
 use gold_digger::cli::{Cli, Commands, OutputFormat, Shell};
+use gold_digger::exit::{exit_no_rows, exit_success, exit_with_error};
 use gold_digger::rows_to_strings;
 
 /// Main entry point for the gold_digger CLI tool.
 ///
 /// Parses CLI arguments and environment variables, executes a database query, and writes the output in the specified format.
-fn main() -> Result<()> {
+fn main() {
     let cli = Cli::parse();
 
     // Handle subcommands first
@@ -20,30 +21,50 @@ fn main() -> Result<()> {
         match command {
             Commands::Completion { shell } => {
                 generate_completion(shell);
-                return Ok(());
+                return;
             },
         }
     }
 
     // Handle --dump-config flag
     if cli.dump_config {
-        dump_configuration(&cli)?;
-        return Ok(());
+        if let Err(e) = dump_configuration(&cli) {
+            exit_with_error(e, Some("Configuration dump failed"));
+        }
+        return;
     }
 
     // Resolve configuration with precedence: CLI flags > environment variables
-    let database_url = resolve_database_url(&cli)?;
-    let database_query = resolve_database_query(&cli)?;
-    let output_file = resolve_output_file(&cli)?;
+    let database_url = match resolve_database_url(&cli) {
+        Ok(url) => url,
+        Err(e) => exit_with_error(e, Some("Database URL resolution failed")),
+    };
+    let database_query = match resolve_database_query(&cli) {
+        Ok(query) => query,
+        Err(e) => exit_with_error(e, Some("Database query resolution failed")),
+    };
+    let output_file = match resolve_output_file(&cli) {
+        Ok(file) => file,
+        Err(e) => exit_with_error(e, Some("Output file resolution failed")),
+    };
 
-    let pool = Pool::new(database_url.as_str())?;
-    let mut conn = pool.get_conn()?;
+    let pool = match Pool::new(database_url.as_str()) {
+        Ok(pool) => pool,
+        Err(e) => exit_with_error(anyhow::anyhow!("Database connection pool creation failed: {}", e), None),
+    };
+    let mut conn = match pool.get_conn() {
+        Ok(conn) => conn,
+        Err(e) => exit_with_error(anyhow::anyhow!("Database connection failed: {}", e), None),
+    };
 
     if cli.verbose > 0 && !cli.quiet {
         println!("Connecting to database...");
     }
 
-    let result: Vec<mysql::Row> = conn.query(database_query)?;
+    let result: Vec<mysql::Row> = match conn.query(database_query) {
+        Ok(result) => result,
+        Err(e) => exit_with_error(anyhow::anyhow!("Query execution failed: {}", e), None),
+    };
 
     if cli.verbose > 0 && !cli.quiet {
         println!("Outputting {} records to {}.", result.len(), output_file.display());
@@ -55,22 +76,35 @@ fn main() -> Result<()> {
                 println!("No records found in database, but --allow-empty is set.");
             }
             // Create empty output file
-            let output = File::create(&output_file)?;
+            let output = match File::create(&output_file) {
+                Ok(output) => output,
+                Err(e) => exit_with_error(anyhow::anyhow!("Failed to create output file: {}", e), None),
+            };
             let empty_rows: Vec<Vec<String>> = vec![];
-            write_output(empty_rows, output, output_file.as_path(), &cli)?;
+            if let Err(e) = write_output(empty_rows, output, output_file.as_path(), &cli) {
+                exit_with_error(e, Some("Output writing failed"));
+            }
         } else {
             if cli.verbose > 0 && !cli.quiet {
                 println!("No records found in database.");
             }
-            anyhow::bail!("No records found in database.");
+            exit_no_rows(Some("No records found in database"));
         }
     } else {
-        let rows = rows_to_strings(result)?;
-        let output = File::create(&output_file)?;
-        write_output(rows, output, output_file.as_path(), &cli)?;
+        let rows = match rows_to_strings(result) {
+            Ok(rows) => rows,
+            Err(e) => exit_with_error(e, Some("Row conversion failed")),
+        };
+        let output = match File::create(&output_file) {
+            Ok(output) => output,
+            Err(e) => exit_with_error(anyhow::anyhow!("Failed to create output file: {}", e), None),
+        };
+        if let Err(e) = write_output(rows, output, output_file.as_path(), &cli) {
+            exit_with_error(e, Some("Output writing failed"));
+        }
     }
 
-    Ok(())
+    exit_success(None);
 }
 
 /// Resolves the database URL from CLI arguments or environment variables
@@ -80,9 +114,7 @@ fn resolve_database_url(cli: &Cli) -> Result<String> {
     } else if let Ok(url) = env::var("DATABASE_URL") {
         Ok(url)
     } else {
-        anyhow::bail!(
-            "Missing database URL. Provide --db-url or set DATABASE_URL environment variable"
-        );
+        anyhow::bail!("Missing database URL. Provide --db-url or set DATABASE_URL environment variable");
     }
 }
 
@@ -91,9 +123,8 @@ fn resolve_database_query(cli: &Cli) -> Result<String> {
     if let Some(query) = &cli.query {
         Ok(query.clone())
     } else if let Some(query_file) = &cli.query_file {
-        std::fs::read_to_string(query_file).map_err(|e| {
-            anyhow::anyhow!("Failed to read query file {}: {}", query_file.display(), e)
-        })
+        std::fs::read_to_string(query_file)
+            .map_err(|e| anyhow::anyhow!("Failed to read query file {}: {}", query_file.display(), e))
     } else if let Ok(query) = env::var("DATABASE_QUERY") {
         Ok(query)
     } else {
@@ -110,19 +141,12 @@ fn resolve_output_file(cli: &Cli) -> Result<PathBuf> {
     } else if let Ok(output) = env::var("OUTPUT_FILE") {
         Ok(PathBuf::from(output))
     } else {
-        anyhow::bail!(
-            "Missing output file. Provide --output or set OUTPUT_FILE environment variable"
-        );
+        anyhow::bail!("Missing output file. Provide --output or set OUTPUT_FILE environment variable");
     }
 }
 
 /// Writes output in the specified format
-fn write_output(
-    rows: Vec<Vec<String>>,
-    output: File,
-    output_file: &std::path::Path,
-    cli: &Cli,
-) -> Result<()> {
+fn write_output(rows: Vec<Vec<String>>, output: File, output_file: &std::path::Path, cli: &Cli) -> Result<()> {
     let format = if let Some(format) = &cli.format {
         format.clone()
     } else {
@@ -133,14 +157,7 @@ fn write_output(
         #[cfg(feature = "csv")]
         OutputFormat::Csv => gold_digger::csv::write(rows, output)?,
         #[cfg(feature = "json")]
-        OutputFormat::Json => {
-            if cli.pretty {
-                // TODO: Implement pretty JSON formatting in json module
-                gold_digger::json::write(rows, output)?
-            } else {
-                gold_digger::json::write(rows, output)?
-            }
-        },
+        OutputFormat::Json => gold_digger::json::write_with_pretty(rows, output, cli.pretty)?,
         OutputFormat::Tsv => gold_digger::tab::write(rows, output)?,
         #[cfg(not(feature = "csv"))]
         OutputFormat::Csv => anyhow::bail!("CSV support not compiled in"),
@@ -160,9 +177,7 @@ fn generate_completion(shell: Shell) {
         Shell::Bash => generate(CompletionShell::Bash, &mut cmd, bin_name, &mut std::io::stdout()),
         Shell::Zsh => generate(CompletionShell::Zsh, &mut cmd, bin_name, &mut std::io::stdout()),
         Shell::Fish => generate(CompletionShell::Fish, &mut cmd, bin_name, &mut std::io::stdout()),
-        Shell::PowerShell => {
-            generate(CompletionShell::PowerShell, &mut cmd, bin_name, &mut std::io::stdout())
-        },
+        Shell::PowerShell => generate(CompletionShell::PowerShell, &mut cmd, bin_name, &mut std::io::stdout()),
     }
 }
 
