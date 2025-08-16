@@ -1,15 +1,25 @@
 use std::{ffi::OsStr, path::Path};
 
-use mysql::{Row, from_value};
+use anyhow::Result;
+use mysql::{Row, from_value_opt};
 
 /// CLI interface module.
 pub mod cli;
 /// CSV output module.
 pub mod csv;
+/// Exit code helper module.
+pub mod exit;
 /// JSON output module.
 pub mod json;
 /// Tab-delimited output module.
 pub mod tab;
+
+/// Trait for writing data in different formats
+pub trait FormatWriter {
+    fn write_header(&mut self, columns: &[String]) -> Result<()>;
+    fn write_row(&mut self, row: &[String]) -> Result<()>;
+    fn finalize(self) -> Result<()>;
+}
 
 /// Converts MySQL rows to a vector of string vectors, with the first row as headers.
 ///
@@ -37,7 +47,13 @@ pub fn rows_to_strings(rows: Vec<Row>) -> anyhow::Result<Vec<Vec<String>>> {
             .columns_ref()
             .to_vec()
             .iter()
-            .map(|column| from_value::<String>(row[column.name_str().as_ref()].to_owned()))
+            .map(|column| {
+                let val = &row[column.name_str().as_ref()];
+                match val {
+                    mysql::Value::NULL => "".to_string(),
+                    val => from_value_opt::<String>(val.clone()).unwrap_or_else(|_| format!("{:?}", val)),
+                }
+            })
             .collect::<Vec<String>>();
         result_rows.push(data_row);
     }

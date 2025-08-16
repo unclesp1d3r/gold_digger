@@ -46,6 +46,7 @@ json = [  ]
 csv = [  ]
 ssl = [ "openssl-sys", "mysql/native-tls" ]
 additional_mysql_types = [
+  "mysql_common",
   "mysql_common?/bigdecimal",
   "mysql_common?/rust_decimal",
   "mysql_common?/time",

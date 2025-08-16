@@ -30,10 +30,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Windows-specific setup for OpenSSL (needed by reqwest/native-tls)
       - name: Setup Windows dependencies
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.INSTALL_VCPKG_OPENSSL == 'true'
         shell: bash
         run: |
           vcpkg install openssl:x64-windows-static
@@ -67,7 +69,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: "3.9"
           cache: pip
 
       - name: Install pre-commit
@@ -94,7 +96,7 @@ jobs:
 
       - name: Lint check
         shell: bash
-        run: just clippy
+        run: just lint
 
       - name: Tests (nextest)
         shell: bash
@@ -120,10 +122,10 @@ jobs:
           path: lcov.info
 
       - name: Upload to Codecov
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04' && github.repository == 'UncleSp1d3r/gold_digger'
         uses: codecov/codecov-action@v4
         with:
           files: lcov.info
           flags: unit
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           verbose: true

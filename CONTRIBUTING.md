@@ -30,6 +30,7 @@ community looks forward to your contributions. 🎉
 - [Improving The Documentation](#improving-the-documentation)
 - [Styleguides](#styleguides)
 - [Commit Messages](#commit-messages)
+- [IDE and Editor Configuration](#ide-and-editor-configuration)
 - [Join The Project Team](#join-the-project-team)
 
 ## Code of Conduct
@@ -196,6 +197,32 @@ Updating, improving and correcting the documentation
 <!-- TODO
 
 -->
+
+## IDE and Editor Configuration
+
+This project uses `.editorconfig` to maintain consistent coding style across different editors and IDEs. The configuration ensures:
+
+- UTF-8 encoding
+- Unix-style line endings (LF)
+- Final newline at end of files
+- Trailing whitespace removal (except in Markdown files)
+- Consistent indentation (4 spaces for Rust/TOML, 2 spaces for YAML/JSON)
+
+### IDE Metadata
+
+**JetBrains IDE files (`.idea/`, `*.iml`, `*.ipr`, `*.iws`) are intentionally excluded from version control.** These files contain user-specific settings and workspace configurations that should not be shared across contributors.
+
+If you're using a JetBrains IDE (IntelliJ, CLion, etc.), the project will automatically configure itself based on the `.editorconfig` settings. Any IDE-specific settings you need should be configured locally and will not be committed.
+
+### Supported Editors
+
+The project works well with:
+
+- Visual Studio Code (with EditorConfig extension)
+- JetBrains IDEs (IntelliJ, CLion, etc.)
+- Vim/Neovim (with EditorConfig plugin)
+- Emacs (with EditorConfig mode)
+- Any editor that supports EditorConfig
 
 ## Join The Project Team
 

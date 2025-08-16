@@ -1,0 +1,179 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Set the permissions to the lowest permissions possible needed for your steps.
+    # Copilot will be given its own token for its operations.
+    permissions:
+      # If you want to clone the repository as part of your setup steps, for example to install dependencies, you'll need the `contents: read` permission. If you don't clone the repository in your setup steps, Copilot will do this for you automatically after the steps complete.
+      contents: read
+
+    # You can define any steps you want, and they will run before the agent starts.
+    # If you do not check out your code, Copilot will do this for you.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Ensure bash is installed
+        run: |
+          if ! command -v bash > /dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y bash
+          fi
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Just task runner
+        uses: taiki-e/install-action@just
+
+      - name: Install Rust development tools
+        run: |
+          set -euo pipefail
+
+          # Install essential Rust development tools
+          cargo install cargo-audit
+          cargo install cargo-deny
+          cargo install cargo-llvm-cov
+          cargo install cargo-outdated
+          cargo install cargo-machete
+
+          # Install additional development tools
+          cargo install cargo-watch
+          cargo install cargo-tarpaulin
+
+      - name: Install security and analysis tools
+        run: |
+          set -euo pipefail
+
+          # Create tools directory
+          mkdir -p /usr/local/bin
+
+          # Install Syft for SBOM generation (v1.30.0)
+          echo "Installing Syft v1.30.0 for SBOM generation..."
+          SYFT_URL="https://github.com/anchore/syft/releases/download/v1.30.0/syft_1.30.0_linux_amd64.tar.gz"
+          SYFT_SHA256="f0cdcba0b6ce4c7a87050d524f732ba9fa2e711835f993a4ef108cfbf928ec13"
+
+          curl -L -s "$SYFT_URL" -o /tmp/syft.tar.gz
+          echo "$SYFT_SHA256 /tmp/syft.tar.gz" | sha256sum -c
+          tar -xzf /tmp/syft.tar.gz -C /tmp
+          mv /tmp/syft /usr/local/bin/
+          chmod +x /usr/local/bin/syft
+
+          # Install Grype for vulnerability scanning (v0.97.2)
+          echo "Installing Grype v0.97.2 for vulnerability scanning..."
+          GRYPE_URL="https://github.com/anchore/grype/releases/download/v0.97.2/grype_0.97.2_linux_amd64.tar.gz"
+          GRYPE_SHA256="9db8daad914906aae9a2d99c75ed2bde19fb33e5ea3e14e5b814c6029e1034a9"
+
+          curl -L -s "$GRYPE_URL" -o /tmp/grype.tar.gz
+          echo "$GRYPE_SHA256 /tmp/grype.tar.gz" | sha256sum -c
+          tar -xzf /tmp/grype.tar.gz -C /tmp
+          mv /tmp/grype /usr/local/bin/
+          chmod +x /usr/local/bin/grype
+
+          # Install git-cliff for changelog generation (v2.10.0)
+          echo "Installing git-cliff v2.10.0 for changelog generation..."
+          GIT_CLIFF_URL="https://github.com/orhun/git-cliff/releases/download/v2.10.0/git-cliff-2.10.0-x86_64-unknown-linux-gnu.tar.gz"
+          GIT_CLIFF_SHA256="26b33340c253c567e40a79a5cfab176d682dc3bfdb40136c7ba2d7321796c8b3"
+
+          curl -L -s "$GIT_CLIFF_URL" -o /tmp/git-cliff.tar.gz
+          echo "$GIT_CLIFF_SHA256 /tmp/git-cliff.tar.gz" | sha256sum -c
+          tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+          mv /tmp/git-cliff-2.10.0/git-cliff /usr/local/bin/
+          chmod +x /usr/local/bin/git-cliff
+
+          # Clean up temporary files
+          rm -f /tmp/*.tar.gz
+
+      - name: Install markdown linting tools
+        run: |
+          set -euo pipefail
+
+          # Install markdownlint-cli2 for markdown validation
+          npm install -g markdownlint-cli2@0.7.0
+
+      - name: Setup Python virtual environment for documentation
+        run: |
+          set -euo pipefail
+
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install mkdocs-material
+
+      - name: Install Rust dependencies
+        run: |
+          set -euo pipefail
+
+          # Download and verify dependencies
+          cargo fetch
+          cargo check --all-features
+
+      - name: Verify tool installations
+        run: |
+          set -euo pipefail
+
+          # Verify Rust installation
+          rustc --version
+          cargo --version
+          rustfmt --version
+          cargo clippy --version
+
+          # Verify Just installation
+          just --version
+
+          # Verify security tools
+          echo "Verifying security tools installation..."
+          syft version
+          grype version
+          git-cliff --version
+
+          # Verify Rust development tools
+          echo "Verifying Rust development tools..."
+          cargo audit --version
+          cargo deny --version
+          cargo llvm-cov --version
+
+          # Verify Python environment and mkdocs-material
+          source .venv/bin/activate
+          python --version
+          pip list | grep mkdocs-material || echo "mkdocs-material not found in pip"
+
+          # Verify markdown linting tools
+          markdownlint-cli2 --version
+
+          echo "All tools installed successfully"
+
+      - name: Setup DBSurveyor development environment
+        run: |
+          set -euo pipefail
+
+          # Run DBSurveyor development setup
+          just install
+
+          echo "DBSurveyor development environment ready"
