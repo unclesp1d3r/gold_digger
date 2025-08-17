@@ -9,8 +9,12 @@ exclude = [
     "rust_migration/index.md",
 ]
 validate = true
-number = true
+number = true # Sequential numbering (1. 2. 3.) for human readability
+# No wrap setting - let lines be naturally long for better diffs and editing
 
 [plugin.mkdocs]
 align_semantic_breaks_in_lists = true
 ignore_missing_references = true
+
+# Note: mdformat converts sequential numbers (1. 2. 3.) to canonical form (1. 1. 1.)
+# This is standard Markdown behavior and doesn't affect rendering in mdBook

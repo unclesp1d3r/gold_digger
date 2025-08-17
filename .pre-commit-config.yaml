@@ -105,3 +105,13 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+  # 📚 Documentation validation
+  - repo: local
+    hooks:
+      - id: docs-linkcheck
+        name: Documentation link check
+        entry: bash -c 'cd docs && mdbook build'
+        language: system
+        files: ^docs/
+        pass_filenames: false
