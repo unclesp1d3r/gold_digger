@@ -116,10 +116,13 @@ cargo run --release
 ### Feature Flags (Cargo.toml)
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: Enables MySQL native TLS support
-- `vendored`: Static linking with vendored OpenSSL
+- `ssl`: Enables MySQL native TLS support using platform-native libraries (no OpenSSL dependency)
+- `ssl-rustls`: Enables pure Rust TLS implementation (alternative to native TLS)
+- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
+
+**Note**: `ssl` and `ssl-rustls` are mutually exclusive. Use one or the other, not both.
 
 ## Output Format Dispatch and Edge Cases
 
@@ -278,12 +281,12 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ```yaml
 # Add to .github/workflows/rust.yml
-  - name: Check formatting
-    run: cargo fmt --check
-  - name: Clippy (fail on warnings)
-    run: cargo clippy -- -D warnings
-  - name: Run tests
-    run: cargo test
+- name: Check formatting
+  run: cargo fmt --check
+- name: Clippy (fail on warnings)
+  run: cargo clippy -- -D warnings
+- name: Run tests
+  run: cargo test
 ```
 
 ### Future Release Engineering
@@ -302,11 +305,40 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ### TLS Configuration
 
-- Default `ssl` feature enables `mysql/native-tls` dependency
-- Use `vendored` feature for static OpenSSL linking in deployment scenarios
-- **TLS configuration is programmatic only** - URL-based SSL parameters are not supported by the mysql crate
+Gold Digger supports two TLS implementations to eliminate OpenSSL dependencies while maintaining secure database connections:
 
-**Example programmatic TLS configuration:**
+#### Default: Native TLS (Recommended)
+
+- **Feature flag**: `ssl` (enabled by default)
+- **Implementation**: `mysql/native-tls` using platform-native TLS libraries
+- **No OpenSSL dependency**: Uses system-provided TLS implementations
+  - **Windows**: SChannel (built-in Windows TLS stack)
+  - **macOS**: SecureTransport (built-in macOS TLS stack)
+  - **Linux**: System's native TLS implementation (typically GnuTLS or similar)
+
+#### Alternative: Pure Rust TLS
+
+- **Feature flag**: `ssl-rustls` (opt-in)
+- **Implementation**: `mysql/rustls-tls` using pure Rust TLS
+- **Benefits**: Consistent behavior across platforms, no native dependencies
+- **Use cases**: Containerized environments, static binaries, airgapped deployments
+
+#### Build Options
+
+```bash
+# Default build with native TLS (recommended)
+cargo build --release
+
+# Pure Rust TLS build
+cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+
+# No TLS support (insecure connections only)
+cargo build --release --no-default-features --features "json,csv,additional_mysql_types,verbose"
+```
+
+#### Programmatic TLS Configuration
+
+**TLS configuration is programmatic only** - URL-based SSL parameters are not supported by the mysql crate:
 
 ```rust
 use mysql::{OptsBuilder, SslOpts};
@@ -324,6 +356,21 @@ let opts = OptsBuilder::new()
     .db_name(Some("database"))
     .ssl_opts(ssl_opts);
 ```
+
+#### Migration from OpenSSL (Breaking Change)
+
+**v0.2.7+**: The `vendored` feature flag has been **removed**. Gold Digger has completely migrated away from OpenSSL dependencies:
+
+- **Before**: Required OpenSSL system libraries or `--features vendored` for static linking
+- **After**: Uses platform-native TLS (`ssl`) or pure Rust implementation (`ssl-rustls`)
+- **Breaking Change**: Remove `vendored` from build scripts and CI configurations
+- **Benefits**: Simplified builds, reduced attack surface, better cross-platform compatibility
+
+**Migration Steps**:
+
+1. Remove `vendored` from any `cargo build` commands
+2. Use default `ssl` feature for native TLS (recommended)
+3. Use `ssl-rustls` feature for pure Rust TLS if needed
 
 ## GitHub Interactions
 
@@ -367,22 +414,29 @@ Before submitting any changes:
 ### Feature Combinations
 
 ```bash
+# Default build with native TLS (recommended)
+cargo build --release
+
+# Pure Rust TLS build (for containerized/static deployments)
+cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+
 # Minimal build (no TLS, no extra types)
 cargo build --no-default-features --features "csv json"
 
-# Full static build (opt-in vendored OpenSSL)
-cargo build --release --features "default vendored"
-
-# Database admin build (all MySQL types)
+# Database admin build (all MySQL types with native TLS)
 cargo build --release --features "default additional_mysql_types"
+
+# Legacy vendored build (REMOVED - use default instead)
+# cargo build --release --features "default vendored"  # No longer supported
 ```
 
 ### Dependencies by Feature
 
-- **Base:** `mysql`, `anyhow`, `csv`
-- **SSL:** `openssl-sys` (optional)
+- **Base:** `mysql`, `anyhow`, `csv`, `serde_json`, `clap`
+- **Native TLS:** `mysql/native-tls` (uses platform TLS libraries)
+- **Rust TLS:** `mysql/rustls-tls`, `rustls`, `webpki-roots` (pure Rust implementation)
 - **Types:** `mysql_common` with bigdecimal, rust_decimal, time, frunk
-- **Future CLI:** `clap`, `clap_complete`, `tracing`, `serde_json`
+- **No OpenSSL dependencies** in any configuration
 
 ---
 

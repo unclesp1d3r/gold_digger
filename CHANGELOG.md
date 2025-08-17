@@ -1,6 +1,25 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### BREAKING CHANGES
+- **TLS Migration**: Removed `vendored` feature flag (OpenSSL dependency eliminated)
+  - **Before**: `cargo build --features vendored` for static OpenSSL linking
+  - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS) features
+  - **Migration**: Remove `vendored` from any build scripts or CI configurations
+
+### Features
+- **TLS Implementation**: Added platform-native TLS support (no OpenSSL dependency)
+  - Default `ssl` feature now uses `mysql/native-tls` with platform TLS libraries
+  - Added `ssl-rustls` feature for pure Rust TLS implementation
+  - Windows: Uses SChannel (built-in)
+  - macOS: Uses SecureTransport (built-in)
+  - Linux: Uses system native TLS libraries
+
+### Documentation
+- Added comprehensive TLS configuration guide (TLS.md)
+- Updated README.md with TLS implementation details
+- Updated WARP.md and AGENTS.md with new TLS architecture
+
 
 <a name="v0.2.6"></a>
 ## [v0.2.6] - 2024-05-15

@@ -27,6 +27,36 @@ cd gold_digger
 cargo install --path .
 ```
 
+### TLS Support
+
+Gold Digger supports secure database connections through two TLS implementations, eliminating OpenSSL dependencies:
+
+- **Default (native-tls)**: Uses platform-native TLS libraries without OpenSSL dependencies
+  - **Windows**: SChannel (built-in Windows TLS)
+  - **macOS**: SecureTransport (built-in macOS TLS)
+  - **Linux**: System's native TLS implementation
+- **Alternative (rustls)**: Pure Rust TLS implementation for environments requiring it
+
+```bash
+# Build with default native TLS (recommended)
+cargo build --release
+
+# Build with pure Rust TLS implementation
+cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+
+# Build without TLS support
+cargo build --release --no-default-features --features "json,csv,additional_mysql_types,verbose"
+```
+
+#### Breaking Change: OpenSSL Dependency Removed
+
+**v0.2.7+**: The `vendored` feature flag has been removed. OpenSSL is no longer used.
+
+- **Before**: `cargo build --features vendored` (static OpenSSL linking)
+- **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
+
+**Migration Required**: See [MIGRATION.md](MIGRATION.md) for step-by-step migration guidance and [TLS.md](TLS.md) for detailed TLS configuration.
+
 ## Development Setup
 
 For developers wanting to contribute to Gold Digger:

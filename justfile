@@ -37,7 +37,10 @@ fmt-check:
 # Run clippy linting
 lint:
     @echo "🔍 Running clippy linting..."
-    cargo clippy --all-targets --all-features -- -D warnings
+    @echo "Testing default features (native-tls)..."
+    cargo clippy --all-targets -- -D warnings
+    @echo "Testing rustls features..."
+    cargo clippy --all-targets --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose" -- -D warnings
 
 # Run clippy with fixes
 fix:
@@ -54,10 +57,10 @@ build-release:
     @echo "🔨 Building release version..."
     cargo build --release
 
-# Build with vendored OpenSSL (static linking)
-build-vendored:
-    @echo "🔨 Building with vendored OpenSSL..."
-    cargo build --release --features vendored
+# Build with pure Rust TLS (alternative to native TLS)
+build-rustls:
+    @echo "🔨 Building with pure Rust TLS..."
+    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
 # Build minimal version (no default features)
 build-minimal:
@@ -65,7 +68,7 @@ build-minimal:
     cargo build --release --no-default-features --features "csv json"
 
 # Build all feature combinations
-build-all: build build-release build-vendored build-minimal
+build-all: build build-release build-rustls build-minimal
     @echo "✅ All builds completed!"
 
 # Install locally from workspace
@@ -178,8 +181,8 @@ features:
     @echo "Default features:"
     @echo "  cargo build --release"
     @echo ""
-    @echo "Static build with vendored OpenSSL:"
-    @echo "  cargo build --release --features vendored"
+    @echo "Pure Rust TLS build:"
+    @echo "  cargo build --release --no-default-features --features \"json,csv,ssl-rustls,additional_mysql_types,verbose\""
     @echo ""
     @echo "Minimal build (no TLS, no extra types):"
     @echo "  cargo build --no-default-features --features \"csv json\""
