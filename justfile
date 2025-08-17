@@ -75,7 +75,7 @@ build-vendored:
 # Build minimal version (no default features)
 build-minimal:
     @echo "🔨 Building minimal version..."
-    cargo build --release --no-default-features --features csv json
+    cargo build --release --no-default-features --features "csv,json"
 
 # Build all feature combinations
 build-all: build build-release build-rustls build-minimal

@@ -91,29 +91,38 @@ jobs:
           echo "🔨 Building release with rustls (pure Rust TLS)..."
           just build-rustls
 
-      - name: Upload binaries to Release
-        uses: taiki-e/upload-rust-binary-action@v1
+      - name: Upload prebuilt binaries to Release
+        uses: softprops/action-gh-release@v2
         with:
-          bin: ${{ env.BIN_NAME }}
-          tar: unix
-          zip: windows
+          files: |
+            target/release/${{ env.BIN_NAME }}
+            target/release/${{ env.BIN_NAME }}.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify dist directory
+      - name: Verify built binaries
         shell: bash
         run: |
-          if [[ ! -d "dist" || -z $(ls -A "dist") ]]; then
-            echo "Error: dist directory is empty or does not exist." >&2
-            exit 1
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            if [[ ! -f "target/release/${{ env.BIN_NAME }}.exe" ]]; then
+              echo "Error: Windows binary not found at target/release/${{ env.BIN_NAME }}.exe" >&2
+              exit 1
+            fi
+          else
+            if [[ ! -f "target/release/${{ env.BIN_NAME }}" ]]; then
+              echo "Error: Unix binary not found at target/release/${{ env.BIN_NAME }}" >&2
+              exit 1
+            fi
           fi
+          echo "✅ Binary verification passed"
 
       - name: Compute artifact hashes (SLSA subjects)
         id: hash
         uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
         with:
           files: |
-            dist/*
+            target/release/${{ env.BIN_NAME }}
+            target/release/${{ env.BIN_NAME }}.exe
 
       - name: Persist per-OS subjects
         shell: bash
