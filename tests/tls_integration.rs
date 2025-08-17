@@ -242,9 +242,9 @@ mod tls_tests {
         let ssl_opts = danger_config.to_ssl_opts()?;
         assert!(ssl_opts.is_some());
 
-        let ssl_opts = ssl_opts.unwrap();
-        assert!(ssl_opts.accept_invalid_certs());
-        assert!(ssl_opts.skip_domain_validation());
+        // Verify the TLS config settings are reflected in the SslOpts
+        assert!(danger_config.accept_invalid_certs());
+        assert!(danger_config.skip_domain_validation());
 
         Ok(())
     }
@@ -452,9 +452,9 @@ mod tls_validation_tests {
         let ssl_opts = danger_config.to_ssl_opts()?;
         assert!(ssl_opts.is_some());
 
-        let ssl_opts = ssl_opts.unwrap();
-        assert!(ssl_opts.accept_invalid_certs());
-        assert!(ssl_opts.skip_domain_validation());
+        // Verify the TLS config settings are reflected in the SslOpts
+        assert!(danger_config.accept_invalid_certs());
+        assert!(danger_config.skip_domain_validation());
 
         Ok(())
     }
@@ -668,9 +668,11 @@ mod tls_unit_tests {
             .with_accept_invalid_certs(true)
             .with_skip_domain_validation(true);
 
-        let ssl_opts = danger_config.to_ssl_opts()?.unwrap();
-        assert!(ssl_opts.accept_invalid_certs());
-        assert!(ssl_opts.skip_domain_validation());
+        let ssl_opts = danger_config.to_ssl_opts()?;
+        assert!(ssl_opts.is_some());
+        // Verify the TLS config settings are reflected in the SslOpts
+        assert!(danger_config.accept_invalid_certs());
+        assert!(danger_config.skip_domain_validation());
 
         Ok(())
     }

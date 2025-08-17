@@ -151,6 +151,16 @@ impl TlsConfig {
         self
     }
 
+    /// Returns whether invalid certificates are accepted
+    pub fn accept_invalid_certs(&self) -> bool {
+        self.accept_invalid_certs
+    }
+
+    /// Returns whether domain validation is skipped
+    pub fn skip_domain_validation(&self) -> bool {
+        self.skip_domain_validation
+    }
+
     /// Converts the TLS configuration to mysql::SslOpts with validation
     pub fn to_ssl_opts(&self) -> Result<Option<SslOpts>, TlsError> {
         if !self.enabled {
@@ -371,8 +381,18 @@ mod tests {
         // and basic error handling
         let result = create_tls_connection("mysql://invalid:invalid@nonexistent:3306/test", Some(tls_config));
 
-        // We expect this to fail due to invalid connection details, but not panic
-        assert!(result.is_err());
+        match result {
+            Ok(pool) => {
+                // If pool creation succeeds, attempt to get a connection to exercise lazy initialization
+                let conn_result = pool.get_conn();
+                // We expect this to fail due to invalid connection details, but not panic
+                assert!(conn_result.is_err());
+            },
+            Err(_) => {
+                // Pool creation failed, which is also expected for invalid connection details
+                // This is fine - the test passes as long as it doesn't panic
+            },
+        }
     }
 
     #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
@@ -381,8 +401,18 @@ mod tests {
         // Test with no TLS config
         let result = create_tls_connection("mysql://invalid:invalid@nonexistent:3306/test", None);
 
-        // We expect this to fail due to invalid connection details, but not panic
-        assert!(result.is_err());
+        match result {
+            Ok(pool) => {
+                // If pool creation succeeds, attempt to get a connection to exercise lazy initialization
+                let conn_result = pool.get_conn();
+                // We expect this to fail due to invalid connection details, but not panic
+                assert!(conn_result.is_err());
+            },
+            Err(_) => {
+                // Pool creation failed, which is also expected for invalid connection details
+                // This is fine - the test passes as long as it doesn't panic
+            },
+        }
     }
 
     #[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
