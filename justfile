@@ -29,7 +29,7 @@ format:
     pre-commit run -a || true
     cargo fmt
     # Format YAML and JavaScript files with prettier
-    ~/.volta/bin/prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" || echo "prettier not found at ~/.volta/bin/prettier"
+    prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" || echo "prettier not installed - run 'npm install -g prettier'"
 
 # Check formatting
 fmt-check:
