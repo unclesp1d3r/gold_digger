@@ -42,7 +42,7 @@ jobs:
         if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: clippy.sarif
+          sarif_file: clippy-rustls.sarif
           category: clippy-rustls
 
       - name: Upload clippy SARIF (no-TLS)
