@@ -68,13 +68,13 @@ This feature migrates Gold Digger's TLS implementation from OpenSSL/native-tls t
 
 ### Requirement 6
 
-**User Story:** As a developer creating static binaries, I want self-contained executables without runtime TLS library dependencies, so that deployment is simplified in containerized and airgapped environments.
+**User Story:** As a developer creating static binaries, I want self-contained executables without runtime TLS library dependencies, so that deployment is simplified in containerized and air-gapped environments.
 
 #### Acceptance Criteria
 
 1. WHEN building with static linking THEN the binary SHALL NOT require runtime OpenSSL libraries
 2. WHEN deploying to minimal container images THEN TLS functionality SHALL work without additional packages
-3. WHEN running in airgapped environments THEN TLS certificate validation SHALL work with embedded root certificates
+3. WHEN running in air-gapped environments THEN TLS certificate validation SHALL work with embedded root certificates
 4. WHEN distributing binaries THEN they SHALL be portable across systems without TLS library version concerns
 5. WHEN examining binary dependencies THEN no dynamic OpenSSL library links SHALL be present
 

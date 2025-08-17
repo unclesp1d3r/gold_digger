@@ -61,7 +61,7 @@ cargo build --release --no-default-features --features "json csv additional_mysq
 
 **Note**: The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
 
-**Migration Required**: See [MIGRATION.md](MIGRATION.md) for step-by-step migration guidance and [TLS.md](TLS.md) for detailed TLS configuration.
+**Migration Required**: See [TLS.md](TLS.md) for detailed TLS configuration and migration guidance.
 
 ## Development Setup
 
