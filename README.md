@@ -7,6 +7,7 @@ Gold Digger is a Rust-based query tool that automates the routine collection of 
 ![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)
 ![GitHub last commit](https://img.shields.io/github/last-commit/unclesp1d3r/gold_digger)
 ![Maintenance](https://img.shields.io/maintenance/yes/2024)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Funclesp1d3r%2Fgold_digger.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Funclesp1d3r%2Fgold_digger?ref=badge_shield)
 
 ## Description
 
@@ -53,3 +54,7 @@ Our team is committed to providing a welcoming and inclusive environment for all
 our `CODE_OF_CONDUCT.md` when contributing to the project.
 
 Thank you for your interest in Gold Digger, and we look forward to hearing from you!
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Funclesp1d3r%2Fgold_digger.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Funclesp1d3r%2Fgold_digger?ref=badge_large)
