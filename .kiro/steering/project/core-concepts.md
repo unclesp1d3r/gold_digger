@@ -43,7 +43,7 @@ src/
 ├── main.rs     # Entry point, env var handling, format dispatch
 ├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
 ├── csv.rs      # RFC4180-ish, QuoteStyle::Necessary
-├── json.rs     # {"data":[{...}]} using HashMap (non-deterministic)
+├── json.rs     # {"data":[{...}]} using BTreeMap (deterministic key order)
 └── tab.rs      # TSV with \t delimiter, QuoteStyle::Necessary
 ```
 
@@ -52,9 +52,8 @@ src/
 ## Known Bugs & Issues
 
 1. **Pattern matching bug**: `Some(&_)` should be `Some(_)` in main.rs:59
-2. **Non-deterministic JSON**: HashMap doesn't guarantee key order
-3. **Non-standard exit codes**: `exit(-1)` becomes 255, not documented error codes
-4. **Version mismatch**: CHANGELOG.md v0.2.6 vs Cargo.toml v0.2.5
+2. **Non-standard exit codes**: `exit(-1)` becomes 255, not documented error codes
+3. **Version mismatch**: CHANGELOG.md v0.2.6 vs Cargo.toml v0.2.5
 
 ## Feature Flags
 
@@ -104,7 +103,6 @@ Current v0.2.5 → Target v1.0:
 - **Exit code standards**: Need proper error taxonomy (F005)
 - **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
 - **Streaming**: Memory-efficient large result processing (F007)
-- **Deterministic JSON**: Replace HashMap with BTreeMap (F010)
 
 ## Development Workflow
 

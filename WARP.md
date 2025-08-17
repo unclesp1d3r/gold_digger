@@ -104,7 +104,7 @@ cargo run --release
 **Output Writers:**
 
 - `csv.rs`: RFC 4180-ish with `QuoteStyle::Necessary`
-- `json.rs`: Produces `{"data": [{...}]}` structure using HashMap (non-deterministic key order)
+- `json.rs`: Produces `{"data": [{...}]}` structure using BTreeMap (deterministic key order)
 - `tab.rs`: TSV with `\t` delimiter and `QuoteStyle::Necessary`
 
 **Performance Characteristics:**
@@ -139,9 +139,8 @@ match get_extension_from_filename(&output_file) {
 ### Known Issues
 
 1. **Pattern Bug:** `Some(&_)` should be `Some(_)` in the fallback arm
-2. **Non-deterministic JSON:** Uses HashMap; requirements specify deterministic output
-3. **Extension Confusion:** `.txt` mentioned in README but dispatches to TSV
-4. **Missing Features:** No `--pretty` JSON flag, no format override option
+2. **Extension Confusion:** `.txt` mentioned in README but dispatches to TSV
+3. **Missing Features:** No `--pretty` JSON flag, no format override option
 
 ### Output Schemas
 
