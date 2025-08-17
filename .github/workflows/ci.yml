@@ -122,7 +122,7 @@ jobs:
 
       - name: Upload to Codecov
         if: matrix.os == 'ubuntu-22.04' && github.repository == 'UncleSp1d3r/gold_digger'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           flags: unit
