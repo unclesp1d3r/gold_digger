@@ -35,16 +35,47 @@ jobs:
       - name: Clippy to SARIF (no warnings tolerated)
         run: |
           set -o pipefail
-          cargo clippy --all-targets --all-features --message-format=json -- -D warnings \
+          # Test native-tls configuration (default ssl feature)
+          echo "🔍 Running clippy with native-tls (ssl feature)..."
+          cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=json -- -D warnings \
             | clippy-sarif \
             | tee clippy.sarif \
             | sarif-fmt
 
-      - name: Upload clippy SARIF
+          # Test rustls configuration
+          echo "🔍 Running clippy with rustls (ssl-rustls feature)..."
+          cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=json -- -D warnings \
+            | clippy-sarif \
+            | tee clippy-rustls.sarif \
+            | sarif-fmt
+
+          # Test no-TLS configuration
+          echo "🔍 Running clippy without TLS features..."
+          cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" --message-format=json -- -D warnings \
+            | clippy-sarif \
+            | tee clippy-notls.sarif \
+            | sarif-fmt
+
+      - name: Upload clippy SARIF (native-tls)
         if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: clippy.sarif
+          category: clippy-native-tls
+
+      - name: Upload clippy SARIF (rustls)
+        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: clippy-rustls.sarif
+          category: clippy-rustls
+
+      - name: Upload clippy SARIF (no-TLS)
+        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: clippy-notls.sarif
+          category: clippy-notls
 
       - name: Install syft and grype
         shell: bash
