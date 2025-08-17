@@ -40,7 +40,7 @@ Uses rustls, a pure Rust TLS implementation:
 - No native library dependencies
 - Suitable for static binaries and containerized deployments
 - Memory-safe implementation
-- Predictable behavior in airgapped environments
+- Predictable behavior in air-gapped environments
 
 **Build command**:
 
@@ -161,7 +161,7 @@ ssl-rustls = ["mysql/rustls-tls"] # Pure Rust alternative
 
 **Problem**: Compilation errors with both TLS features enabled
 
-```
+```text
 error[E0428]: the name `Secure` is defined multiple times
 ```
 
@@ -264,7 +264,7 @@ Both implementations use secure cipher suites by default and automatically negot
 - Include necessary CA certificates in container images
 - Use static binaries for minimal container images
 
-### Airgapped Environments
+### Air-gapped Environments
 
 - Use rustls (`ssl-rustls` feature) for predictable behavior
 - Bundle necessary CA certificates with the application

@@ -64,13 +64,13 @@ build-release:
 # Build with pure Rust TLS (alternative to native TLS)
 build-rustls:
     @echo "🔨 Building with pure Rust TLS..."
-    cargo build --release --no-default-features --features json csv ssl-rustls additional_mysql_types verbose
+    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
 # Build with vendored dependencies (legacy compatibility - now uses rustls)
 build-vendored:
     @echo "🔨 Building with vendored dependencies (using rustls)..."
     @echo "⚠️  Note: Vendored feature is deprecated, using rustls instead"
-    cargo build --release --no-default-features --features json csv ssl-rustls additional_mysql_types verbose
+    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
 # Build minimal version (no default features)
 build-minimal:
@@ -121,43 +121,40 @@ validate-deps:
     @echo "🔍 Validating TLS dependency tree..."
     @echo ""
     @echo "Testing ssl feature (native-tls)..."
-    @cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" > /tmp/ssl-deps.txt
-    @if grep -q "openssl-sys" /tmp/ssl-deps.txt; then \
+    @if cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "openssl-sys"; then \
         echo "❌ ERROR: openssl-sys found with ssl feature"; \
-        cat /tmp/ssl-deps.txt; \
+        cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
-    @if ! grep -q "native-tls" /tmp/ssl-deps.txt; then \
+    @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
         echo "❌ ERROR: native-tls not found with ssl feature"; \
-        cat /tmp/ssl-deps.txt; \
+        cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
     @echo "✅ ssl feature validation passed"
     @echo ""
     @echo "Testing ssl-rustls feature (rustls)..."
-    @cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" > /tmp/rustls-deps.txt
-    @if grep -q "native-tls" /tmp/rustls-deps.txt; then \
+    @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
         echo "❌ ERROR: native-tls found with ssl-rustls feature"; \
-        cat /tmp/rustls-deps.txt; \
+        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
-    @if grep -q "openssl-sys" /tmp/rustls-deps.txt; then \
+    @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "openssl-sys"; then \
         echo "❌ ERROR: openssl-sys found with ssl-rustls feature"; \
-        cat /tmp/rustls-deps.txt; \
+        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
-    @if ! grep -q "rustls" /tmp/rustls-deps.txt; then \
+    @if ! cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
         echo "❌ ERROR: rustls not found with ssl-rustls feature"; \
-        cat /tmp/rustls-deps.txt; \
+        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
     @echo "✅ ssl-rustls feature validation passed"
     @echo ""
     @echo "Testing no TLS features..."
-    @cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" > /tmp/no-tls-deps.txt
-    @if grep -q "native-tls\|openssl-sys\|rustls" /tmp/no-tls-deps.txt; then \
+    @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|openssl-sys\|rustls"; then \
         echo "❌ ERROR: TLS dependencies found without TLS features"; \
-        cat /tmp/no-tls-deps.txt; \
+        cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
     @echo "✅ no TLS features validation passed"

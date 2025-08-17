@@ -166,7 +166,7 @@ match get_extension_from_filename(&output_file) {
 ```bash
 # Build variations
 cargo build --release
-cargo build --release --features ssl-rustls  # Pure Rust TLS
+cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS
 cargo build --no-default-features --features "csv json"  # Minimal
 
 # Development

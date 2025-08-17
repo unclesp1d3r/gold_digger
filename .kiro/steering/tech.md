@@ -47,7 +47,7 @@ default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
   - **Linux**: Uses OpenSSL backend by default
 - **ssl feature** - Platform native TLS (no OpenSSL dependency)
 - **ssl-rustls feature** - Pure Rust TLS implementation
-- **Opt-in only**: Use `cargo build --features ssl-rustls` for pure Rust TLS
+- **Opt-in only**: Use `cargo build --no-default-features --features ssl-rustls` for pure Rust TLS
 - **Default behavior**: Uses platform-native TLS via `ssl` feature
 
 ### Type System Extensions
@@ -170,9 +170,11 @@ just coverage       # Local HTML coverage report
 
 ```bash
 cargo build --release                                    # Standard build (system OpenSSL)
-cargo build --release --features ssl-rustls            # Pure Rust TLS (opt-in)
+cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS (opt-in)
 cargo build --no-default-features --features "csv json" # Minimal build
 ```
+
+**Note**: If rustls becomes the default TLS implementation, update the "Standard build" comment to reflect this change (e.g., "Standard build (rustls)").
 
 ### Deployment Considerations
 
