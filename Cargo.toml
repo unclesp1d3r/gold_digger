@@ -44,7 +44,8 @@ panic            = "abort"
 default = [ "json", "csv", "ssl", "additional_mysql_types", "verbose" ]
 json = [  ]
 csv = [  ]
-ssl = [ "openssl-sys", "mysql/native-tls" ]
+ssl = [ "mysql/native-tls" ]  # Platform native TLS (no OpenSSL dependency)
+ssl-rustls = [ "mysql/rustls-tls" ]  # Pure Rust TLS implementation
 additional_mysql_types = [
   "mysql_common",
   "mysql_common?/bigdecimal",
@@ -52,5 +53,4 @@ additional_mysql_types = [
   "mysql_common?/time",
   "mysql_common?/frunk",
 ]
-vendored = [ "openssl-sys?/vendored" ]
 verbose = [  ]

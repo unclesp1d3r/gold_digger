@@ -76,10 +76,13 @@ cargo run --release
 ### Feature Flags
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: MySQL native TLS support
-- `vendored`: Static linking with vendored OpenSSL
+- `ssl`: MySQL native TLS support using platform-native libraries (no OpenSSL dependency)
+- `ssl-rustls`: Pure Rust TLS implementation (alternative to native TLS)
+- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
+
+**Important**: `ssl` and `ssl-rustls` are mutually exclusive features.
 
 ## Requirements Gap Analysis
 
@@ -113,6 +116,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 2. **No telemetry or external calls** at runtime
 3. **Respect system umask** for output files
 4. **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
+5. **TLS Implementation:** Uses platform-native TLS by default (no OpenSSL dependency) or pure Rust TLS via `ssl-rustls` feature
 
 ## Common Tasks for AI Assistants
 
