@@ -35,18 +35,11 @@ jobs:
       - name: Clippy to SARIF (no warnings tolerated)
         run: |
           set -o pipefail
-          # Test native-tls configuration (default ssl feature)
-          echo "🔍 Running clippy with native-tls (ssl feature)..."
-          cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=json -- -D warnings \
-            | clippy-sarif \
-            | tee clippy.sarif \
-            | sarif-fmt
-
-          # Test rustls configuration
+          # Test rustls configuration (preferred TLS implementation)
           echo "🔍 Running clippy with rustls (ssl-rustls feature)..."
           cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=json -- -D warnings \
             | clippy-sarif \
-            | tee clippy-rustls.sarif \
+            | tee clippy.sarif \
             | sarif-fmt
 
           # Test no-TLS configuration
@@ -56,18 +49,11 @@ jobs:
             | tee clippy-notls.sarif \
             | sarif-fmt
 
-      - name: Upload clippy SARIF (native-tls)
-        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: clippy.sarif
-          category: clippy-native-tls
-
       - name: Upload clippy SARIF (rustls)
         if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: clippy-rustls.sarif
+          sarif_file: clippy.sarif
           category: clippy-rustls
 
       - name: Upload clippy SARIF (no-TLS)
