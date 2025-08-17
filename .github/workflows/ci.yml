@@ -124,7 +124,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && github.repository == 'UncleSp1d3r/gold_digger'
         uses: codecov/codecov-action@v5
         with:
-          file: lcov.info
+          files: lcov.info
           flags: unit
           fail_ci_if_error: false
           verbose: true
