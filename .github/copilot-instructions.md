@@ -17,7 +17,9 @@ from_value::<String>(row[column_name])
 // ✅ Always implement safe conversion or recommend SQL casting
 match row[column_name] {
     mysql::Value::NULL => "".to_string(),
-    val => from_value::<String>(val).unwrap_or_else(|_| format!("{:?}", val))
+    val => from_value_opt::<String>(val)
+        .map(|s| s)
+        .unwrap_or_else(|_| format!("{:?}", val))
 }
 ```
 
@@ -57,10 +59,11 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 
 ### Current Structure (Don't Change Without Requirements)
 
-- **Entry:** `src/main.rs` handles env vars and dispatch
-- **Core:** `src/lib.rs` contains `rows_to_strings()` and utilities  
+- **Entry:** `src/main.rs` handles CLI parsing and dispatch
+- **CLI:** `src/cli.rs` contains Clap-based CLI definitions
+- **Core:** `src/lib.rs` contains `rows_to_strings()` and utilities
 - **Writers:** `src/{csv,json,tab}.rs` handle format-specific output
-- **No CLI:** Project uses environment variables only (CLI planned for v1.0)
+- **CLI-first:** Project uses CLI flags with environment variable fallbacks
 
 ### Known Issues to Fix
 
@@ -134,9 +137,9 @@ Use these testing crates when adding tests:
 ```toml
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-insta = "1"          # Snapshot testing
-assert_cmd = "2"     # CLI testing
-testcontainers = "0.15"  # Database integration tests
+insta = "1"                                                  # Snapshot testing
+assert_cmd = "2"                                             # CLI testing
+testcontainers = "0.15"                                      # Database integration tests
 ```
 
 ## Common Mistakes to Avoid
@@ -149,15 +152,14 @@ testcontainers = "0.15"  # Database integration tests
 
 ## Current vs Target State
 
-This project is evolving toward v1.0 with these planned changes:
+This project has implemented CLI-first design and is evolving toward v1.0 with these remaining features:
 
-- CLI interface using `clap` (F001-F003 in requirements)
-- Streaming output (F007)
+- Streaming output (F007) - currently loads all rows into memory
 - Structured logging with `tracing` (F008)
-- Deterministic JSON output (F010)
-- Proper exit codes (F005)
+- Deterministic JSON output (F010) - currently uses HashMap
+- Proper exit codes (F005) - currently uses `exit(-1)`
 
-When suggesting improvements, consider compatibility with these future features.
+When suggesting improvements, consider compatibility with these future features and use CLI-first patterns.
 
 ## Quick Commands Reference
 
@@ -165,7 +167,13 @@ When suggesting improvements, consider compatibility with these future features.
 # Build
 cargo build --release
 
-# Run with env vars
+# Run with CLI flags (preferred)
+cargo run --release -- \
+  --db-url "mysql://user:pass@host:3306/db" \
+  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 5" \
+  --output /tmp/out.json
+
+# Run with env vars (fallback)
 OUTPUT_FILE=/tmp/out.json \
 DATABASE_URL="mysql://user:pass@host:3306/db" \
 DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 5" \
@@ -176,4 +184,5 @@ cargo fmt --check && cargo clippy -- -D warnings
 ```
 
 ---
+
 **Note:** This project uses CodeRabbit.ai for reviews. Disable automatic GitHub Copilot PR reviews per maintainer preference.

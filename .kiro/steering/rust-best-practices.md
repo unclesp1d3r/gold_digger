@@ -1,8 +1,7 @@
 ---
-description:
-globs:
-alwaysApply: true
+inclusion: always
 ---
+
 # Rust Best Practices for gold_digger
 
 ## Project Structure
@@ -13,21 +12,19 @@ alwaysApply: true
 
 ## Module Organization
 
-- Output format modules should implement a common trait/interface (e.g., `FormatWriter`) with a `write` function that takes rows and an output writer.
-- Concrete module names can vary (e.g., `csv.rs`, `json.rs`, `tab.rs` for CSV, JSON, and TSV formats respectively) as long as they implement the required trait/interface.
+- Each output format (CSV, JSON, Tab) should have its own module with a `write` function that takes rows and an output writer.
 - Public functions in modules should be documented with doc comments (`///`).
 - Use `pub mod` in [`lib.rs`](mdc:src/lib.rs) to expose modules.
-- Maintainers should ensure documentation reflects the actual module layout and public exports in [`lib.rs`](mdc:src/lib.rs).
 
 ## Error Handling
 
-- Use the [`anyhow`](mdc:https://docs.rs/anyhow) crate for error propagation and context, as seen in function signatures like `Result<()>`.
+- Use the [`anyhow`](https://docs.rs/anyhow) crate for error propagation and context, as seen in function signatures like `Result<()>`.
 - Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases (e.g., missing header row in [`json.rs`](mdc:src/json.rs)).
 - Use `?` for error propagation.
 
 ## Code Style
 
-- Follow [Rustfmt](mdc:https://github.com/rust-lang/rustfmt) conventions for formatting. Run `cargo fmt` before committing.
+- Follow [Rustfmt](https://github.com/rust-lang/rustfmt) conventions for formatting. Run `cargo fmt` before committing.
 - Use `snake_case` for function and variable names, `CamelCase` for types and structs.
 - Prefer iterators and combinators over manual loops where possible.
 - Use explicit types for function signatures, especially for public APIs.

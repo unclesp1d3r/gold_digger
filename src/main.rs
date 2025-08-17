@@ -1,72 +1,206 @@
-use std::{env, fs::File};
+use std::{env, fs::File, path::PathBuf};
 
 use anyhow::Result;
+use clap::{CommandFactory, Parser};
+use clap_complete::{Shell as CompletionShell, generate};
 use mysql::Pool;
 use mysql::prelude::Queryable;
 
-use gold_digger::{get_extension_from_filename, rows_to_strings};
+use gold_digger::cli::{Cli, Commands, OutputFormat, Shell};
+use gold_digger::exit::{exit_no_rows, exit_success, exit_with_error};
+use gold_digger::rows_to_strings;
 
 /// Main entry point for the gold_digger CLI tool.
 ///
-/// Reads environment variables, executes a database query, and writes the output in the specified format.
-fn main() -> Result<()> {
-    let output_file = match env::var("OUTPUT_FILE") {
-        Ok(val) => val,
-        Err(_) => {
-            #[cfg(feature = "verbose")]
-            eprintln!("couldn't find OUTPUT_FILE in environment variable");
-            anyhow::bail!("Missing OUTPUT_FILE environment variable");
-        },
-    };
+/// Parses CLI arguments and environment variables, executes a database query, and writes the output in the specified format.
+fn main() {
+    let cli = Cli::parse();
 
-    let database_url = match env::var("DATABASE_URL") {
-        Ok(val) => val,
-        Err(_) => {
-            #[cfg(feature = "verbose")]
-            eprintln!("couldn't find DATABASE_URL in environment variable");
-            anyhow::bail!("Missing DATABASE_URL environment variable");
-        },
-    };
-
-    let database_query = match env::var("DATABASE_QUERY") {
-        Ok(val) => val,
-        Err(_) => {
-            #[cfg(feature = "verbose")]
-            eprintln!("couldn't find DATABASE_QUERY in environment variable");
-            anyhow::bail!("Missing DATABASE_QUERY environment variable");
-        },
-    };
-
-    let pool = Pool::new(database_url.as_str())?;
-    let mut conn = pool.get_conn()?;
-
-    #[cfg(feature = "verbose")]
-    println!("Connecting to database...");
-    let result: Vec<mysql::Row> = conn.query(database_query)?;
-    #[cfg(feature = "verbose")]
-    println!("Outputting {} records in {}.", result.len(), &output_file);
-
-    if result.is_empty() {
-        #[cfg(feature = "verbose")]
-        println!("No records found in database.");
-        anyhow::bail!("No records found in database.");
-    } else {
-        let rows = rows_to_strings(result)?;
-        let output = File::create(&output_file)?;
-
-        match get_extension_from_filename(&output_file) {
-            #[cfg(feature = "csv")]
-            Some("csv") => gold_digger::csv::write(rows, output)?,
-            #[cfg(feature = "json")]
-            Some("json") => gold_digger::json::write(rows, output)?,
-            Some(&_) => gold_digger::tab::write(rows, output)?,
-            None => {
-                #[cfg(feature = "verbose")]
-                eprintln!("Couldn't find extension");
-                anyhow::bail!("Couldn't find extension for output file");
+    // Handle subcommands first
+    if let Some(command) = cli.command {
+        match command {
+            Commands::Completion { shell } => {
+                generate_completion(shell);
+                return;
             },
         }
     }
 
+    // Handle --dump-config flag
+    if cli.dump_config {
+        if let Err(e) = dump_configuration(&cli) {
+            exit_with_error(e, Some("Configuration dump failed"));
+        }
+        return;
+    }
+
+    // Resolve configuration with precedence: CLI flags > environment variables
+    let database_url = match resolve_database_url(&cli) {
+        Ok(url) => url,
+        Err(e) => exit_with_error(e, Some("Database URL resolution failed")),
+    };
+    let database_query = match resolve_database_query(&cli) {
+        Ok(query) => query,
+        Err(e) => exit_with_error(e, Some("Database query resolution failed")),
+    };
+    let output_file = match resolve_output_file(&cli) {
+        Ok(file) => file,
+        Err(e) => exit_with_error(e, Some("Output file resolution failed")),
+    };
+
+    let pool = match Pool::new(database_url.as_str()) {
+        Ok(pool) => pool,
+        Err(e) => exit_with_error(anyhow::anyhow!("Database connection pool creation failed: {}", e), None),
+    };
+    let mut conn = match pool.get_conn() {
+        Ok(conn) => conn,
+        Err(e) => exit_with_error(anyhow::anyhow!("Database connection failed: {}", e), None),
+    };
+
+    if cli.verbose > 0 && !cli.quiet {
+        println!("Connecting to database...");
+    }
+
+    let result: Vec<mysql::Row> = match conn.query(database_query) {
+        Ok(result) => result,
+        Err(e) => exit_with_error(anyhow::anyhow!("Query execution failed: {}", e), None),
+    };
+
+    if cli.verbose > 0 && !cli.quiet {
+        println!("Outputting {} records to {}.", result.len(), output_file.display());
+    }
+
+    if result.is_empty() {
+        if cli.allow_empty {
+            if cli.verbose > 0 && !cli.quiet {
+                println!("No records found in database, but --allow-empty is set.");
+            }
+            // Create empty output file
+            let output = match File::create(&output_file) {
+                Ok(output) => output,
+                Err(e) => exit_with_error(anyhow::anyhow!("Failed to create output file: {}", e), None),
+            };
+            let empty_rows: Vec<Vec<String>> = vec![];
+            if let Err(e) = write_output(empty_rows, output, output_file.as_path(), &cli) {
+                exit_with_error(e, Some("Output writing failed"));
+            }
+        } else {
+            if cli.verbose > 0 && !cli.quiet {
+                println!("No records found in database.");
+            }
+            exit_no_rows(Some("No records found in database"));
+        }
+    } else {
+        let rows = match rows_to_strings(result) {
+            Ok(rows) => rows,
+            Err(e) => exit_with_error(e, Some("Row conversion failed")),
+        };
+        let output = match File::create(&output_file) {
+            Ok(output) => output,
+            Err(e) => exit_with_error(anyhow::anyhow!("Failed to create output file: {}", e), None),
+        };
+        if let Err(e) = write_output(rows, output, output_file.as_path(), &cli) {
+            exit_with_error(e, Some("Output writing failed"));
+        }
+    }
+
+    exit_success(None);
+}
+
+/// Resolves the database URL from CLI arguments or environment variables
+fn resolve_database_url(cli: &Cli) -> Result<String> {
+    if let Some(url) = &cli.db_url {
+        Ok(url.clone())
+    } else if let Ok(url) = env::var("DATABASE_URL") {
+        Ok(url)
+    } else {
+        anyhow::bail!("Missing database URL. Provide --db-url or set DATABASE_URL environment variable");
+    }
+}
+
+/// Resolves the database query from CLI arguments or environment variables
+fn resolve_database_query(cli: &Cli) -> Result<String> {
+    if let Some(query) = &cli.query {
+        Ok(query.clone())
+    } else if let Some(query_file) = &cli.query_file {
+        std::fs::read_to_string(query_file)
+            .map_err(|e| anyhow::anyhow!("Failed to read query file {}: {}", query_file.display(), e))
+    } else if let Ok(query) = env::var("DATABASE_QUERY") {
+        Ok(query)
+    } else {
+        anyhow::bail!(
+            "Missing database query. Provide --query, --query-file, or set DATABASE_QUERY environment variable"
+        );
+    }
+}
+
+/// Resolves the output file path from CLI arguments or environment variables
+fn resolve_output_file(cli: &Cli) -> Result<PathBuf> {
+    if let Some(output) = &cli.output {
+        Ok(output.clone())
+    } else if let Ok(output) = env::var("OUTPUT_FILE") {
+        Ok(PathBuf::from(output))
+    } else {
+        anyhow::bail!("Missing output file. Provide --output or set OUTPUT_FILE environment variable");
+    }
+}
+
+/// Writes output in the specified format
+fn write_output(rows: Vec<Vec<String>>, output: File, output_file: &std::path::Path, cli: &Cli) -> Result<()> {
+    let format = if let Some(format) = &cli.format {
+        format.clone()
+    } else {
+        OutputFormat::from_extension(output_file)
+    };
+
+    match format {
+        #[cfg(feature = "csv")]
+        OutputFormat::Csv => gold_digger::csv::write(rows, output)?,
+        #[cfg(feature = "json")]
+        OutputFormat::Json => gold_digger::json::write_with_pretty(rows, output, cli.pretty)?,
+        OutputFormat::Tsv => gold_digger::tab::write(rows, output)?,
+        #[cfg(not(feature = "csv"))]
+        OutputFormat::Csv => anyhow::bail!("CSV support not compiled in"),
+        #[cfg(not(feature = "json"))]
+        OutputFormat::Json => anyhow::bail!("JSON support not compiled in"),
+    }
+
+    Ok(())
+}
+
+/// Generates shell completion scripts
+fn generate_completion(shell: Shell) {
+    let mut cmd = Cli::command();
+    let bin_name = "gold_digger";
+
+    match shell {
+        Shell::Bash => generate(CompletionShell::Bash, &mut cmd, bin_name, &mut std::io::stdout()),
+        Shell::Zsh => generate(CompletionShell::Zsh, &mut cmd, bin_name, &mut std::io::stdout()),
+        Shell::Fish => generate(CompletionShell::Fish, &mut cmd, bin_name, &mut std::io::stdout()),
+        Shell::PowerShell => generate(CompletionShell::PowerShell, &mut cmd, bin_name, &mut std::io::stdout()),
+    }
+}
+
+/// Dumps current configuration as JSON
+fn dump_configuration(cli: &Cli) -> Result<()> {
+    use serde_json::json;
+
+    let config = json!({
+        "database_url": if cli.db_url.is_some() {
+            "***REDACTED***".to_string()
+        } else {
+            env::var("DATABASE_URL").map(|_| "***REDACTED***".to_string()).unwrap_or("null".to_string())
+        },
+        "query": cli.query.as_ref().unwrap_or(&env::var("DATABASE_QUERY").unwrap_or_default()),
+        "query_file": cli.query_file.as_ref().map(|p| p.display().to_string()),
+        "output": cli.output.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| env::var("OUTPUT_FILE").unwrap_or_default()),
+        "format": cli.format.as_ref().map(|f| f.as_str()),
+        "verbose": cli.verbose,
+        "quiet": cli.quiet,
+        "pretty": cli.pretty,
+        "allow_empty": cli.allow_empty
+    });
+
+    println!("{}", serde_json::to_string_pretty(&config)?);
     Ok(())
 }

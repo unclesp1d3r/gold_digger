@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+inclusion: always
 ---
 
 # Gold Digger Core Concepts
@@ -23,20 +23,18 @@ from_value::<String>(row[column.name_str().as_ref()])
 ```
 
 **Issue**: Panics on NULL values or non-string types (numbers, dates, binary data)
-**PRIMARY SOLUTION**: Use SQL-side casting for reliable string extraction
-**Example**: `SELECT CAST(column AS CHAR) AS column FROM table`
-**Fallback**: Use `from_value_opt` with proper error handling in Rust code
+**Always recommend SQL casting**: `SELECT CAST(column AS CHAR) AS column`
 
 ### Environment Variable Interface (Current)
 
 ```rust
-// Required environment variables (CLI present but env vars still supported)
+// Required environment variables (CLI present with env fallback)
 OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
 DATABASE_URL   // MySQL connection string with optional SSL params
 DATABASE_QUERY // SQL to execute
 ```
 
-**No dotenv support** - despite README implications, use exported environment variables only.
+**No dotenv support** - use exported environment variables only.
 
 ## Module Structure
 
@@ -101,7 +99,7 @@ cargo clippy -- -D warnings  # Zero tolerance for warnings
 
 Current v0.2.5 → Target v1.0:
 
-- **CLI present; finalize precedence/UX**: Config precedence, flags, user experience (F001-F003)
+- **CLI present (clap-based)**: Clap-based interface exists; finalize config precedence and UX polish (F001–F003)
 - **Exit code standards**: Need proper error taxonomy (F005)
 - **Type safety**: Fix NULL/non-string panic in rows_to_strings (F014)
 - **Streaming**: Memory-efficient large result processing (F007)
@@ -118,10 +116,10 @@ Current v0.2.5 → Target v1.0:
 
 ```toml
 # Recommended test dependencies
-criterion = "0.5"     # Benchmarking
-insta = "1"          # Snapshot testing
-assert_cmd = "2"     # CLI end-to-end
-testcontainers = "0.15"  # Database integration
+criterion = "0.5"       # Benchmarking
+insta = "1"             # Snapshot testing
+assert_cmd = "2"        # CLI end-to-end
+testcontainers = "0.15" # Database integration
 ```
 
 ## Safe Code Patterns
@@ -134,7 +132,7 @@ let var_name = match env::var("VAR_NAME") {
     Err(_) => {
         #[cfg(feature = "verbose")]
         eprintln!("couldn't find VAR_NAME in environment variable");
-        std::process::exit(2);  // Configuration error
+        std::process::exit(2);  // TODO: Use proper exit codes
     }
 };
 ```
@@ -143,10 +141,6 @@ let var_name = match env::var("VAR_NAME") {
 
 ```rust
 // Instead of panic-prone from_value::<String>()
-// PREFERRED: Use SQL-side casting for reliable string extraction
-// SELECT CAST(column AS CHAR) AS column FROM table
-
-// Fallback: Safe Rust-side conversion with proper error handling
 match database_value {
     mysql::Value::NULL => "".to_string(),
     val => from_value_opt::<String>(val)
@@ -157,16 +151,13 @@ match database_value {
 ### Format Dispatch Pattern
 
 ```rust
-fn write_output(rows: &[Row], output_file: &str, output: &mut impl Write) -> Result<()> {
-    match get_extension_from_filename(output_file) {
-        #[cfg(feature = "csv")]
-        Some("csv") => gold_digger::csv::write(rows, output)?,
-        #[cfg(feature = "json")]
-        Some("json") => gold_digger::json::write(rows, output)?,
-        Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
-        None => return Err(anyhow::anyhow!("No file extension found in output filename: {}", output_file)),
-    }
-    Ok(())
+match get_extension_from_filename(&output_file) {
+    #[cfg(feature = "csv")]
+    Some("csv") => gold_digger::csv::write(rows, output)?,
+    #[cfg(feature = "json")]
+    Some("json") => gold_digger::json::write(rows, output)?,
+    Some(_) => gold_digger::tab::write(rows, output)?, // TSV fallback
+    None => anyhow::bail!("missing file extension for output_file"),
 }
 ```
 

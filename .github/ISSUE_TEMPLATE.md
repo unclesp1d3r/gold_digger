@@ -5,13 +5,17 @@ A clear and concise description of the issue.
 ## Steps to Reproduce
 
 1. Set environment variables:
+
    ```bash
    export OUTPUT_FILE="..."
    export DATABASE_URL="..."
    export DATABASE_QUERY="..."
    ```
 
+   ⚠️ Security Note: Before posting this issue, please redact or obfuscate any sensitive credentials in your DATABASE_URL. Replace usernames, passwords, and hostnames with `[REDACTED]` or use a sanitized example like mysql://user:pass@host:3306/db.
+
 2. Run the command:
+
    ```bash
    cargo run --release
    ```
@@ -40,6 +44,7 @@ Add any other context about the issue here.
 ## Issue Type
 
 Please select the appropriate template for your issue:
+
 - [Bug Report](https://github.com/UncleSp1d3r/gold_digger/issues/new?template=bug_report.md)
 - [Feature Request](https://github.com/UncleSp1d3r/gold_digger/issues/new?template=feature_request.md)
 - [Security Report](https://github.com/UncleSp1d3r/gold_digger/issues/new?template=security_report.md)

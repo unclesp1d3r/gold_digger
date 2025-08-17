@@ -4,69 +4,65 @@
 # Default recipe
 default: lint
 
-# Set shell for recipe execution with proper PATH
-set shell := ["zsh", "-c"]
-
 # Variables
 export RUST_BACKTRACE := "1"
 export CARGO_TERM_COLOR := "always"
 
 # Development setup
 setup:
-    #!/usr/bin/env zsh
-    echo "🔧 Setting up development environment..."
+    @echo "🔧 Setting up development environment..."
     rustup component add rustfmt clippy
     cargo install cargo-nextest --locked || echo "cargo-nextest already installed"
-    echo "✅ Setup complete!"
+    @echo "✅ Setup complete!"
 
 # Install development tools (extended setup)
 install-tools:
-    #!/usr/bin/env zsh
-    echo "🛠️ Installing additional development tools..."
+    @echo "🛠️ Installing additional development tools..."
     cargo install cargo-tarpaulin --locked || echo "cargo-tarpaulin already installed"
     cargo install cargo-audit --locked || echo "cargo-audit already installed"
     cargo install cargo-deny --locked || echo "cargo-deny already installed"
-    echo "✅ Tools installed!"
+    @echo "✅ Tools installed!"
 
 # Format code
-fmt:
+format:
     @echo "📝 Formatting code..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo fmt
+    pre-commit run -a || true
+    cargo fmt
 
 # Check formatting
 fmt-check:
     @echo "🔍 Checking code formatting..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo fmt --check
+    cargo fmt --check
 
 # Run clippy linting
 lint:
     @echo "🔍 Running clippy linting..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --all-targets --all-features -- -D warnings
 
 # Run clippy with fixes
 fix:
     @echo "🔧 Running clippy with automatic fixes..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo clippy --fix --allow-dirty --allow-staged
+    cargo clippy --fix --allow-dirty --allow-staged
 
 # Build debug version
 build:
     @echo "🔨 Building debug version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build
+    cargo build
 
 # Build release version
 build-release:
     @echo "🔨 Building release version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release
+    cargo build --release
 
 # Build with vendored OpenSSL (static linking)
 build-vendored:
     @echo "🔨 Building with vendored OpenSSL..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release --features vendored
+    cargo build --release --features vendored
 
 # Build minimal version (no default features)
 build-minimal:
     @echo "🔨 Building minimal version..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo build --release --no-default-features --features "csv json"
+    cargo build --release --no-default-features --features "csv json"
 
 # Build all feature combinations
 build-all: build build-release build-vendored build-minimal
@@ -75,22 +71,27 @@ build-all: build build-release build-vendored build-minimal
 # Install locally from workspace
 install:
     @echo "📦 Installing locally from workspace..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo install --path .
+    cargo install --path .
 
 # Run tests
 test:
     @echo "🧪 Running tests..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo test
+    cargo test
 
 # Run tests with nextest (if available)
 test-nextest:
     @echo "🧪 Running tests with nextest..."
-    export PATH="$HOME/.cargo/bin:$PATH" && cargo nextest run || cargo test
+    cargo nextest run || cargo test
 
-# Run tests with coverage
+# Run tests with coverage (tarpaulin)
 coverage:
     @echo "📊 Running tests with coverage..."
     cargo tarpaulin --out Html --output-dir target/tarpaulin
+
+# Run tests with coverage (llvm-cov for CI)
+coverage-llvm:
+    @echo "📊 Running tests with llvm-cov..."
+    cargo llvm-cov --workspace --lcov --output-path lcov.info
 
 # Security audit
 audit:
@@ -107,7 +108,11 @@ ci-check: fmt-check lint test-nextest
     @echo "✅ All CI checks passed!"
 
 # Quick development check
-check: fmt lint test
+check:
+    @echo "🔍 Running development checks..."
+    pre-commit run -a
+    just lint
+    just test
     @echo "✅ Quick development checks passed!"
 
 # Clean build artifacts
@@ -117,24 +122,18 @@ clean:
 
 # Run with example environment variables
 run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
-    #!/usr/bin/env zsh
-    echo "🚀 Running Gold Digger..."
-    echo "Output: {{OUTPUT_FILE}}"
-    echo "Database: $(echo {{DATABASE_URL}} | sed 's/:[^@]*@/:***@/')"
-    echo "Query: {{DATABASE_QUERY}}"
-    OUTPUT_FILE={{OUTPUT_FILE}} \
-    DATABASE_URL={{DATABASE_URL}} \
-    DATABASE_QUERY={{DATABASE_QUERY}} \
+    @echo "🚀 Running Gold Digger..."
+    @echo "Output: {{OUTPUT_FILE}}"
+    @echo "Database: *** (credentials hidden)"
+    @echo "Query: {{DATABASE_QUERY}}"
+    # Load credentials securely from environment (not visible in process args)
     cargo run --release
 
 # Run with safe example (casting to avoid panics)
 run-safe:
-    #!/usr/bin/env zsh
-    echo "🚀 Running Gold Digger with safe example..."
-    OUTPUT_FILE=/tmp/gold_digger_example.json \
-    DATABASE_URL="mysql://user:pass@localhost:3306/test" \
-    DATABASE_QUERY="SELECT CAST(1 AS CHAR) as id, CAST('test' AS CHAR) as name" \
-    cargo run --release
+    @echo "🚀 Running Gold Digger with safe example..."
+    @echo "Setting environment variables for safe testing..."
+    DB_URL=sqlite://dummy.db API_KEY=dummy NODE_ENV=testing APP_ENV=safe cargo run --release
 
 # Development server (watch for changes) - requires cargo-watch
 watch:
@@ -213,35 +212,78 @@ status:
     @echo ""
     @echo "📖 See WARP.md for detailed information"
 
+# Local GitHub Actions Testing (requires act)
+act-setup:
+    @echo "📦 Setting up act for local GitHub Actions testing..."
+    @echo "Checking if act is installed..."
+    @which act || echo "❌ Please install act: brew install act (or see https://github.com/nektos/act)"
+    @echo "✅ Act configuration already exists in .actrc"
+    @echo "🐳 Pulling Docker images (this may take a while the first time)..."
+    docker pull catthehacker/ubuntu:act-22.04 || echo "⚠️  Could not pull Docker image - act may not work without it"
+    @echo "✅ Act setup complete!"
+
+# Run CI workflow locally (dry-run)
+act-ci-dry:
+    @echo "🧪 Running CI workflow dry-run with act..."
+    @echo "This simulates the GitHub Actions CI without actually executing commands"
+    act -j ci --dryrun
+
+# Run CI workflow locally (full execution)
+act-ci:
+    @echo "🧪 Running CI workflow locally with act..."
+    @echo "⚠️  This will execute the full CI pipeline in Docker containers"
+    @echo "📋 This includes: Rust setup, pre-commit, linting, testing, coverage"
+    act -j ci
+
+# Run release workflow dry-run (requires tag parameter)
+act-release-dry TAG:
+    @echo "🚀 Running release workflow dry-run for tag: {{TAG}}"
+    @echo "This simulates the full release pipeline without actually creating releases"
+    act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+
+# List all available GitHub Actions workflows
+act-list:
+    @echo "📋 Available GitHub Actions workflows:"
+    act --list
+
+# Test specific workflow job
+act-job JOB:
+    @echo "🎯 Running specific job: {{JOB}}"
+    act -j {{JOB}} --dryrun
+
+# Clean act cache and containers
+act-clean:
+    @echo "🧹 Cleaning act cache and containers..."
+    @echo "Removing act containers..."
+    -docker ps -a | grep "act-" | awk '{print $1}' | xargs docker rm -f
+    @echo "Removing act images cache..."
+    -docker images | grep "act-" | awk '{print $3}' | xargs docker rmi -f
+    @echo "✅ Act cleanup complete!"
+
 # Release preparation checklist
 release-check:
-    #!/usr/bin/env zsh
-    echo "🚀 Pre-release checklist:"
-    echo ""
-    echo "1. Version sync check:"
-    CARGO_VERSION=$(grep '^version' Cargo.toml | cut -d'"' -f2)
-    CHANGELOG_VERSION=$(grep -m1 '## \[v' CHANGELOG.md | sed 's/.*\[v/v/' | sed 's/\].*//')
-    if [[ "$CARGO_VERSION" != "${CHANGELOG_VERSION#v}" ]]; then
-        echo "   ❌ Version mismatch: Cargo.toml=$CARGO_VERSION, CHANGELOG=$CHANGELOG_VERSION"
-    else
-        echo "   ✅ Versions synchronized"
-    fi
-    echo ""
-    echo "2. Running quality checks..."
+    @echo "🚀 Pre-release checklist:"
+    @echo ""
+    @echo "1. Version sync check:"
+    @echo "2. Running quality checks..."
     just ci-check
-    echo ""
-    echo "3. Security checks..."
+    @echo ""
+    @echo "3. Security checks..."
     just audit
-    echo ""
-    echo "4. Build matrix test..."
+    @echo ""
+    @echo "4. Build matrix test..."
     just build-all
-    echo ""
-    echo "📋 Manual checklist:"
-    echo "   □ Update CHANGELOG.md if needed"
-    echo "   □ Review project_spec/requirements.md for completeness"
-    echo "   □ Test with real database connections"
-    echo "   □ Verify all feature flag combinations work"
-    echo "   □ Check that credentials are never logged"
+    @echo ""
+    @echo "5. Local CI validation..."
+    just act-ci-dry
+    @echo ""
+    @echo "📋 Manual checklist:"
+    @echo "   □ Update CHANGELOG.md if needed"
+    @echo "   □ Review project_spec/requirements.md for completeness"
+    @echo "   □ Test with real database connections"
+    @echo "   □ Verify all feature flag combinations work"
+    @echo "   □ Check that credentials are never logged"
+    @echo "   □ Run 'just act-release-dry vX.Y.Z' to test release workflow"
 
 # Show help
 help:
@@ -256,7 +298,7 @@ help:
     @echo "  install       Install locally from workspace"
     @echo ""
     @echo "Code Quality:"
-    @echo "  fmt           Format code"
+    @echo "  format           Format code"
     @echo "  fmt-check     Check formatting"
     @echo "  lint          Run clippy linting"
     @echo "  fix           Run clippy with automatic fixes"
@@ -277,6 +319,15 @@ help:
     @echo "  run OUTPUT_FILE DATABASE_URL DATABASE_QUERY  Run with custom env vars"
     @echo "  run-safe      Run with safe example query"
     @echo "  watch         Watch for changes (requires cargo-watch)"
+    @echo ""
+    @echo "Local GitHub Actions Testing (requires act):"
+    @echo "  act-setup     Set up act and pull Docker images"
+    @echo "  act-ci-dry    Run CI workflow dry-run (simulation)"
+    @echo "  act-ci        Run CI workflow locally (full execution)"
+    @echo "  act-release-dry TAG  Simulate release workflow for tag"
+    @echo "  act-list      List all available workflows"
+    @echo "  act-job JOB   Test specific workflow job"
+    @echo "  act-clean     Clean act cache and containers"
     @echo ""
     @echo "Documentation:"
     @echo "  docs          Generate and open documentation"

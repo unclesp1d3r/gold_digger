@@ -2,8 +2,8 @@
 name: Bug Report
 about: Create a report to help us improve gold_digger
 title: '[BUG] '
-labels: ['bug']
-assignees: ['UncleSp1d3r']
+labels: [bug]
+assignees: [UncleSp1d3r]
 ---
 
 ## Bug Description
@@ -19,6 +19,8 @@ A clear and concise description of what the bug is.
    export DATABASE_URL="..."
    export DATABASE_QUERY="..."
    ```
+
+   **⚠️ Security Note**: Before posting this issue, please redact or obfuscate any sensitive credentials in your DATABASE_URL. Replace usernames, passwords, and hostnames with `<redacted>` or use a sanitized example like `mysql://user:pass@host:3306/db`.
 
 2. Run the command:
 
@@ -38,7 +40,7 @@ A clear and concise description of what actually happened.
 
 ## Environment
 
-- **OS**: [e.g. macOS 14.0, Ubuntu 22.04, Windows 11]
+- **OS**: [e.g. macOS 15.0, Ubuntu 22.04 LTS, Windows 11]
 - **Rust Version**: [e.g. 1.89.0]
 - **gold_digger Version**: [e.g. v0.2.5]
 - **MySQL/MariaDB Version**: [e.g. MySQL 8.0, MariaDB 10.11]
@@ -47,12 +49,12 @@ A clear and concise description of what actually happened.
 
 ```bash
 # How did you build gold_digger?
-cargo build --release --features "default vendored"
+cargo build --release --features "vendored"
 ```
 
 ## Error Output
 
-```
+```text
 # Paste the full error output here
 ```
 

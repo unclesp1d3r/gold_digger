@@ -8,7 +8,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 **Key Characteristics:**
 
-- Environment variable driven (no CLI interface yet)
+- CLI-first (uses Clap) with environment variable overrides
 - Outputs to structured formats based on file extension
 - Fully materialized result sets (no streaming)
 - Single-maintainer project by UncleSp1d3r
@@ -24,7 +24,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 3. **Non-Standard Exit Codes:** `exit(-1)` becomes exit code 255, not the standard codes specified in requirements.
 
-4. **Non-Deterministic JSON:** Uses HashMap which doesn't guarantee key order. Requirements call for deterministic output.
+4. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
 
 5. **Pattern Matching Bug:** In `src/main.rs`, line 59 has `Some(&_)` which should be `Some(_)` in the match expression.
 
@@ -50,8 +50,8 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 **Output Writers:**
 
-- `csv.rs`: RFC 4180-ish with `QuoteStyle::NonNumeric`
-- `json.rs`: `{"data": [{...}]}` using HashMap (non-deterministic)
+- `csv.rs`: RFC 4180-ish with `QuoteStyle::Necessary`
+- `json.rs`: `{"data": [{...}]}` using BTreeMap (deterministic ordering)
 - `tab.rs`: TSV with `\t` delimiter and `QuoteStyle::Necessary`
 
 ## Development Commands
@@ -87,7 +87,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 ### High Priority Missing Features
 
-- **F001-F003:** No CLI interface (clap), config precedence, `--query-file`/`--format` flags
+- **F001-F003:** CLI interface exists (clap-based); finalize CLI flag precedence and documented flags
 - **F005:** Non-standard exit codes (should be 0=success, 1=no rows, 2=config error, etc.)
 - **F014:** Type conversion panics on NULL/non-string values
 - **Extension dispatch bug fix**
@@ -96,7 +96,7 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 - **F007:** Streaming output (currently loads all rows into memory)
 - **F008:** Structured logging with credential redaction
-- **F010:** Deterministic JSON output, pretty-print option
+- **F010:** JSON output uses BTreeMap for deterministic ordering, pretty-print option
 
 ## Code Quality Standards
 
@@ -110,9 +110,9 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 ### Security Rules
 
 1. **Never log DATABASE_URL or credentials** - implement redaction
-2. **No telemetry or external calls** at runtime  
+2. **No telemetry or external calls** at runtime
 3. **Respect system umask** for output files
-4. **Use URL parameters for SSL:** `?ssl-mode=REQUIRED`
+4. **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
 
 ## Common Tasks for AI Assistants
 
@@ -152,7 +152,7 @@ insta = "1"
 rstest = "0.18"
 assert_cmd = "2"
 tempfile = "3"
-testcontainers = "0.15"  # For real MySQL/MariaDB testing
+testcontainers = "0.15"                                      # For real MySQL/MariaDB testing
 ```
 
 ### Test Categories
@@ -175,16 +175,16 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 
 ## Quick Reference
 
-| File | Purpose | Key Issues |
-|------|---------|------------|
-| `src/main.rs` | Entry point | Exit codes, pattern bug, env var handling |
-| `src/lib.rs` | Core logic | Type conversion panics, NULL handling |
-| `src/json.rs` | JSON output | Non-deterministic HashMap |
-| `Cargo.toml` | Dependencies | Version mismatch with CHANGELOG |
-| `project_spec/requirements.md` | Target features | Comprehensive feature roadmap |
+| File                           | Purpose         | Key Issues                                |
+| ------------------------------ | --------------- | ----------------------------------------- |
+| `src/main.rs`                  | Entry point     | Exit codes, pattern bug, env var handling |
+| `src/lib.rs`                   | Core logic      | Type conversion panics, NULL handling     |
+| `src/json.rs`                  | JSON output     | Non-deterministic HashMap                 |
+| `Cargo.toml`                   | Dependencies    | Version mismatch with CHANGELOG           |
+| `project_spec/requirements.md` | Target features | Comprehensive feature roadmap             |
 
 ---
 
 **Maintainer:** UncleSp1d3r
-**Workflow:** Single-maintainer with CodeRabbit.ai reviews  
+**Workflow:** Single-maintainer with CodeRabbit.ai reviews
 **Status:** Active development toward v1.0

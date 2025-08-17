@@ -103,8 +103,8 @@ cargo run --release
 
 **Output Writers:**
 
-- `csv.rs`: RFC 4180-ish with `QuoteStyle::NonNumeric`
-- `json.rs`: Produces `{"data": [{...}]}` structure using HashMap (non-deterministic key order)
+- `csv.rs`: RFC 4180-ish with `QuoteStyle::Necessary`
+- `json.rs`: Produces `{"data": [{...}]}` structure using BTreeMap (deterministic key order)
 - `tab.rs`: TSV with `\t` delimiter and `QuoteStyle::Necessary`
 
 **Performance Characteristics:**
@@ -139,13 +139,12 @@ match get_extension_from_filename(&output_file) {
 ### Known Issues
 
 1. **Pattern Bug:** `Some(&_)` should be `Some(_)` in the fallback arm
-2. **Non-deterministic JSON:** Uses HashMap; requirements specify deterministic output
-3. **Extension Confusion:** `.txt` mentioned in README but dispatches to TSV
-4. **Missing Features:** No `--pretty` JSON flag, no format override option
+2. **Extension Confusion:** `.txt` mentioned in README but dispatches to TSV
+3. **Missing Features:** No `--pretty` JSON flag, no format override option
 
 ### Output Schemas
 
-- **CSV:** Headers in first row, `QuoteStyle::NonNumeric`
+- **CSV:** Headers in first row, `QuoteStyle::Necessary`
 - **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}`
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
@@ -257,7 +256,7 @@ insta = "1"
 rstest = "0.18"
 assert_cmd = "2"
 tempfile = "3"
-testcontainers = "0.15"  # For real MySQL/MariaDB testing
+testcontainers = "0.15"                                      # For real MySQL/MariaDB testing
 ```
 
 ### Test Categories
@@ -279,12 +278,12 @@ testcontainers = "0.15"  # For real MySQL/MariaDB testing
 
 ```yaml
 # Add to .github/workflows/rust.yml
-- name: Check formatting
-  run: cargo fmt --check
-- name: Clippy (fail on warnings)
-  run: cargo clippy -- -D warnings
-- name: Run tests
-  run: cargo test
+  - name: Check formatting
+    run: cargo fmt --check
+  - name: Clippy (fail on warnings)
+    run: cargo clippy -- -D warnings
+  - name: Run tests
+    run: cargo test
 ```
 
 ### Future Release Engineering
@@ -326,6 +325,31 @@ let opts = OptsBuilder::new()
     .ssl_opts(ssl_opts);
 ```
 
+## GitHub Interactions
+
+**⚠️ Important:** When directed to interact with GitHub (issues, pull requests, repositories, etc.), prioritize using the `gh` CLI tool if available. The `gh` tool provides comprehensive GitHub functionality including:
+
+- Creating and managing issues and pull requests
+- Repository operations (cloning, forking, etc.)
+- GitHub Actions workflow management
+- Release management
+- Authentication with GitHub API
+
+**Usage examples:**
+
+```bash
+# Check if gh is available
+gh --version
+
+# Common operations
+gh issue create --title "Bug: Type conversion panic" --body "Details..."
+gh pr create --title "Fix: Extension dispatch pattern" --body "Fixes the Some(&_) bug"
+gh repo view UncleSp1d3r/gold_digger
+gh workflow list
+```
+
+Fall back to other GitHub integration methods only if `gh` is not available or doesn't support the required functionality.
+
 ## First PR Checklist for AI Agents
 
 Before submitting any changes:
@@ -346,7 +370,7 @@ Before submitting any changes:
 # Minimal build (no TLS, no extra types)
 cargo build --no-default-features --features "csv json"
 
-# Full static build
+# Full static build (opt-in vendored OpenSSL)
 cargo build --release --features "default vendored"
 
 # Database admin build (all MySQL types)
