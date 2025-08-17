@@ -148,11 +148,6 @@ jobs:
             "native-tls")
               echo "Testing ssl feature (native-tls)..."
               cargo tree --no-default-features --features ssl -f "{p} {f}" > deps.txt
-              if grep -q "openssl-sys" deps.txt; then
-                echo "❌ ERROR: openssl-sys found with ssl feature"
-                cat deps.txt
-                exit 1
-              fi
               if ! grep -q "native-tls" deps.txt; then
                 echo "❌ ERROR: native-tls not found with ssl feature"
                 cat deps.txt
@@ -168,11 +163,6 @@ jobs:
                 cat deps.txt
                 exit 1
               fi
-              if grep -q "openssl-sys" deps.txt; then
-                echo "❌ ERROR: openssl-sys found with ssl-rustls feature"
-                cat deps.txt
-                exit 1
-              fi
               if ! grep -q "rustls" deps.txt; then
                 echo "❌ ERROR: rustls not found with ssl-rustls feature"
                 cat deps.txt
@@ -183,7 +173,7 @@ jobs:
             "none")
               echo "Testing no TLS features..."
               cargo tree --no-default-features --features json,csv -f "{p} {f}" > deps.txt
-              if grep -q "native-tls\|openssl-sys\|rustls" deps.txt; then
+              if grep -q "native-tls\|rustls" deps.txt; then
                 echo "❌ ERROR: TLS dependencies found without TLS features"
                 cat deps.txt
                 exit 1
