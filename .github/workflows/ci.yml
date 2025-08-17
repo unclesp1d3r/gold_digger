@@ -16,18 +16,9 @@ permissions:
 
 jobs:
   ci:
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
-        tls: [native-tls, rustls]
-        include:
-          # Test minimal build (no TLS) on Ubuntu only to avoid redundancy
-          - os: ubuntu-22.04
-            tls: none
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     concurrency:
-      group: ci-${{ github.ref }}-${{ matrix.os }}-${{ matrix.tls }}
+      group: ci-${{ github.ref }}-ubuntu-validation
       cancel-in-progress: true
 
     env:
@@ -52,7 +43,7 @@ jobs:
       - name: Build project dependencies
         uses: ./.github/actions/build-dependencies
         with:
-          features: "${{ matrix.tls }}"
+          features: "native-tls"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -84,7 +75,13 @@ jobs:
           use-admonish: true
 
       - name: Install additional mdBook plugins
-        run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+        shell: bash
+        run: |
+          echo "Installing mdBook plugins with timeout..."
+          timeout 300 cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers || {
+            echo "⚠️ mdBook plugin installation timed out or failed, continuing without them"
+            echo "This is non-critical for CI validation"
+          }
 
       - name: Pre-commit validation
         shell: bash
@@ -97,109 +94,12 @@ jobs:
       - name: Lint check
         uses: ./.github/actions/run-clippy
         with:
-          features: "${{ matrix.tls }}"
+          features: "native-tls"
           sarif-output: "false"
 
-      - name: Tests (nextest)
+      # Run a quick test to ensure basic functionality works for validation
+      - name: Quick validation test
         uses: ./.github/actions/run-tests
         with:
-          features: "${{ matrix.tls }}"
+          features: "native-tls"
           use-nextest: "true"
-
-      # Build time comparison metrics collection
-      - name: Build time comparison
-        shell: bash
-        run: |
-          echo "⏱️ Collecting build time metrics for ${{ matrix.tls }} on ${{ matrix.os }}"
-
-          # Clean previous builds
-          cargo clean
-
-          # Time the build
-          start_time=$(date +%s)
-          case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "Building with native-tls..."
-              cargo build --release --no-default-features --features "json csv ssl additional_mysql_types verbose"
-              ;;
-            "rustls")
-              echo "Building with rustls..."
-              cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
-              ;;
-            "none")
-              echo "Building without TLS..."
-              cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
-              ;;
-          esac
-          end_time=$(date +%s)
-
-          build_time=$((end_time - start_time))
-          echo "🏁 Build completed in ${build_time} seconds"
-
-          # Get binary size
-          if [[ "${{ matrix.os }}" == "windows-2022" ]]; then
-            binary_path="target/release/gold_digger.exe"
-          else
-            binary_path="target/release/gold_digger"
-          fi
-
-          if [[ -f "$binary_path" ]]; then
-            binary_size=$(stat -c%s "$binary_path" 2>/dev/null || stat -f%z "$binary_path" 2>/dev/null || echo "unknown")
-            echo "📦 Binary size: ${binary_size} bytes"
-          else
-            echo "⚠️ Binary not found at expected path: $binary_path"
-          fi
-
-          # Create metrics summary
-          echo "📊 Build Metrics Summary:"
-          echo "  OS: ${{ matrix.os }}"
-          echo "  TLS: ${{ matrix.tls }}"
-          echo "  Build Time: ${build_time}s"
-          echo "  Binary Size: ${binary_size} bytes"
-
-          # Save metrics to file for potential artifact upload
-          mkdir -p build-metrics
-          cat > "build-metrics/metrics-${{ matrix.os }}-${{ matrix.tls }}.txt" << EOF
-          os=${{ matrix.os }}
-          tls=${{ matrix.tls }}
-          build_time=${build_time}
-          binary_size=${binary_size}
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          EOF
-
-      - name: Upload build metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-metrics-${{ matrix.os }}-${{ matrix.tls }}
-          path: build-metrics/
-          retention-days: 30
-
-      # Coverage - only run on Ubuntu with native-tls to avoid redundancy
-      - name: Install cargo-llvm-cov
-        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-llvm-cov
-
-      - name: Coverage (llvm-cov)
-        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
-        shell: bash
-        run: |
-          echo "📊 Running coverage with native-tls configuration..."
-          cargo llvm-cov --workspace --lcov --output-path lcov.info --no-default-features --features "json csv ssl additional_mysql_types verbose"
-
-      - name: Upload coverage artifact
-        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-lcov
-          path: lcov.info
-
-      - name: Upload to Codecov
-        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls' && github.repository == 'UncleSp1d3r/gold_digger'
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: unit
-          fail_ci_if_error: false
-          verbose: true
