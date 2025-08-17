@@ -108,7 +108,7 @@ jobs:
 
       - name: Compute artifact hashes (SLSA subjects)
         id: hash
-        uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
+        uses: slsa-framework/slsa-github-generator/actions/hash-files@v2.1.0
         with:
           files: |
             dist/*
@@ -176,7 +176,7 @@ jobs:
   slsa-provenance:
     name: Generate SLSA Level 3 Provenance
     needs: [consolidate-subjects, resolve-tag]
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     permissions:
       id-token: write
       contents: write
