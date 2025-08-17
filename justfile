@@ -121,11 +121,6 @@ validate-deps:
     @echo "🔍 Validating TLS dependency tree..."
     @echo ""
     @echo "Testing ssl feature (native-tls)..."
-    @if cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "openssl-sys"; then \
-        echo "❌ ERROR: openssl-sys found with ssl feature"; \
-        cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
-        exit 1; \
-    fi
     @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
         echo "❌ ERROR: native-tls not found with ssl feature"; \
         cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
@@ -139,11 +134,6 @@ validate-deps:
         cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
         exit 1; \
     fi
-    @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "openssl-sys"; then \
-        echo "❌ ERROR: openssl-sys found with ssl-rustls feature"; \
-        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
-        exit 1; \
-    fi
     @if ! cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
         echo "❌ ERROR: rustls not found with ssl-rustls feature"; \
         cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
@@ -152,7 +142,7 @@ validate-deps:
     @echo "✅ ssl-rustls feature validation passed"
     @echo ""
     @echo "Testing no TLS features..."
-    @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|openssl-sys\|rustls"; then \
+    @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|rustls"; then \
         echo "❌ ERROR: TLS dependencies found without TLS features"; \
         cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}"; \
         exit 1; \

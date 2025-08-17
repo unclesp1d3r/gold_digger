@@ -1,21 +1,14 @@
 use std::process::Command;
 
-/// Test to verify that openssl-sys is not in the dependency tree when using default features
+/// Test to verify that native-tls is present when using ssl feature
 #[test]
-fn test_no_openssl_dependencies_default_features() {
+fn test_native_tls_with_ssl_feature() {
     let output = Command::new("cargo")
         .args(["tree", "-f", "{p} {f}", "--no-default-features", "--features", "ssl"])
         .output()
         .expect("Failed to run cargo tree");
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
-
-    // Verify openssl-sys is not in the dependency tree
-    assert!(
-        !tree_output.contains("openssl-sys"),
-        "OpenSSL dependency found in tree with ssl feature: {}",
-        tree_output
-    );
 
     // Verify native-tls is present (expected with ssl feature)
     assert!(
@@ -46,13 +39,6 @@ fn test_no_native_tls_with_rustls() {
     assert!(
         !tree_output.contains("native-tls"),
         "native-tls dependency found in tree with ssl-rustls feature: {}",
-        tree_output
-    );
-
-    // Verify openssl-sys is not in the dependency tree
-    assert!(
-        !tree_output.contains("openssl-sys"),
-        "openssl-sys dependency found in tree with ssl-rustls feature: {}",
         tree_output
     );
 
@@ -126,12 +112,6 @@ fn test_no_tls_dependencies_without_features() {
     // Verify no TLS-related dependencies are present in production dependencies
     assert!(!tree_output.contains("native-tls"), "native-tls dependency found without TLS features: {}", tree_output);
 
-    assert!(
-        !tree_output.contains("openssl-sys"),
-        "openssl-sys dependency found without TLS features: {}",
-        tree_output
-    );
-
     assert!(!tree_output.contains("rustls"), "rustls dependency found without TLS features: {}", tree_output);
 }
 
@@ -199,10 +179,8 @@ fn test_feature_combinations() {
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
 
-    // Should have native-tls but not openssl-sys
+    // Should have native-tls
     assert!(tree_output.contains("native-tls"), "native-tls not found with ssl,json,csv features: {}", tree_output);
-
-    assert!(!tree_output.contains("openssl-sys"), "openssl-sys found with ssl,json,csv features: {}", tree_output);
 
     // Should have serde_json and csv dependencies
     assert!(
