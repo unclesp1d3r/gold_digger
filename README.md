@@ -59,7 +59,8 @@ cargo build --release --no-default-features --features "json csv additional_mysq
 - **Before**: `cargo build --features vendored` (static OpenSSL linking)
 - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
 
-**Note**: The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
+> [!NOTE]
+> The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
 
 **Migration Required**: See [TLS.md](TLS.md) for detailed TLS configuration and migration guidance.
 

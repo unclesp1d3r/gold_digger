@@ -188,15 +188,49 @@ watch:
     @echo "👀 Watching for changes..."
     cargo watch -x "run --release" || echo "Install cargo-watch: cargo install cargo-watch"
 
-# Generate documentation
-docs:
-    @echo "📚 Generating documentation..."
-    cargo doc --open --no-deps
+# Install mdBook and plugins for documentation
+docs-install:
+    @echo "📚 Installing mdBook and plugins..."
+    cargo install mdbook mdbook-admonish mdbook-mermaid mdbook-linkcheck mdbook-toc mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
 
-# Build documentation without opening
+# Build complete documentation (mdBook + rustdoc)
 docs-build:
-    @echo "📚 Building documentation..."
-    cargo doc --no-deps
+    #!/usr/bin/env bash
+    set -euo pipefail
+    @echo "📚 Building complete documentation..."
+    # Build rustdoc
+    cargo doc --no-deps --document-private-items --target-dir docs/book/api-temp
+    # Move rustdoc output to final location
+    mkdir -p docs/book/api
+    cp -r docs/book/api-temp/doc/* docs/book/api/
+    rm -rf docs/book/api-temp
+    # Build mdBook
+    cd docs && mdbook build
+
+# Serve documentation locally with live reload
+docs-serve:
+    @echo "📚 Starting documentation server..."
+    cd docs && mdbook serve --open
+
+# Clean documentation artifacts
+docs-clean:
+    @echo "🧹 Cleaning documentation artifacts..."
+    rm -rf docs/book target/doc
+
+# Check documentation (build + link validation + formatting)
+docs-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    @echo "🔍 Checking documentation..."
+    cd docs
+    mdbook build
+    # Check formatting of markdown files
+    find src -name "*.md" -exec mdformat --check {} \;
+
+# Generate rustdoc only
+docs:
+    @echo "📚 Generating rustdoc documentation..."
+    cargo doc --open --no-deps
 
 # Check for outdated dependencies
 outdated:
@@ -379,8 +413,12 @@ help:
     @echo "  act-clean     Clean act cache and containers"
     @echo ""
     @echo "Documentation:"
-    @echo "  docs          Generate and open documentation"
-    @echo "  docs-build    Build documentation only"
+    @echo "  docs-install  Install mdBook and plugins"
+    @echo "  docs-build    Build complete documentation (mdBook + rustdoc)"
+    @echo "  docs-serve    Serve documentation locally with live reload"
+    @echo "  docs-clean    Clean documentation artifacts"
+    @echo "  docs-check    Check documentation (build + validation + formatting)"
+    @echo "  docs          Generate and open rustdoc only"
     @echo ""
     @echo "Maintenance:"
     @echo "  clean         Clean build artifacts"

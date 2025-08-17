@@ -44,10 +44,12 @@ cargo test --test tls_integration --features ssl test_basic_tls_connection_estab
 
 ### Test Categories
 
-1. **Unit Tests** (`tls_unit_tests`): Test TLS configuration and validation without external dependencies
+1. **Unit Tests** (`tls_unit_tests`): Test TLS configuration and validation without external
+   dependencies
 2. **Validation Tests** (`tls_validation_tests`): Test certificate validation and error scenarios
 3. **Integration Tests** (`tls_tests`): Test actual TLS connections (require Docker)
-4. **Performance Tests** (`tls_performance_tests`): Test connection pooling and concurrency (require Docker)
+4. **Performance Tests** (`tls_performance_tests`): Test connection pooling and concurrency (require
+   Docker)
 5. **No-TLS Tests** (`no_tls_tests`): Test behavior when TLS features are disabled
 
 ## Requirements
