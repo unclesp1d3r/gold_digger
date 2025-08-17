@@ -22,7 +22,7 @@ inclusion: always
 
 ### Output Formats
 
-- **serde_json** - JSON serialization with HashMap (non-deterministic ordering)
+- **serde_json** - JSON serialization with BTreeMap (deterministic key ordering)
 - **csv crate** - RFC4180-compliant CSV with QuoteStyle::Necessary
 - **Custom TSV** - Tab-separated values with QuoteStyle::Necessary
 

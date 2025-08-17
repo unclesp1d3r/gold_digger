@@ -46,9 +46,11 @@ graph TB
 ### CLI Interface Module
 
 ```rust
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use clap_complete::Shell;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "gold_digger")]

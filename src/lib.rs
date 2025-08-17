@@ -21,6 +21,12 @@ pub trait FormatWriter {
     fn finalize(self) -> Result<()>;
 }
 
+// TODO: Implement RowStream with correct QueryResult type signature
+// pub struct RowStream<'a> {
+//     result: mysql::QueryResult<'a>,
+//     columns: Vec<Column>,
+// }
+
 /// Converts MySQL rows to a vector of string vectors, with the first row as headers.
 ///
 /// # Arguments
