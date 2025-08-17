@@ -73,6 +73,19 @@ jobs:
           path: ${{ env.PRE_COMMIT_HOME }}
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
+      - name: Setup mdBook
+        uses: jontze/action-mdbook@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          mdbook-version: latest
+          use-linkcheck: true
+          use-mermaid: true
+          use-toc: true
+          use-admonish: true
+
+      - name: Install additional mdBook plugins
+        run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+
       - name: Pre-commit validation
         shell: bash
         run: pre-commit run --show-diff-on-failure --color=always --all-files
