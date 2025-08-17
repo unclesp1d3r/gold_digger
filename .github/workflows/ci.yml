@@ -54,7 +54,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
 
       - name: Install nextest
         uses: taiki-e/install-action@v2
