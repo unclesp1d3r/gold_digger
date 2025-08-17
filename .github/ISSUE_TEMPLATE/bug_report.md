@@ -49,7 +49,7 @@ A clear and concise description of what actually happened.
 
 ```bash
 # How did you build gold_digger?
-cargo build --release --features "vendored"
+cargo build --release --features "ssl-rustls"
 ```
 
 ## Error Output

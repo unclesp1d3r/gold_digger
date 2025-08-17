@@ -64,8 +64,8 @@ vendored = ["openssl-sys?/vendored"]
 
 ```toml
 [features]
-ssl = ["mysql/rustls-tls"]
-vendored = []                                    # No-op for backward compatibility
+ssl = ["mysql/native-tls"]                       # Platform native TLS (no OpenSSL dependency)
+ssl-rustls = ["mysql/rustls-tls"]                # Pure Rust TLS implementation
 tls-native = ["mysql/native-tls", "openssl-sys"] # Optional fallback
 ```
 
@@ -97,7 +97,7 @@ The mysql crate's `rustls-tls` feature uses aws-lc-rs as the default crypto prov
 - Cross-platform compatibility
 - No OpenSSL dependencies
 
-Alternative: `rustls-tls-ring` feature uses the ring crypto library if aws-lc-rs compatibility issues arise.
+Alternative: Use the `native-tls` feature if aws-lc-rs compatibility issues arise, or consider using the `rustls-tls` feature with a different crypto provider configuration.
 
 ## Data Models
 
@@ -131,7 +131,7 @@ impl TlsConfig {
         }
         // Apply verification flags if supported by SslOpts API
         ssl_opts = ssl_opts.with_danger_accept_invalid_certs(!self.verify_peer);
-        ssl_opts = ssl_opts.with_danger_skip_domain_verification(!self.verify_hostname);
+        ssl_opts = ssl_opts.with_danger_skip_domain_validation(!self.verify_hostname);
         Some(ssl_opts)
     }
 }
@@ -140,7 +140,7 @@ impl TlsConfig {
 ### Migration Compatibility Layer
 
 ```rust
-#[cfg(feature = "ssl")]
+#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) -> anyhow::Result<Pool> {
     let opts = OptsBuilder::from_url(database_url)?;
 
@@ -185,6 +185,7 @@ pub enum TlsError {
 ### Error Context Enhancement
 
 ```rust
+#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 pub fn connect_with_tls(database_url: &str) -> anyhow::Result<Pool> {
     let pool = create_tls_connection(database_url, None)
         .with_context(|| format!("Failed to establish TLS connection to {}", redact_url(database_url)))?;
@@ -245,13 +246,23 @@ mod tests {
 
     #[test]
     fn test_feature_flag_compatibility() {
-        // Ensure ssl feature enables rustls-tls
-        #[cfg(feature = "ssl")]
+        // Ensure ssl feature enables native-tls
+        #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
         {
-            // Test that TLS functionality is available
+            // Test that TLS functionality is available via native-tls or rustls
         }
 
-        #[cfg(not(feature = "ssl"))]
+        #[cfg(feature = "ssl")]
+        {
+            // Test that TLS functionality is available via native-tls
+        }
+
+        #[cfg(feature = "ssl-rustls")]
+        {
+            // Test that TLS functionality is available via rustls
+        }
+
+        #[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
         {
             // Test that TLS is properly disabled
         }
@@ -283,7 +294,7 @@ mod tests {
 ### Integration Tests with Testcontainers
 
 ```rust
-#[cfg(test)]
+#[cfg(all(test, any(feature = "ssl", feature = "ssl-rustls")))]
 mod integration_tests {
     use testcontainers::{clients::Cli, images::mysql::Mysql, Container};
 
@@ -325,7 +336,18 @@ fn test_no_openssl_dependencies() {
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
     assert!(!tree_output.contains("openssl-sys"), "OpenSSL dependency found in tree");
-    assert!(!tree_output.contains("native-tls"), "native-tls dependency found in tree");
+}
+
+#[test]
+fn test_ssl_rustls_no_native_tls() {
+    // Verify ssl-rustls feature doesn't include native-tls
+    let output = std::process::Command::new("cargo")
+        .args(&["tree", "-f", "{p} {f}"])
+        .output()
+        .expect("Failed to run cargo tree");
+
+    let tree_output = String::from_utf8(output.stdout).unwrap();
+    assert!(!tree_output.contains("native-tls"), "native-tls dependency found with ssl-rustls feature");
 }
 ```
 
@@ -337,7 +359,32 @@ strategy:
   matrix:
     os: [ubuntu-latest, windows-latest, macos-latest]
     rust: [stable, beta]
-    features: [ssl, 'ssl,vendored', 'ssl,tls-native']
+    features: [ssl, ssl-rustls]
+
+jobs:
+  validate:
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust ${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Validate feature exclusivity
+        run: |
+          # Fail if both ssl and ssl-rustls features are enabled
+          if [[ "${{ matrix.features }}" == *"ssl"* && "${{ matrix.features }}" == *"ssl-rustls"* ]]; then
+            echo "Error: Cannot enable both 'ssl' and 'ssl-rustls' features simultaneously"
+            echo "Matrix features: ${{ matrix.features }}"
+            exit 1
+          fi
+          echo "Feature validation passed: ${{ matrix.features }}"
+
+      - name: Build with features
+        run: cargo build --features "${{ matrix.features }}"
 ```
 
 ## Migration Implementation Plan
@@ -346,8 +393,9 @@ strategy:
 
 1. Update Cargo.toml feature flags
 2. Remove explicit openssl-sys dependency
-3. Add mysql/rustls-tls feature to ssl flag
-4. Preserve vendored as no-op for compatibility
+3. Add mysql/native-tls feature to ssl flag
+4. Add mysql/rustls-tls feature to ssl-rustls flag
+5. Remove vendored feature entirely
 
 ### Phase 2: CI Pipeline Updates
 
@@ -382,7 +430,7 @@ strategy:
 
 - `mysql::SslOpts` interface remains unchanged
 - Programmatic TLS configuration patterns preserved
-- Feature flag names maintained (ssl, vendored)
+- Feature flag names maintained (ssl, ssl-rustls)
 - Environment variable handling unchanged
 
 ### Behavioral Changes

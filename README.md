@@ -29,12 +29,12 @@ cargo install --path .
 
 ### TLS Support
 
-Gold Digger supports secure database connections through two TLS implementations, eliminating OpenSSL dependencies:
+Gold Digger supports secure database connections through two TLS implementations:
 
 - **Default (native-tls)**: Uses platform-native TLS libraries without OpenSSL dependencies
   - **Windows**: SChannel (built-in Windows TLS)
   - **macOS**: SecureTransport (built-in macOS TLS)
-  - **Linux**: System's native TLS implementation
+  - **Linux**: System TLS via native-tls (no OpenSSL dependency)
 - **Alternative (rustls)**: Pure Rust TLS implementation for environments requiring it
 
 ```bash
@@ -42,18 +42,20 @@ Gold Digger supports secure database connections through two TLS implementations
 cargo build --release
 
 # Build with pure Rust TLS implementation
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # Build without TLS support
-cargo build --release --no-default-features --features "json,csv,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
 ```
 
-#### Breaking Change: OpenSSL Dependency Removed
+#### Breaking Change: Vendored OpenSSL Feature Removed
 
-**v0.2.7+**: The `vendored` feature flag has been removed. OpenSSL is no longer used.
+**v0.2.7+**: The `vendored` feature flag has been removed. This change affects how TLS is handled:
 
 - **Before**: `cargo build --features vendored` (static OpenSSL linking)
 - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
+
+**Note**: The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
 
 **Migration Required**: See [MIGRATION.md](MIGRATION.md) for step-by-step migration guidance and [TLS.md](TLS.md) for detailed TLS configuration.
 

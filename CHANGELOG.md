@@ -8,12 +8,12 @@
   - **Migration**: Remove `vendored` from any build scripts or CI configurations
 
 ### Features
-- **TLS Implementation**: Added platform-native TLS support (no OpenSSL dependency)
+- **TLS Implementation**: Added platform-native TLS support (removed vendored OpenSSL dependency)
   - Default `ssl` feature now uses `mysql/native-tls` with platform TLS libraries
-  - Added `ssl-rustls` feature for pure Rust TLS implementation
   - Windows: Uses SChannel (built-in)
   - macOS: Uses SecureTransport (built-in)
-  - Linux: Uses system native TLS libraries
+  - Linux: Uses system native TLS libraries (may link to system OpenSSL)
+  - Added `ssl-rustls` feature for pure Rust TLS implementation that avoids any OpenSSL linkage across all platforms
 
 ### Documentation
 - Added comprehensive TLS configuration guide (TLS.md)

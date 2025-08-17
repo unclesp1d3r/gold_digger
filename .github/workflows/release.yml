@@ -87,7 +87,9 @@ jobs:
 
       - name: Build release
         shell: bash
-        run: just build-vendored
+        run: |
+          echo "🔨 Building release with rustls (pure Rust TLS)..."
+          just build-rustls
 
       - name: Upload binaries to Release
         uses: taiki-e/upload-rust-binary-action@v1
