@@ -94,3 +94,6 @@ tarpaulin-report.html
 
 # Node.js
 node_modules/
+
+# Generated documentation
+docs/book/
