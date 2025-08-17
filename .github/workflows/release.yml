@@ -55,7 +55,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Create GitHub Release
         uses: taiki-e/create-gh-release-action@v1
@@ -74,7 +74,7 @@ jobs:
     env:
       BIN_NAME: gold_digger
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -197,7 +197,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve TAG env
         shell: bash
@@ -229,7 +229,7 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.6.0
+        uses: sigstore/cosign-installer@v3.9.2
 
       - name: Generate SBOMs per artifact
         shell: bash
