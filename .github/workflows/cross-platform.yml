@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, macos-13, windows-2022]
-        tls: [native-tls, rustls]
+        tls: [native-tls, rustls, none]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     concurrency:
@@ -72,6 +72,10 @@ jobs:
             "rustls")
               echo "Building with rustls..."
               cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+              ;;
+            "none")
+              echo "Building without TLS..."
+              cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
               ;;
           esac
           end_time=$(date +%s)
