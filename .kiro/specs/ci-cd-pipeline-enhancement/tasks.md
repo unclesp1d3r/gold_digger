@@ -4,7 +4,7 @@
 
   - CI workflow already implements Ubuntu 22.04, macOS 13, and Windows 2022 testing
   - Matrix strategy with fail-fast: false for complete platform coverage
-  - Windows-specific OpenSSL setup already configured
+  - TLS matrix testing (native-tls, rustls, none) already configured
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
 - [x] 2. Pre-commit hook validation and quality gates
@@ -19,7 +19,7 @@
 
   - CodeQL analysis for Rust already configured in separate workflow
   - SBOM generation with syft (CycloneDX format) already implemented
-  - Vulnerability scanning with grype (--fail-on critical --fail-on high) already implemented
+  - Vulnerability scanning with grype (--fail-on critical) already implemented
   - cargo-audit and cargo-deny already integrated
   - SARIF integration for GitHub Security tab already working
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
@@ -28,7 +28,7 @@
 
   - Test execution with nextest already implemented via `just test-nextest`
   - Coverage generation with llvm-cov already configured (Ubuntu only)
-  - Codecov integration using GITHUB_TOKEN by default for public repos (CODECOV_TOKEN only required for private repos) already working
+  - Codecov integration using GITHUB_TOKEN by default for public repos already working
   - Coverage artifacts uploaded and available in PR comments
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
@@ -36,7 +36,7 @@
 
   - Cross-platform release builds already implemented
   - Cosign keyless OIDC signing already configured
-  - SLSA Level 3 provenance attestation already working
+  - SLSA Level 3 provenance attestation configured (needs bug fixes)
   - SBOM generation per artifact already implemented
   - SHA256 checksums already included with releases
   - GitHub OIDC authentication already configured (no PATs used)
@@ -57,11 +57,11 @@
   - Includes standard hooks for file validation
   - _Requirements: 2.1, 2.4_
 
-- [x] 8. Fix release workflow SLSA integration issues
+- [ ] 8. Fix release workflow SLSA integration issues
 
-  - Fix invalid action input 'tag' in slsa-framework workflow call (line 102)
-  - Update to correct slsa-framework action version for hash-files (line 67)
-  - Remove invalid 'tag' parameter from SLSA workflow call (line 102)
+  - Fix invalid action input 'tag' in slsa-framework workflow call (line 102 in release.yml)
+  - Update to correct slsa-framework action version for hash-files (line 67 in release.yml)
+  - Remove invalid 'tag' parameter from SLSA workflow call (line 102 in release.yml)
   - Test release workflow end-to-end functionality
   - _Requirements: 5.1, 5.2, 5.3_
 
