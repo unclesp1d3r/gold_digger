@@ -38,42 +38,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      # No longer needed: Windows OpenSSL setup removed for rustls migration
-
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust Environment
+        uses: ./.github/actions/setup-rust
         with:
-          components: clippy,rustfmt
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+          components: "clippy,rustfmt"
+          install-cargo-audit: "true"
+          install-nextest: "true"
 
       - name: Install just
         uses: extractions/setup-just@v3
 
-      - name: Install nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: nextest
-
       # Build dependencies first to avoid compilation issues during linting
       - name: Build project dependencies
-        shell: bash
-        run: |
-          case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "🔨 Building with native-tls (ssl feature)..."
-              cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose"
-              ;;
-            "rustls")
-              echo "🔨 Building with rustls (ssl-rustls feature)..."
-              cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
-              ;;
-            "none")
-              echo "🔨 Building without TLS features..."
-              cargo check --all-targets --no-default-features --features "json csv additional_mysql_types verbose"
-              ;;
-          esac
+        uses: ./.github/actions/build-dependencies
+        with:
+          features: "${{ matrix.tls }}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -103,86 +82,16 @@ jobs:
         run: just fmt-check
 
       - name: Lint check
-        shell: bash
-        run: |
-          case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "🔍 Linting with native-tls (ssl feature)..."
-              cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
-              ;;
-            "rustls")
-              echo "🔍 Linting with rustls (ssl-rustls feature)..."
-              cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings
-              ;;
-            "none")
-              echo "🔍 Linting without TLS features..."
-              cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
-              ;;
-          esac
+        uses: ./.github/actions/run-clippy
+        with:
+          features: "${{ matrix.tls }}"
+          sarif-output: "false"
 
       - name: Tests (nextest)
-        shell: bash
-        run: |
-          case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "🧪 Testing with native-tls (ssl feature)..."
-              cargo nextest run --no-default-features --features "json csv ssl additional_mysql_types verbose" || cargo test --no-default-features --features "json csv ssl additional_mysql_types verbose"
-              ;;
-            "rustls")
-              echo "🧪 Testing with rustls (ssl-rustls feature)..."
-              cargo nextest run --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" || cargo test --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
-              ;;
-            "none")
-              echo "🧪 Testing without TLS features..."
-              cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose" || cargo test --no-default-features --features "json csv additional_mysql_types verbose"
-              ;;
-          esac
-
-      # Dependency tree validation for TLS migration
-      - name: Dependency tree validation
-        shell: bash
-        run: |
-          echo "🔍 Validating dependency tree for TLS configuration: ${{ matrix.tls }}"
-
-          case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "Testing ssl feature (native-tls)..."
-              cargo tree --no-default-features --features ssl -f "{p} {f}" > deps.txt
-              if ! grep -q "native-tls" deps.txt; then
-                echo "❌ ERROR: native-tls not found with ssl feature"
-                cat deps.txt
-                exit 1
-              fi
-              echo "✅ ssl feature validation passed"
-              ;;
-            "rustls")
-              echo "Testing ssl-rustls feature (rustls)..."
-              cargo tree --no-default-features --features ssl-rustls -f "{p} {f}" > deps.txt
-              if grep -q "native-tls" deps.txt; then
-                echo "❌ ERROR: native-tls found with ssl-rustls feature"
-                cat deps.txt
-                exit 1
-              fi
-              if ! grep -q "rustls" deps.txt; then
-                echo "❌ ERROR: rustls not found with ssl-rustls feature"
-                cat deps.txt
-                exit 1
-              fi
-              echo "✅ ssl-rustls feature validation passed"
-              ;;
-            "none")
-              echo "Testing no TLS features..."
-              cargo tree --no-default-features --features json,csv -f "{p} {f}" > deps.txt
-              if grep -q "native-tls\|rustls" deps.txt; then
-                echo "❌ ERROR: TLS dependencies found without TLS features"
-                cat deps.txt
-                exit 1
-              fi
-              echo "✅ no TLS features validation passed"
-              ;;
-          esac
-
-          echo "🎉 Dependency validation passed for ${{ matrix.tls }}!"
+        uses: ./.github/actions/run-tests
+        with:
+          features: "${{ matrix.tls }}"
+          use-nextest: "true"
 
       # Build time comparison metrics collection
       - name: Build time comparison

@@ -41,6 +41,7 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 3. WHEN vulnerabilities are scanned THEN the CI pipeline SHALL use grype to identify security issues
 4. WHEN security issues are found THEN the CI pipeline SHALL report them as failing checks
 5. WHEN SBOM is generated THEN it SHALL be uploaded as a CI artifact for transparency
+6. WHEN release artifacts are created THEN they SHALL be signed with Cosign keyless OIDC authentication
 
 ### Requirement 4
 
@@ -62,10 +63,11 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 
 1. WHEN a version tag is pushed THEN the release pipeline SHALL build artifacts for Ubuntu 22.04, macOS 13, and Windows 2022
 2. WHEN release artifacts are created THEN they SHALL be signed using Cosign keyless OIDC authentication
-3. WHEN releases are published THEN they SHALL include SLSA Level 3 provenance attestation
-4. WHEN artifacts are generated THEN they SHALL include comprehensive SBOMs for all components
+3. WHEN releases are published THEN they SHALL include comprehensive SBOMs for all components
+4. WHEN artifacts are generated THEN they SHALL include CycloneDX SBOMs generated with syft
 5. WHEN checksums are created THEN they SHALL use SHA256 and be included with release artifacts
 6. IF personal access tokens are used THEN they SHALL be replaced with GitHub OIDC authentication
+7. WHEN binaries are packaged THEN they SHALL use Rust-native tooling (taiki-e/upload-rust-binary-action)
 
 ### Requirement 6
 

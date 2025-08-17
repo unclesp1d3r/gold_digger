@@ -41,9 +41,9 @@ graph TD
     F --> G[Merge Approval]
 
     H[Tag Push] --> I[Release Build Matrix]
-    I --> J[SBOM Generation]
-    J --> K[Artifact Signing]
-    K --> L[Provenance Attestation]
+    I --> J[Rust Binary Packaging]
+    J --> K[SBOM Generation]
+    K --> L[Artifact Signing]
     L --> M[Release Publication]
 
     subgraph "Cross-Platform Matrix"
@@ -57,6 +57,7 @@ graph TD
         D2[Dependency Audit]
         D3[Vulnerability Scan]
         D4[License Check]
+        D5[Cosign Signing]
     end
 ```
 
@@ -90,7 +91,36 @@ jobs:
   coverage:   # Coverage reporting (Ubuntu only)
 ```
 
-### 2. Consolidated Security Workflow
+### 2. Rust-Native Release Workflow
+
+**Purpose**: Secure, efficient release automation using Rust-native tooling
+
+**Key Components**:
+
+- **taiki-e/upload-rust-binary-action@v1**: Native Rust binary packaging with automatic platform detection
+- **sigstore/cosign-installer@v3.6.0**: Keyless signing with OIDC authentication
+- **syft**: SBOM generation in CycloneDX format
+- **GitHub OIDC**: Secure authentication without personal access tokens
+
+**Workflow Architecture**:
+
+```yaml
+# Release workflow structure
+jobs:
+  resolve-tag:      # Tag resolution and validation
+  create-release:   # GitHub release creation
+  build-and-package: # Cross-platform builds with Rust-native packaging
+  sbom-and-sign:    # SBOM generation and Cosign signing
+```
+
+**Key Benefits**:
+
+- **Simplified Complexity**: Removed SLSA framework complexity in favor of proven, reliable tools
+- **Rust-Native**: Uses tooling specifically designed for Rust projects
+- **Security-First**: Maintains all security requirements (signing, SBOM, OIDC)
+- **Maintainable**: Cleaner, more understandable workflow structure
+
+### 3. Consolidated Security Workflow
 
 **Purpose**: Comprehensive security scanning with proper SARIF integration
 
