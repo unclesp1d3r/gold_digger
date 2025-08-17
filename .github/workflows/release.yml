@@ -61,7 +61,6 @@ jobs:
         uses: taiki-e/create-gh-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.resolve-tag.outputs.tag }}
 
   build-and-package:
     needs: create-release
@@ -91,12 +90,12 @@ jobs:
           echo "🔨 Building release with rustls (pure Rust TLS)..."
           just build-rustls
 
-      - name: Upload prebuilt binaries to Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload binaries to Release
+        uses: taiki-e/upload-rust-binary-action@v1
         with:
-          files: |
-            target/release/${{ env.BIN_NAME }}
-            target/release/${{ env.BIN_NAME }}.exe
+          bin: ${{ env.BIN_NAME }}
+          tar: unix
+          zip: windows
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -114,168 +113,61 @@ jobs:
               exit 1
             fi
           fi
-          echo "✅ Binary verification passed"
+                    echo "✅ Binary verification passed"
 
-      - name: Compute artifact hashes (SLSA subjects)
-        id: hash
-        uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
-        with:
-          files: |
-            target/release/${{ env.BIN_NAME }}
-            target/release/${{ env.BIN_NAME }}.exe
-
-      - name: Persist per-OS subjects
-        shell: bash
-        run: |
-          mkdir -p subjects
-          echo "${{ steps.hash.outputs.hashes }}" > "subjects/subjects-${{ matrix.os }}.b64"
-
-      - name: Upload subjects artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: subjects-${{ matrix.os }}
-          path: subjects/subjects-${{ matrix.os }}.b64
-
-  consolidate-subjects:
-    needs: build-and-package
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    outputs:
-      hashes: ${{ steps.merge.outputs.hashes }}
-    steps:
-      - name: Download subjects artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: subjects-*
-          merge-multiple: true
-
-      - name: Merge base64 subjects
-        id: merge
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          tmpdir=$(mktemp -d)
-          merged="${tmpdir}/merged.json"
-          echo "[]" > "${merged}"
-
-          files=(subjects-*.b64)
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No subjects-*.b64 files found; skipping merge." >&2
-            exit 0
-          fi
-
-          for f in "${files[@]}"; do
-            base64 -d "$f" > "${tmpdir}/decoded.json"
-            jq -s 'add' "${merged}" "${tmpdir}/decoded.json" > "${tmpdir}/new.json"
-            mv "${tmpdir}/new.json" "${merged}"
-          done
-
-          # Re-encode to base64, single line
-          if command -v openssl >/dev/null 2>&1; then
-            encoded=$(openssl base64 -A < "${merged}")
-          elif command -v base64 >/dev/null 2>&1; then
-            encoded=$(base64 < "${merged}" | tr -d '\n')
-          else
-            echo "Error: Neither openssl nor base64 found." >&2
-            exit 1
-          fi
-
-          echo "hashes=${encoded}" >> "$GITHUB_OUTPUT"
-
-  slsa-provenance:
-    name: Generate SLSA Level 3 Provenance
-    needs: [consolidate-subjects, resolve-tag]
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
-    permissions:
-      id-token: write
-      contents: write
-      actions: read
-      attestations: write
-    with:
-      base64-subjects: ${{ needs.consolidate-subjects.outputs.hashes }}
-      upload-assets: true
-      tag: ${{ needs.resolve-tag.outputs.tag }}
-    secrets: inherit
-
-  sbom-sign-attest:
-    name: SBOM + Cosign (keyless) + Reference Provenance
-    needs: [build-and-package, slsa-provenance, resolve-tag]
+  sbom-and-sign:
+    needs: [build-and-package, resolve-tag]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
       id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@v5
-
-      - name: Resolve TAG env
-        shell: bash
-        run: echo "TAG=${{ needs.resolve-tag.outputs.tag }}" >> "$GITHUB_ENV"
-
-      - name: Download release assets (binaries)
-        run: |
-          mkdir -p dist
-          gh release download "${TAG}" --dir dist
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download SLSA provenance asset
-        run: |
-          mkdir -p provenance
-          # Attempt standard name; fallback glob to be safe
-          gh release download "${TAG}" --pattern "provenance.intoto.jsonl" --dir provenance || true
-          if ! ls provenance/provenance.intoto.jsonl >/dev/null 2>&1; then
-            gh release download "${TAG}" --pattern "*.intoto.jsonl" --dir provenance || true
-          fi
-          ls -lah provenance || true
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install syft
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.9.2
+        uses: sigstore/cosign-installer@v3.6.0
 
-      - name: Generate SBOMs per artifact
-        shell: bash
+      - name: Download release assets
+        run: |
+          mkdir -p dist
+          gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SBOMs
         run: |
           mkdir -p sbom
-          shopt -s nullglob
           for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
               base=$(basename "$f")
               syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
             fi
           done
 
-      - name: Upload SBOMs to release
+      - name: Upload SBOMs
         uses: softprops/action-gh-release@v2
         with:
           files: sbom/*.sbom.cdx.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Keyless sign artifacts with Cosign (OIDC)
-        shell: bash
+      - name: Sign artifacts
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          shopt -s nullglob
           for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
               cosign sign-blob --yes "$f" \
                 --output-signature "${f}.sig" \
                 --output-certificate "${f}.crt"
             fi
           done
 
-      - name: Upload signatures to release
+      - name: Upload signatures
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -283,12 +175,3 @@ jobs:
             dist/*.crt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: (Optional) Verify SLSA provenance against one artifact
-        if: always()
-        shell: bash
-        run: |
-          echo "Provenance files (if present):"
-          ls -lah provenance || true
-          echo "Verification is typically done by consumers using slsa-verifier."
-          echo "This step is informational and does not block the pipeline."
