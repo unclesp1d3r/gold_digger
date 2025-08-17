@@ -39,10 +39,12 @@ fmt-check:
 # Run clippy linting
 lint:
     @echo "🔍 Running clippy linting..."
-    @echo "Testing default features (native-tls)..."
-    cargo clippy --all-targets -- -D warnings
+    @echo "Testing native-tls features..."
+    cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
     @echo "Testing rustls features..."
-    cargo clippy --all-targets --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose" -- -D warnings
+    cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings
+    @echo "Testing minimal features (no TLS)..."
+    cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
 
 # Run clippy with fixes
 fix:
@@ -62,12 +64,18 @@ build-release:
 # Build with pure Rust TLS (alternative to native TLS)
 build-rustls:
     @echo "🔨 Building with pure Rust TLS..."
-    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+    cargo build --release --no-default-features --features json csv ssl-rustls additional_mysql_types verbose
+
+# Build with vendored dependencies (legacy compatibility - now uses rustls)
+build-vendored:
+    @echo "🔨 Building with vendored dependencies (using rustls)..."
+    @echo "⚠️  Note: Vendored feature is deprecated, using rustls instead"
+    cargo build --release --no-default-features --features json csv ssl-rustls additional_mysql_types verbose
 
 # Build minimal version (no default features)
 build-minimal:
     @echo "🔨 Building minimal version..."
-    cargo build --release --no-default-features --features "csv json"
+    cargo build --release --no-default-features --features csv json
 
 # Build all feature combinations
 build-all: build build-release build-rustls build-minimal
@@ -108,8 +116,56 @@ deny:
     @echo "🚫 Checking licenses and security..."
     cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
 
+# Validate TLS dependency tree (for rustls migration)
+validate-deps:
+    @echo "🔍 Validating TLS dependency tree..."
+    @echo ""
+    @echo "Testing ssl feature (native-tls)..."
+    @cargo tree --no-default-features --features ssl -f "{p} {f}" > /tmp/ssl-deps.txt
+    @if grep -q "openssl-sys" /tmp/ssl-deps.txt; then \
+        echo "❌ ERROR: openssl-sys found with ssl feature"; \
+        cat /tmp/ssl-deps.txt; \
+        exit 1; \
+    fi
+    @if ! grep -q "native-tls" /tmp/ssl-deps.txt; then \
+        echo "❌ ERROR: native-tls not found with ssl feature"; \
+        cat /tmp/ssl-deps.txt; \
+        exit 1; \
+    fi
+    @echo "✅ ssl feature validation passed"
+    @echo ""
+    @echo "Testing ssl-rustls feature (rustls)..."
+    @cargo tree --no-default-features --features ssl-rustls -f "{p} {f}" > /tmp/rustls-deps.txt
+    @if grep -q "native-tls" /tmp/rustls-deps.txt; then \
+        echo "❌ ERROR: native-tls found with ssl-rustls feature"; \
+        cat /tmp/rustls-deps.txt; \
+        exit 1; \
+    fi
+    @if grep -q "openssl-sys" /tmp/rustls-deps.txt; then \
+        echo "❌ ERROR: openssl-sys found with ssl-rustls feature"; \
+        cat /tmp/rustls-deps.txt; \
+        exit 1; \
+    fi
+    @if ! grep -q "rustls" /tmp/rustls-deps.txt; then \
+        echo "❌ ERROR: rustls not found with ssl-rustls feature"; \
+        cat /tmp/rustls-deps.txt; \
+        exit 1; \
+    fi
+    @echo "✅ ssl-rustls feature validation passed"
+    @echo ""
+    @echo "Testing no TLS features..."
+    @cargo tree --no-default-features --features json,csv -f "{p} {f}" > /tmp/no-tls-deps.txt
+    @if grep -q "native-tls\|openssl-sys\|rustls" /tmp/no-tls-deps.txt; then \
+        echo "❌ ERROR: TLS dependencies found without TLS features"; \
+        cat /tmp/no-tls-deps.txt; \
+        exit 1; \
+    fi
+    @echo "✅ no TLS features validation passed"
+    @echo ""
+    @echo "🎉 All dependency validations passed!"
+
 # Quality gates (CI equivalent)
-ci-check: fmt-check lint test-nextest
+ci-check: fmt-check lint test-nextest validate-deps
     @echo "✅ All CI checks passed!"
 
 # Quick development check
@@ -319,6 +375,7 @@ help:
     @echo "Security:"
     @echo "  audit         Security audit"
     @echo "  deny          License and security checks"
+    @echo "  validate-deps Validate TLS dependency tree (rustls migration)"
     @echo ""
     @echo "Running:"
     @echo "  run OUTPUT_FILE DATABASE_URL DATABASE_QUERY  Run with custom env vars"

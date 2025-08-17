@@ -45,7 +45,7 @@ Uses rustls, a pure Rust TLS implementation:
 **Build command**:
 
 ```bash
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 ### No TLS (Insecure)
@@ -77,7 +77,7 @@ cargo build --release --features "default vendored"
 cargo build --release
 
 # Or use pure Rust TLS
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 **Migration Required**: Remove `vendored` from any build scripts, CI configurations, or documentation.
@@ -172,7 +172,7 @@ error[E0428]: the name `Secure` is defined multiple times
 cargo build --release
 
 # OR pure Rust TLS
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 ### Connection Issues

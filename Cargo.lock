@@ -721,7 +721,6 @@ dependencies = [
  "csv",
  "mysql",
  "mysql_common",
- "openssl-sys",
  "serde_json",
  "thiserror",
  "url",

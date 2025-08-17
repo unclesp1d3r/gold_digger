@@ -48,8 +48,8 @@ This feature migrates Gold Digger's TLS implementation from OpenSSL/native-tls t
 
 #### Acceptance Criteria
 
-1. WHEN the `ssl` feature is enabled THEN TLS functionality SHALL be available via rustls
-2. WHEN the `vendored` feature is specified THEN the build SHALL handle it gracefully (as no-op or alternative behavior)
+1. WHEN the `ssl` feature is enabled THEN TLS functionality SHALL be available via native-tls
+2. WHEN the `ssl-rustls` feature is enabled THEN TLS functionality SHALL be available via rustls
 3. WHEN existing code uses mysql::SslOpts THEN the programmatic TLS configuration SHALL continue to work
 4. WHEN users upgrade Gold Digger THEN existing TLS configurations SHALL remain compatible
 5. IF legacy OpenSSL support is needed THEN an optional fallback feature SHALL be available

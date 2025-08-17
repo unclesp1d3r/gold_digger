@@ -359,12 +359,13 @@ let opts = OptsBuilder::new()
 
 #### Migration from OpenSSL (Breaking Change)
 
-**v0.2.7+**: The `vendored` feature flag has been **removed**. Gold Digger has completely migrated away from OpenSSL dependencies:
+**v0.2.7+**: The `vendored` feature flag has been **removed**. Gold Digger has eliminated vendored OpenSSL dependencies:
 
 - **Before**: Required OpenSSL system libraries or `--features vendored` for static linking
 - **After**: Uses platform-native TLS (`ssl`) or pure Rust implementation (`ssl-rustls`)
 - **Breaking Change**: Remove `vendored` from build scripts and CI configurations
 - **Benefits**: Simplified builds, reduced attack surface, better cross-platform compatibility
+- **Note**: Platform TLS libraries receive OS security updates, but Linux may still rely on system OpenSSL
 
 **Migration Steps**:
 
@@ -418,7 +419,7 @@ Before submitting any changes:
 cargo build --release
 
 # Pure Rust TLS build (for containerized/static deployments)
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # Minimal build (no TLS, no extra types)
 cargo build --no-default-features --features "csv json"

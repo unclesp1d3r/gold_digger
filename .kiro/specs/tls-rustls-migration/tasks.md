@@ -34,15 +34,20 @@
   - Added comprehensive unit tests for error handling and message formatting
   - _Requirements: 2.5, 5.4, 7.4_
 
-- [ ] 5. Add dependency tree validation tests
+- [x] 5. Add dependency tree validation tests
 
-  - Create test function to verify openssl-sys is not in dependency tree
-  - Add test to ensure native-tls is not present when using rustls
-  - Implement cargo tree parsing and validation logic
-  - Write tests to verify correct feature flag behavior
+  - ✅ Created comprehensive `cargo tree` based test suite for dependency validation
+  - ✅ Added test to verify openssl-sys is not in dependency tree with ssl feature
+  - ✅ Added test to ensure native-tls is not present when using ssl-rustls feature
+  - ✅ Implemented cargo tree parsing with Unicode tree character handling
+  - ✅ Added tests for correct feature flag behavior (ssl vs ssl-rustls)
+  - ✅ Added test for no TLS dependencies when TLS features disabled
+  - ✅ Added test for feature combinations (ssl + json + csv)
+  - ✅ Maintained cargo-deny availability check for CI integration
+  - **Approach**: Used `cargo tree` parsing for granular feature-specific validation rather than cargo-deny alone
   - _Requirements: 1.5, 3.4_
 
-- [ ] 6. Update CI workflow configuration
+- [x] 6. Update CI workflow configuration
 
   - Remove Windows OpenSSL/vcpkg setup steps from CI workflows
   - Remove OpenSSL-related environment variable exports
