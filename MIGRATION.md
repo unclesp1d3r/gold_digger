@@ -225,11 +225,11 @@ If you encounter issues during migration:
 
 ## Benefits After Migration
 
-✅ **Simplified builds** - No OpenSSL setup required  
-✅ **Better security** - Platform TLS libraries auto-update  
-✅ **Smaller binaries** - Native libraries are more efficient  
-✅ **Cross-platform** - Consistent behavior across OS  
-✅ **Faster CI** - No OpenSSL compilation time  
-✅ **Reduced maintenance** - Fewer dependencies to manage  
+✅ **Simplified builds** - No OpenSSL setup required
+✅ **Better security** - Platform TLS libraries auto-update
+✅ **Smaller binaries** - Native libraries are more efficient
+✅ **Cross-platform** - Consistent behavior across OS
+✅ **Faster CI** - No OpenSSL compilation time
+✅ **Reduced maintenance** - Fewer dependencies to manage
 
 The migration eliminates a major source of build complexity while improving security and performance.

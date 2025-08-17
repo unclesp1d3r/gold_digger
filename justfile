@@ -28,6 +28,8 @@ format:
     @echo "📝 Formatting code..."
     pre-commit run -a || true
     cargo fmt
+    # Format YAML and JavaScript files with prettier
+    ~/.volta/bin/prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" || echo "prettier not found at ~/.volta/bin/prettier"
 
 # Check formatting
 fmt-check:

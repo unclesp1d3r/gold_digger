@@ -13,6 +13,8 @@ pub mod exit;
 pub mod json;
 /// Tab-delimited output module.
 pub mod tab;
+/// TLS configuration module.
+pub mod tls;
 
 /// Trait for writing data in different formats
 pub trait FormatWriter {
