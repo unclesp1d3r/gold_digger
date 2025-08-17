@@ -3,7 +3,7 @@ use mysql::{Pool, SslOpts};
 use std::path::PathBuf;
 use thiserror::Error;
 
-#[cfg(feature = "ssl")]
+#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use mysql::{Opts, OptsBuilder};
 
 /// TLS-specific error types for better error handling and user guidance
@@ -190,7 +190,7 @@ impl TlsConfig {
 }
 
 /// Creates a TLS-enabled MySQL connection pool with enhanced error handling
-#[cfg(feature = "ssl")]
+#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) -> Result<Pool> {
     // Validate URL format first
     let opts = Opts::from_url(database_url)
@@ -256,7 +256,7 @@ pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) 
 }
 
 /// Creates a TLS-enabled MySQL connection pool (no-op when ssl feature is disabled)
-#[cfg(not(feature = "ssl"))]
+#[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
 pub fn create_tls_connection(_database_url: &str, _tls_config: Option<TlsConfig>) -> Result<Pool> {
     Err(anyhow::anyhow!(TlsError::feature_not_enabled()))
 }
@@ -362,7 +362,7 @@ mod tests {
         assert!(result.unwrap().is_none());
     }
 
-    #[cfg(feature = "ssl")]
+    #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
     #[test]
     fn test_create_tls_connection_with_config() {
         let tls_config = TlsConfig::new();
@@ -375,7 +375,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "ssl")]
+    #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
     #[test]
     fn test_create_tls_connection_without_config() {
         // Test with no TLS config
@@ -385,7 +385,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "ssl"))]
+    #[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
     #[test]
     fn test_create_tls_connection_no_ssl_feature() {
         let result = create_tls_connection("mysql://test", None);

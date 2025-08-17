@@ -116,13 +116,14 @@ fn test_no_tls_dependencies_without_features() {
             "--no-default-features",
             "--features",
             "json,csv",
+            "--no-dev-deps", // Exclude dev dependencies to avoid testcontainers pulling in rustls
         ])
         .output()
         .expect("Failed to run cargo tree without TLS features");
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
 
-    // Verify no TLS-related dependencies are present
+    // Verify no TLS-related dependencies are present in production dependencies
     assert!(!tree_output.contains("native-tls"), "native-tls dependency found without TLS features: {}", tree_output);
 
     assert!(

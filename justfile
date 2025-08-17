@@ -121,7 +121,7 @@ validate-deps:
     @echo "🔍 Validating TLS dependency tree..."
     @echo ""
     @echo "Testing ssl feature (native-tls)..."
-    @cargo tree --no-default-features --features ssl -f "{p} {f}" > /tmp/ssl-deps.txt
+    @cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" > /tmp/ssl-deps.txt
     @if grep -q "openssl-sys" /tmp/ssl-deps.txt; then \
         echo "❌ ERROR: openssl-sys found with ssl feature"; \
         cat /tmp/ssl-deps.txt; \
@@ -135,7 +135,7 @@ validate-deps:
     @echo "✅ ssl feature validation passed"
     @echo ""
     @echo "Testing ssl-rustls feature (rustls)..."
-    @cargo tree --no-default-features --features ssl-rustls -f "{p} {f}" > /tmp/rustls-deps.txt
+    @cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" > /tmp/rustls-deps.txt
     @if grep -q "native-tls" /tmp/rustls-deps.txt; then \
         echo "❌ ERROR: native-tls found with ssl-rustls feature"; \
         cat /tmp/rustls-deps.txt; \
@@ -154,7 +154,7 @@ validate-deps:
     @echo "✅ ssl-rustls feature validation passed"
     @echo ""
     @echo "Testing no TLS features..."
-    @cargo tree --no-default-features --features json,csv -f "{p} {f}" > /tmp/no-tls-deps.txt
+    @cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" > /tmp/no-tls-deps.txt
     @if grep -q "native-tls\|openssl-sys\|rustls" /tmp/no-tls-deps.txt; then \
         echo "❌ ERROR: TLS dependencies found without TLS features"; \
         cat /tmp/no-tls-deps.txt; \

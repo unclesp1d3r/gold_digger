@@ -32,6 +32,11 @@ mysql_common = { version = "0.35.5", optional = true }
 thiserror = "2.0.3"
 url = "2.5.4"
 
+[dev-dependencies]
+testcontainers = { version = "0.23", features = ["blocking"] }
+testcontainers-modules = { version = "0.11", features = ["mysql"] }
+tempfile = "3.8"
+
 [profile.release]
 lto              = true
 codegen-units    = 1
