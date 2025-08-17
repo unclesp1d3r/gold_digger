@@ -55,25 +55,30 @@ jobs:
           features: "${{ matrix.tls }}"
 
       - name: Setup Python
+        if: matrix.os == 'ubuntu-22.04'
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
       - name: Install pre-commit
+        if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: python -m pip install pre-commit
 
       - name: Create pre-commit cache directory
+        if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: mkdir -p "$PRE_COMMIT_HOME"
 
       - name: Pre-commit cache
+        if: matrix.os == 'ubuntu-22.04'
         uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Setup mdBook
+        if: matrix.os == 'ubuntu-22.04'
         uses: jontze/action-mdbook@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -84,17 +89,21 @@ jobs:
           use-admonish: true
 
       - name: Install additional mdBook plugins
+        if: matrix.os == 'ubuntu-22.04'
         run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
 
       - name: Pre-commit validation
+        if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: pre-commit run --show-diff-on-failure --color=always --all-files
 
       - name: Format check
+        if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: just fmt-check
 
       - name: Lint check
+        if: matrix.os == 'ubuntu-22.04'
         uses: ./.github/actions/run-clippy
         with:
           features: "${{ matrix.tls }}"
