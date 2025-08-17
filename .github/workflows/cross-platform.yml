@@ -1,4 +1,4 @@
-name: CI
+name: Cross-Platform Tests
 
 on:
   push:
@@ -15,18 +15,16 @@ permissions:
   id-token: write
 
 jobs:
-  ci:
+  cross-platform:
     strategy:
       matrix:
-        tls: [native-tls, rustls, none]
+        os: [ubuntu-22.04, macos-13, windows-2022]
+        tls: [native-tls, rustls]
       fail-fast: false
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     concurrency:
-      group: ci-${{ github.ref }}-ubuntu-${{ matrix.tls }}
+      group: cross-platform-${{ github.ref }}-${{ matrix.os }}-${{ matrix.tls }}
       cancel-in-progress: true
-
-    env:
-      PRE_COMMIT_HOME: ${{ github.workspace }}/.cache/pre-commit
 
     steps:
       - uses: actions/checkout@v5
@@ -43,63 +41,11 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v3
 
-      # Build dependencies first to avoid compilation issues during linting
+      # Build dependencies first to avoid compilation issues during testing
       - name: Build project dependencies
         uses: ./.github/actions/build-dependencies
         with:
           features: "${{ matrix.tls }}"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install pre-commit
-        shell: bash
-        run: python -m pip install pre-commit
-
-      - name: Create pre-commit cache directory
-        shell: bash
-        run: mkdir -p "$PRE_COMMIT_HOME"
-
-      - name: Pre-commit cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PRE_COMMIT_HOME }}
-          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-
-      - name: Setup mdBook
-        uses: jontze/action-mdbook@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          mdbook-version: latest
-          use-linkcheck: true
-          use-mermaid: true
-          use-toc: true
-          use-admonish: true
-
-      - name: Install additional mdBook plugins
-        shell: bash
-        run: |
-          echo "Installing mdBook plugins with timeout..."
-          timeout 300 cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers || {
-            echo "⚠️ mdBook plugin installation timed out or failed, continuing without them"
-            echo "This is non-critical for CI validation"
-          }
-
-      - name: Pre-commit validation
-        shell: bash
-        run: pre-commit run --show-diff-on-failure --color=always --all-files
-
-      - name: Format check
-        shell: bash
-        run: just fmt-check
-
-      - name: Lint check
-        uses: ./.github/actions/run-clippy
-        with:
-          features: "${{ matrix.tls }}"
-          sarif-output: "false"
 
       - name: Tests (nextest)
         uses: ./.github/actions/run-tests
@@ -111,7 +57,7 @@ jobs:
       - name: Build time comparison
         shell: bash
         run: |
-          echo "⏱️ Collecting build time metrics for ${{ matrix.tls }} on ubuntu-22.04"
+          echo "⏱️ Collecting build time metrics for ${{ matrix.tls }} on ${{ matrix.os }}"
 
           # Clean previous builds
           cargo clean
@@ -127,10 +73,6 @@ jobs:
               echo "Building with rustls..."
               cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
               ;;
-            "none")
-              echo "Building without TLS..."
-              cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
-              ;;
           esac
           end_time=$(date +%s)
 
@@ -138,10 +80,14 @@ jobs:
           echo "🏁 Build completed in ${build_time} seconds"
 
           # Get binary size
-          binary_path="target/release/gold_digger"
+          if [[ "${{ matrix.os }}" == "windows-2022" ]]; then
+            binary_path="target/release/gold_digger.exe"
+          else
+            binary_path="target/release/gold_digger"
+          fi
 
           if [[ -f "$binary_path" ]]; then
-            binary_size=$(stat -c%s "$binary_path")
+            binary_size=$(stat -c%s "$binary_path" 2>/dev/null || stat -f%z "$binary_path" 2>/dev/null || echo "unknown")
             echo "📦 Binary size: ${binary_size} bytes"
           else
             echo "⚠️ Binary not found at expected path: $binary_path"
@@ -149,15 +95,15 @@ jobs:
 
           # Create metrics summary
           echo "📊 Build Metrics Summary:"
-          echo "  OS: ubuntu-22.04"
+          echo "  OS: ${{ matrix.os }}"
           echo "  TLS: ${{ matrix.tls }}"
           echo "  Build Time: ${build_time}s"
           echo "  Binary Size: ${binary_size} bytes"
 
           # Save metrics to file for potential artifact upload
           mkdir -p build-metrics
-          cat > "build-metrics/metrics-ubuntu-${{ matrix.tls }}.txt" << EOF
-          os=ubuntu-22.04
+          cat > "build-metrics/metrics-${{ matrix.os }}-${{ matrix.tls }}.txt" << EOF
+          os=${{ matrix.os }}
           tls=${{ matrix.tls }}
           build_time=${build_time}
           binary_size=${binary_size}
@@ -167,33 +113,33 @@ jobs:
       - name: Upload build metrics
         uses: actions/upload-artifact@v4
         with:
-          name: build-metrics-ubuntu-${{ matrix.tls }}
+          name: build-metrics-${{ matrix.os }}-${{ matrix.tls }}
           path: build-metrics/
           retention-days: 30
 
-      # Coverage - only run with native-tls to avoid redundancy
+      # Coverage - only run on Ubuntu with native-tls to avoid redundancy
       - name: Install cargo-llvm-cov
-        if: matrix.tls == 'native-tls'
+        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov
 
       - name: Coverage (llvm-cov)
-        if: matrix.tls == 'native-tls'
+        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
         shell: bash
         run: |
           echo "📊 Running coverage with native-tls configuration..."
           cargo llvm-cov --workspace --lcov --output-path lcov.info --no-default-features --features "json csv ssl additional_mysql_types verbose"
 
       - name: Upload coverage artifact
-        if: matrix.tls == 'native-tls'
+        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
           path: lcov.info
 
       - name: Upload to Codecov
-        if: matrix.tls == 'native-tls' && github.repository == 'UncleSp1d3r/gold_digger'
+        if: matrix.os == 'ubuntu-22.04' && matrix.tls == 'native-tls' && github.repository == 'UncleSp1d3r/gold_digger'
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
