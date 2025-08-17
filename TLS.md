@@ -15,6 +15,7 @@ Uses platform-native TLS libraries for optimal integration and performance:
 - **Linux**: System's native TLS implementation
 
 **Benefits**:
+
 - No OpenSSL dependency
 - Platform-optimized performance
 - Automatic security updates via OS
@@ -22,6 +23,7 @@ Uses platform-native TLS libraries for optimal integration and performance:
 - Better integration with system certificate stores
 
 **Build command**:
+
 ```bash
 cargo build --release  # Default configuration
 ```
@@ -33,6 +35,7 @@ cargo build --release  # Default configuration
 Uses rustls, a pure Rust TLS implementation:
 
 **Benefits**:
+
 - Consistent behavior across all platforms
 - No native library dependencies
 - Suitable for static binaries and containerized deployments
@@ -40,6 +43,7 @@ Uses rustls, a pure Rust TLS implementation:
 - Predictable behavior in airgapped environments
 
 **Build command**:
+
 ```bash
 cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 ```
@@ -127,6 +131,7 @@ vendored = ["openssl-sys?/vendored"]
 ```
 
 **Issues**:
+
 - Required OpenSSL system libraries
 - Complex cross-platform builds
 - Security vulnerabilities in OpenSSL
@@ -136,12 +141,13 @@ vendored = ["openssl-sys?/vendored"]
 
 ```toml
 [features]
-ssl = ["mysql/native-tls"]  # No OpenSSL dependency
-ssl-rustls = ["mysql/rustls-tls"]  # Pure Rust alternative
+ssl = ["mysql/native-tls"]        # No OpenSSL dependency
+ssl-rustls = ["mysql/rustls-tls"] # Pure Rust alternative
 # vendored feature completely removed
 ```
 
 **Benefits**:
+
 - No OpenSSL dependencies
 - Simplified build process
 - Reduced attack surface
@@ -154,11 +160,13 @@ ssl-rustls = ["mysql/rustls-tls"]  # Pure Rust alternative
 ### Build Issues
 
 **Problem**: Compilation errors with both TLS features enabled
+
 ```
 error[E0428]: the name `Secure` is defined multiple times
 ```
 
 **Solution**: Use only one TLS feature at a time:
+
 ```bash
 # Use either native TLS (default)
 cargo build --release
@@ -172,6 +180,7 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 **Problem**: TLS connection failures
 
 **Debugging steps**:
+
 1. Verify the database server supports TLS
 2. Check certificate validity and trust chain
 3. Ensure correct hostname in connection string
@@ -180,6 +189,7 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 **Problem**: Certificate validation errors
 
 **Solutions**:
+
 - Ensure system certificate store is up to date
 - For self-signed certificates, use programmatic configuration with custom CA
 - Verify hostname matches certificate CN/SAN
@@ -187,16 +197,19 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 ### Platform-Specific Notes
 
 #### Windows
+
 - Uses SChannel automatically
 - Integrates with Windows certificate store
 - No additional setup required
 
 #### macOS
+
 - Uses SecureTransport automatically
 - Integrates with macOS Keychain
 - No additional setup required
 
 #### Linux
+
 - Uses system's native TLS implementation
 - May require system TLS libraries (usually pre-installed)
 - Integrates with system certificate store
@@ -206,6 +219,7 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 ### Certificate Validation
 
 Both TLS implementations perform full certificate validation by default:
+
 - Certificate chain validation
 - Hostname verification
 - Expiration checking
@@ -223,12 +237,14 @@ Both implementations use secure cipher suites by default and automatically negot
 ## Performance Considerations
 
 ### Native TLS
+
 - Platform-optimized performance
 - Hardware acceleration where available
 - Lower memory usage
 - Faster connection establishment
 
 ### Rustls
+
 - Consistent performance across platforms
 - Pure Rust implementation (no FFI overhead)
 - Predictable memory usage
@@ -237,16 +253,19 @@ Both implementations use secure cipher suites by default and automatically negot
 ## Deployment Recommendations
 
 ### Production Environments
+
 - Use native TLS (`ssl` feature) for best performance and platform integration
 - Ensure system certificate stores are kept up to date
 - Use proper certificate validation
 
 ### Containerized Deployments
+
 - Consider rustls (`ssl-rustls` feature) for consistent behavior
 - Include necessary CA certificates in container images
 - Use static binaries for minimal container images
 
 ### Airgapped Environments
+
 - Use rustls (`ssl-rustls` feature) for predictable behavior
 - Bundle necessary CA certificates with the application
 - Test certificate validation in isolated environments
@@ -254,6 +273,7 @@ Both implementations use secure cipher suites by default and automatically negot
 ## Future Considerations
 
 The TLS implementation may evolve based on:
+
 - mysql crate improvements
 - Platform TLS library updates
 - Security requirements

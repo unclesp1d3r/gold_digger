@@ -1,9 +1,115 @@
 use anyhow::Result;
 use mysql::{Pool, SslOpts};
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[cfg(feature = "ssl")]
 use mysql::{Opts, OptsBuilder};
+
+/// TLS-specific error types for better error handling and user guidance
+#[derive(Error, Debug)]
+pub enum TlsError {
+    #[error("TLS connection failed: {message}")]
+    ConnectionFailed { message: String },
+
+    #[error(
+        "Certificate validation failed: {message}. Consider using --tls-skip-verify for testing (not recommended for production)"
+    )]
+    CertificateValidationFailed { message: String },
+
+    #[error("Unsupported TLS version: {version}. Only TLS 1.2 and 1.3 are supported")]
+    UnsupportedTlsVersion { version: String },
+
+    #[error("Certificate file not found: {path}. Ensure the CA certificate file exists and is readable")]
+    CertificateFileNotFound { path: String },
+
+    #[error("Invalid certificate format: {message}. Ensure the certificate is in PEM or DER format")]
+    InvalidCertificateFormat { message: String },
+
+    #[error("TLS handshake failed: {message}. Check server TLS configuration and certificate validity")]
+    HandshakeFailed { message: String },
+
+    #[error("TLS feature not enabled. Recompile with --features ssl to enable TLS support")]
+    FeatureNotEnabled,
+
+    #[error("Database URL contains credentials but TLS is not enabled. Use TLS to protect credentials in transit")]
+    InsecureCredentials,
+}
+
+impl TlsError {
+    /// Creates a connection failed error with context
+    pub fn connection_failed<S: Into<String>>(message: S) -> Self {
+        Self::ConnectionFailed {
+            message: message.into(),
+        }
+    }
+
+    /// Creates a certificate validation error with context
+    pub fn certificate_validation_failed<S: Into<String>>(message: S) -> Self {
+        Self::CertificateValidationFailed {
+            message: message.into(),
+        }
+    }
+
+    /// Creates an unsupported TLS version error
+    pub fn unsupported_tls_version<S: Into<String>>(version: S) -> Self {
+        Self::UnsupportedTlsVersion {
+            version: version.into(),
+        }
+    }
+
+    /// Creates a certificate file not found error
+    pub fn certificate_file_not_found<S: Into<String>>(path: S) -> Self {
+        Self::CertificateFileNotFound { path: path.into() }
+    }
+
+    /// Creates an invalid certificate format error
+    pub fn invalid_certificate_format<S: Into<String>>(message: S) -> Self {
+        Self::InvalidCertificateFormat {
+            message: message.into(),
+        }
+    }
+
+    /// Creates a TLS handshake failed error
+    pub fn handshake_failed<S: Into<String>>(message: S) -> Self {
+        Self::HandshakeFailed {
+            message: message.into(),
+        }
+    }
+
+    /// Creates a feature not enabled error
+    pub fn feature_not_enabled() -> Self {
+        Self::FeatureNotEnabled
+    }
+
+    /// Creates an insecure credentials error
+    pub fn insecure_credentials() -> Self {
+        Self::InsecureCredentials
+    }
+}
+
+/// Helper function to redact sensitive information from URLs for safe error logging
+pub fn redact_url(url: &str) -> String {
+    if let Ok(parsed) = url::Url::parse(url) {
+        let mut redacted = parsed.clone();
+
+        // Redact password if present
+        if parsed.password().is_some() {
+            let _ = redacted.set_password(Some("***REDACTED***"));
+        }
+
+        // Redact username if it looks like it might contain sensitive info
+        let username = parsed.username();
+        if !username.is_empty() {
+            let _ = redacted.set_username("***REDACTED***");
+        }
+
+        redacted.to_string()
+    } else {
+        // If URL parsing fails, just redact the whole thing to be safe
+        "***REDACTED_URL***".to_string()
+    }
+}
 
 /// TLS configuration for MySQL connections
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -45,15 +151,29 @@ impl TlsConfig {
         self
     }
 
-    /// Converts the TLS configuration to mysql::SslOpts
-    pub fn to_ssl_opts(&self) -> Option<SslOpts> {
+    /// Converts the TLS configuration to mysql::SslOpts with validation
+    pub fn to_ssl_opts(&self) -> Result<Option<SslOpts>, TlsError> {
         if !self.enabled {
-            return None;
+            return Ok(None);
         }
 
         let mut ssl_opts = SslOpts::default();
 
+        // Validate CA certificate file exists if specified
         if let Some(ca_path) = &self.ca_cert_path {
+            if !ca_path.exists() {
+                return Err(TlsError::certificate_file_not_found(ca_path.display().to_string()));
+            }
+
+            // Check if file is readable
+            if let Err(e) = std::fs::File::open(ca_path) {
+                return Err(TlsError::certificate_validation_failed(format!(
+                    "Cannot read certificate file {}: {}",
+                    ca_path.display(),
+                    e
+                )));
+            }
+
             ssl_opts = ssl_opts.with_root_cert_path(Some(ca_path.clone()));
         }
 
@@ -65,28 +185,72 @@ impl TlsConfig {
             ssl_opts = ssl_opts.with_danger_accept_invalid_certs(true);
         }
 
-        Some(ssl_opts)
+        Ok(Some(ssl_opts))
     }
 }
 
-/// Creates a TLS-enabled MySQL connection pool
+/// Creates a TLS-enabled MySQL connection pool with enhanced error handling
 #[cfg(feature = "ssl")]
 pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) -> Result<Pool> {
-    let opts = Opts::from_url(database_url).map_err(|e| anyhow::anyhow!("Invalid database URL: {}", e))?;
+    // Validate URL format first
+    let opts = Opts::from_url(database_url)
+        .map_err(|e| anyhow::anyhow!("Invalid database URL format: {}. URL: {}", e, redact_url(database_url)))?;
 
     let opts_builder = OptsBuilder::from_opts(opts);
 
     let opts_builder = if let Some(tls_config) = tls_config {
-        if let Some(ssl_opts) = tls_config.to_ssl_opts() {
-            opts_builder.ssl_opts(Some(ssl_opts))
-        } else {
-            opts_builder
+        match tls_config.to_ssl_opts() {
+            Ok(Some(ssl_opts)) => opts_builder.ssl_opts(Some(ssl_opts)),
+            Ok(None) => opts_builder,
+            Err(tls_error) => {
+                return Err(anyhow::anyhow!(tls_error));
+            },
         }
     } else {
         opts_builder
     };
 
-    let pool = Pool::new(opts_builder).map_err(|e| anyhow::anyhow!("Failed to create connection pool: {}", e))?;
+    // Attempt to create the pool with enhanced error context
+    let pool = Pool::new(opts_builder).map_err(|e| {
+        let error_msg = e.to_string().to_lowercase();
+
+        // Provide specific guidance based on error type
+        if error_msg.contains("ssl") || error_msg.contains("tls") {
+            if error_msg.contains("certificate") || error_msg.contains("cert") {
+                anyhow::anyhow!(
+                    "{}. URL: {}",
+                    TlsError::certificate_validation_failed(format!("TLS certificate validation failed: {}", e)),
+                    redact_url(database_url)
+                )
+            } else if error_msg.contains("handshake") {
+                anyhow::anyhow!(
+                    "{}. URL: {}",
+                    TlsError::handshake_failed(format!("TLS handshake failed: {}", e)),
+                    redact_url(database_url)
+                )
+            } else {
+                anyhow::anyhow!(
+                    "{}. URL: {}",
+                    TlsError::connection_failed(format!("TLS connection failed: {}", e)),
+                    redact_url(database_url)
+                )
+            }
+        } else if error_msg.contains("connection") || error_msg.contains("connect") {
+            anyhow::anyhow!(
+                "Database connection failed: {}. URL: {}. Check server availability and network connectivity",
+                e,
+                redact_url(database_url)
+            )
+        } else if error_msg.contains("auth") || error_msg.contains("access denied") {
+            anyhow::anyhow!(
+                "Database authentication failed: {}. URL: {}. Check username and password",
+                e,
+                redact_url(database_url)
+            )
+        } else {
+            anyhow::anyhow!("Failed to create database connection pool: {}. URL: {}", e, redact_url(database_url))
+        }
+    })?;
 
     Ok(pool)
 }
@@ -94,7 +258,7 @@ pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) 
 /// Creates a TLS-enabled MySQL connection pool (no-op when ssl feature is disabled)
 #[cfg(not(feature = "ssl"))]
 pub fn create_tls_connection(_database_url: &str, _tls_config: Option<TlsConfig>) -> Result<Pool> {
-    anyhow::bail!("TLS support not compiled in. Enable the 'ssl' feature to use TLS connections.");
+    Err(anyhow::anyhow!(TlsError::feature_not_enabled()))
 }
 
 /// Helper function to create a TLS configuration from URL parameters
@@ -144,28 +308,27 @@ mod tests {
     fn test_to_ssl_opts_disabled() {
         let config = TlsConfig::default(); // disabled by default
         let ssl_opts = config.to_ssl_opts();
-        assert!(ssl_opts.is_none());
+        assert!(ssl_opts.is_ok());
+        assert!(ssl_opts.unwrap().is_none());
     }
 
     #[test]
     fn test_to_ssl_opts_enabled_no_certs() {
         let config = TlsConfig::new(); // enabled by default
         let ssl_opts = config.to_ssl_opts();
-        assert!(ssl_opts.is_some());
+        assert!(ssl_opts.is_ok());
+        assert!(ssl_opts.unwrap().is_some());
     }
 
     #[test]
-    fn test_to_ssl_opts_with_ca_certificate() {
-        let config = TlsConfig::new().with_ca_cert_path("/tmp/ca.pem");
+    fn test_to_ssl_opts_with_nonexistent_ca_certificate() {
+        let config = TlsConfig::new().with_ca_cert_path("/nonexistent/ca.pem");
 
         let ssl_opts = config.to_ssl_opts();
-        assert!(ssl_opts.is_some());
+        assert!(ssl_opts.is_err());
 
-        // We can test the getters that are available
-        let ssl_opts = ssl_opts.unwrap();
-        assert_eq!(ssl_opts.root_cert_path(), Some(std::path::Path::new("/tmp/ca.pem")));
-        assert!(!ssl_opts.skip_domain_validation());
-        assert!(!ssl_opts.accept_invalid_certs());
+        let error = ssl_opts.unwrap_err();
+        assert!(error.to_string().contains("Certificate file not found"));
     }
 
     #[test]
@@ -175,9 +338,9 @@ mod tests {
             .with_accept_invalid_certs(true);
 
         let ssl_opts = config.to_ssl_opts();
-        assert!(ssl_opts.is_some());
+        assert!(ssl_opts.is_ok());
 
-        let ssl_opts = ssl_opts.unwrap();
+        let ssl_opts = ssl_opts.unwrap().unwrap();
         assert!(ssl_opts.skip_domain_validation());
         assert!(ssl_opts.accept_invalid_certs());
         assert!(ssl_opts.root_cert_path().is_none());
@@ -227,6 +390,62 @@ mod tests {
     fn test_create_tls_connection_no_ssl_feature() {
         let result = create_tls_connection("mysql://test", None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("TLS support not compiled in"));
+        assert!(result.unwrap_err().to_string().contains("TLS feature not enabled"));
+    }
+
+    #[test]
+    fn test_tls_error_types() {
+        let error = TlsError::connection_failed("test message");
+        assert!(error.to_string().contains("TLS connection failed: test message"));
+
+        let error = TlsError::certificate_validation_failed("cert error");
+        assert!(error.to_string().contains("Certificate validation failed: cert error"));
+        assert!(error.to_string().contains("--tls-skip-verify"));
+
+        let error = TlsError::unsupported_tls_version("1.0");
+        assert!(error.to_string().contains("Unsupported TLS version: 1.0"));
+        assert!(error.to_string().contains("TLS 1.2 and 1.3"));
+
+        let error = TlsError::certificate_file_not_found("/path/to/cert");
+        assert!(error.to_string().contains("Certificate file not found: /path/to/cert"));
+
+        let error = TlsError::invalid_certificate_format("bad format");
+        assert!(error.to_string().contains("Invalid certificate format: bad format"));
+        assert!(error.to_string().contains("PEM or DER"));
+
+        let error = TlsError::handshake_failed("handshake error");
+        assert!(error.to_string().contains("TLS handshake failed: handshake error"));
+
+        let error = TlsError::feature_not_enabled();
+        assert!(error.to_string().contains("TLS feature not enabled"));
+        assert!(error.to_string().contains("--features ssl"));
+
+        let error = TlsError::insecure_credentials();
+        assert!(error.to_string().contains("credentials but TLS is not enabled"));
+    }
+
+    #[test]
+    fn test_redact_url() {
+        // Test URL with password
+        let url = "mysql://user:password@localhost:3306/db";
+        let redacted = redact_url(url);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("password"));
+
+        // Test URL with username only
+        let url = "mysql://user@localhost:3306/db";
+        let redacted = redact_url(url);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("user"));
+
+        // Test URL without credentials
+        let url = "mysql://localhost:3306/db";
+        let redacted = redact_url(url);
+        assert_eq!(redacted, url); // Should be unchanged
+
+        // Test invalid URL
+        let url = "not-a-valid-url";
+        let redacted = redact_url(url);
+        assert_eq!(redacted, "***REDACTED_URL***");
     }
 }

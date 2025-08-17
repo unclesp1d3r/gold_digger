@@ -281,12 +281,12 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ```yaml
 # Add to .github/workflows/rust.yml
-- name: Check formatting
-  run: cargo fmt --check
-- name: Clippy (fail on warnings)
-  run: cargo clippy -- -D warnings
-- name: Run tests
-  run: cargo test
+  - name: Check formatting
+    run: cargo fmt --check
+  - name: Clippy (fail on warnings)
+    run: cargo clippy -- -D warnings
+  - name: Run tests
+    run: cargo test
 ```
 
 ### Future Release Engineering

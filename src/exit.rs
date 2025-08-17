@@ -49,9 +49,11 @@ pub fn map_error_to_exit_code(error: &Error) -> i32 {
     }
 
     if error_string.contains("missing")
-        || error_string.contains("invalid")
+        || error_string.contains("invalid") && !error_string.contains("invalid certificate format")
         || error_string.contains("configuration")
         || error_string.contains("mutually exclusive")
+        || error_string.contains("tls feature not enabled")
+        || error_string.contains("certificate file not found")
     {
         return EXIT_CONFIG_ERROR;
     }
@@ -59,6 +61,10 @@ pub fn map_error_to_exit_code(error: &Error) -> i32 {
     if error_string.contains("access denied")
         || error_string.contains("authentication")
         || error_string.contains("connection")
+        || error_string.contains("tls connection failed")
+        || error_string.contains("tls handshake failed")
+        || error_string.contains("certificate validation failed")
+        || error_string.contains("unsupported tls version")
         || error_string.contains("mysql") && (error_string.contains("auth") || error_string.contains("connect"))
     {
         return EXIT_DB_AUTH_ERROR;
@@ -78,6 +84,7 @@ pub fn map_error_to_exit_code(error: &Error) -> i32 {
         || error_string.contains("read")
         || error_string.contains("write")
         || error_string.contains("permission")
+        || error_string.contains("invalid certificate format")
     {
         return EXIT_IO_ERROR;
     }
@@ -134,6 +141,12 @@ mod tests {
 
         let error = anyhow!("Mutually exclusive flags");
         assert_eq!(map_error_to_exit_code(&error), EXIT_CONFIG_ERROR);
+
+        let error = anyhow!("TLS feature not enabled");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_CONFIG_ERROR);
+
+        let error = anyhow!("Certificate file not found");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_CONFIG_ERROR);
     }
 
     #[test]
@@ -148,6 +161,18 @@ mod tests {
         assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
 
         let error = anyhow!("MySQL authentication error");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
+
+        let error = anyhow!("TLS connection failed");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
+
+        let error = anyhow!("TLS handshake failed");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
+
+        let error = anyhow!("Certificate validation failed");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
+
+        let error = anyhow!("Unsupported TLS version");
         assert_eq!(map_error_to_exit_code(&error), EXIT_DB_AUTH_ERROR);
     }
 
@@ -181,6 +206,9 @@ mod tests {
         assert_eq!(map_error_to_exit_code(&error), EXIT_IO_ERROR);
 
         let error = anyhow!("Failed to write file");
+        assert_eq!(map_error_to_exit_code(&error), EXIT_IO_ERROR);
+
+        let error = anyhow!("Invalid certificate format");
         assert_eq!(map_error_to_exit_code(&error), EXIT_IO_ERROR);
     }
 

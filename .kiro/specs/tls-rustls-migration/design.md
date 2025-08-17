@@ -65,8 +65,8 @@ vendored = ["openssl-sys?/vendored"]
 ```toml
 [features]
 ssl = ["mysql/rustls-tls"]
-vendored = []  # No-op for backward compatibility
-tls-native = ["mysql/native-tls", "openssl-sys"]  # Optional fallback
+vendored = []                                    # No-op for backward compatibility
+tls-native = ["mysql/native-tls", "openssl-sys"] # Optional fallback
 ```
 
 ### TLS Configuration Interface
@@ -120,19 +120,18 @@ impl TlsConfig {
         }
 
         let mut ssl_opts = SslOpts::default();
-
         if let Some(ca_path) = &self.ca_cert_path {
-            ssl_opts = ssl_opts.with_root_cert_path(Some(ca_path));
+            ssl_opts = ssl_opts.with_root_cert_path(Some(ca_path.clone()));
         }
-
         if let Some(cert_path) = &self.client_cert_path {
-            ssl_opts = ssl_opts.with_client_cert_path(Some(cert_path));
+            ssl_opts = ssl_opts.with_client_cert_path(Some(cert_path.clone()));
         }
-
         if let Some(key_path) = &self.client_key_path {
-            ssl_opts = ssl_opts.with_client_key_path(Some(key_path));
+            ssl_opts = ssl_opts.with_client_key_path(Some(key_path.clone()));
         }
-
+        // Apply verification flags if supported by SslOpts API
+        ssl_opts = ssl_opts.with_danger_accept_invalid_certs(!self.verify_peer);
+        ssl_opts = ssl_opts.with_danger_skip_domain_verification(!self.verify_hostname);
         Some(ssl_opts)
     }
 }
@@ -194,8 +193,29 @@ pub fn connect_with_tls(database_url: &str) -> anyhow::Result<Pool> {
 }
 
 fn redact_url(url: &str) -> String {
-    // Redact credentials while preserving host/port for debugging
-    url.replace(|c: char| c != ':' && c != '/' && c != '@', "*")
+    // Parse URL and redact only userinfo (username/password) while preserving host/port
+    match url::Url::parse(url) {
+        Ok(parsed_url) => {
+            let mut redacted_url = parsed_url.clone();
+
+            // Clear username and password if present
+            if parsed_url.username() != "" || parsed_url.password().is_some() {
+                redacted_url.set_username("").ok();
+                redacted_url.set_password(None).ok();
+            }
+
+            redacted_url.to_string()
+        },
+        Err(_) => {
+            // Fallback: conservative redaction - strip everything before '@' if present
+            if let Some(at_pos) = url.find('@') {
+                format!("***@{}", &url[at_pos + 1..])
+            } else {
+                // If no '@' found, return original to avoid breaking non-URL strings
+                url.to_string()
+            }
+        },
+    }
 }
 ```
 
@@ -236,6 +256,27 @@ mod tests {
             // Test that TLS is properly disabled
         }
     }
+
+    #[test]
+    fn test_redact_url() {
+        // Test URL with username and password
+        assert_eq!(redact_url("mysql://user:pass@localhost:3306/db"), "mysql://localhost:3306/db");
+
+        // Test URL with username only
+        assert_eq!(redact_url("mysql://user@localhost:3306/db"), "mysql://localhost:3306/db");
+
+        // Test URL without credentials
+        assert_eq!(redact_url("mysql://localhost:3306/db"), "mysql://localhost:3306/db");
+
+        // Test URL with special characters in password
+        assert_eq!(redact_url("mysql://user:pass@word@localhost:3306/db"), "mysql://localhost:3306/db");
+
+        // Test fallback for malformed URL
+        assert_eq!(redact_url("not-a-url@localhost:3306"), "***@localhost:3306");
+
+        // Test fallback for string without @
+        assert_eq!(redact_url("just-a-string"), "just-a-string");
+    }
 }
 ```
 
@@ -251,10 +292,7 @@ mod integration_tests {
         let docker = Cli::default();
         let mysql_container = docker.run(Mysql::default());
 
-        let connection_url = format!(
-            "mysql://root@127.0.0.1:{}/test",
-            mysql_container.get_host_port_ipv4(3306)
-        );
+        let connection_url = format!("mysql://root@127.0.0.1:{}/test", mysql_container.get_host_port_ipv4(3306));
 
         // Test connection with rustls
         let pool = create_tls_connection(&connection_url, None).unwrap();
@@ -299,7 +337,7 @@ strategy:
   matrix:
     os: [ubuntu-latest, windows-latest, macos-latest]
     rust: [stable, beta]
-    features: [ssl, "ssl,vendored", "ssl,tls-native"]
+    features: [ssl, 'ssl,vendored', 'ssl,tls-native']
 ```
 
 ## Migration Implementation Plan

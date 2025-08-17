@@ -29,6 +29,7 @@ cargo build --release  # Default native TLS
 ### 1. Update Build Scripts
 
 **Before:**
+
 ```bash
 # CI/build scripts using vendored OpenSSL
 cargo build --release --features vendored
@@ -36,6 +37,7 @@ cargo build --release --features "default vendored"
 ```
 
 **After:**
+
 ```bash
 # Use default native TLS (recommended)
 cargo build --release
@@ -47,23 +49,27 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 ### 2. Update CI/CD Configurations
 
 **Before (GitHub Actions example):**
+
 ```yaml
-- name: Build with vendored OpenSSL
-  run: cargo build --release --features vendored
+  - name: Build with vendored OpenSSL
+    run: cargo build --release --features vendored
 ```
 
 **After:**
-```yaml
-- name: Build with native TLS
-  run: cargo build --release
 
-- name: Build with Rust TLS (optional)
-  run: cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+```yaml
+  - name: Build with native TLS
+    run: cargo build --release
+
+  - name: Build with Rust TLS (optional)
+    run: cargo build --release --no-default-features --features 
+      "json,csv,ssl-rustls,additional_mysql_types,verbose"
 ```
 
 ### 3. Update Documentation
 
 Remove references to:
+
 - `--features vendored`
 - OpenSSL installation instructions
 - vcpkg setup for Windows
@@ -80,11 +86,13 @@ cargo build --release
 ```
 
 **Platforms:**
+
 - **Windows**: SChannel (built-in)
 - **macOS**: SecureTransport (built-in)
 - **Linux**: System native TLS
 
 **Benefits:**
+
 - Best performance
 - Automatic OS security updates
 - Smaller binaries
@@ -99,6 +107,7 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 ```
 
 **Benefits:**
+
 - Consistent behavior across platforms
 - No native library dependencies
 - Good for static binaries
@@ -109,12 +118,14 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 ### Issue: Build fails with "vendored feature not found"
 
 **Error:**
+
 ```
 error: Package `gold_digger` does not have feature `vendored`
 ```
 
 **Solution:**
 Remove `vendored` from your build command:
+
 ```bash
 # Remove this
 cargo build --features vendored
@@ -126,12 +137,14 @@ cargo build --release
 ### Issue: Missing TLS support
 
 **Error:**
+
 ```
 TLS connection failed
 ```
 
 **Solution:**
 Ensure you're using one of the TLS features:
+
 ```bash
 # Default (native TLS)
 cargo build --release
@@ -145,6 +158,7 @@ cargo build --release --no-default-features --features "json,csv,ssl-rustls,addi
 **Problem:** Container doesn't have necessary TLS libraries
 
 **Solution:** Use rustls for containers:
+
 ```dockerfile
 # Dockerfile
 FROM rust:1.70 as builder
@@ -210,7 +224,9 @@ ls -lh target/release/gold_digger
 If you need to temporarily use the old OpenSSL-based version:
 
 1. Use Gold Digger v0.2.6 or earlier
+
 2. Pin your Cargo.toml to the older version:
+
    ```toml
    gold_digger = "=0.2.6"
    ```

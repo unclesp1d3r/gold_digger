@@ -723,6 +723,8 @@ dependencies = [
  "mysql_common",
  "openssl-sys",
  "serde_json",
+ "thiserror",
+ "url",
 ]
 
 [[package]]

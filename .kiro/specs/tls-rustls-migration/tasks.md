@@ -16,7 +16,7 @@
   - Write unit tests for TLS configuration conversion logic
   - _Requirements: 2.2, 4.3, 4.4_
 
-- [ ] 3. Update database connection logic to support TLS configuration
+- [x] 3. Update database connection logic to support TLS configuration
 
   - Modify `main.rs` to use `OptsBuilder` instead of direct `Pool::new(url)`
   - Add TLS configuration parsing from database URL or separate options
@@ -24,13 +24,14 @@
   - Ensure backward compatibility with existing database URL patterns
   - _Requirements: 2.1, 2.2, 4.3, 4.4_
 
-- [ ] 4. Implement TLS-specific error handling and messaging
+- [x] 4. Implement TLS-specific error handling and messaging
 
-  - Create `TlsError` enum with rustls-specific error variants
-  - Add error context for unsupported TLS versions (1.0/1.1)
-  - Implement URL redaction for secure error logging
-  - Create helper functions for TLS connection error handling
-  - Write unit tests for error handling and message formatting
+  - Created `TlsError` enum with comprehensive TLS-specific error variants
+  - Added error context for unsupported TLS versions and certificate issues
+  - Implemented URL redaction for secure error logging with `redact_url()` function
+  - Enhanced `create_tls_connection()` with detailed error context and guidance
+  - Updated exit code mapping to handle TLS-specific errors appropriately
+  - Added comprehensive unit tests for error handling and message formatting
   - _Requirements: 2.5, 5.4, 7.4_
 
 - [ ] 5. Add dependency tree validation tests
@@ -105,6 +106,7 @@
   - _Requirements: 2.5, 5.4, 7.4_
 
 - [ ] 13. Create final integration and validation tests
+
   - Implement end-to-end TLS connection tests with real MySQL servers
   - Add tests for all supported certificate formats (PEM, DER)
   - Create validation tests for TLS 1.2 and 1.3 protocol support
