@@ -17,6 +17,10 @@ This tool is configurable using environmental variables, allowing you to set up 
 
 Overall, Gold Digger is a practical solution for managing and analyzing data in MySQL and MariaDB environments. With its headless design and configurable options, it's well-suited for regular use in any database administration workflow.
 
+### Why "Gold Digger"?
+
+The name "Gold Digger" refers to the tool's ability to extract valuable data from databases - just as gold miners dig through earth to find precious metal, this tool digs through database tables to extract valuable information and insights. It's designed to help you discover the "golden" data hidden within your database systems.
+
 ## Installation
 
 To build and install Gold Digger, use the following commands in your terminal:
