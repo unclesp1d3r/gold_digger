@@ -65,7 +65,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Setup mdBook
-        uses: jontze/action-mdbook@v3
+        uses: jontze/action-mdbook@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           mdbook-version: latest
