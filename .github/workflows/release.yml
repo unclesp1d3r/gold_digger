@@ -229,9 +229,9 @@ jobs:
               fi
 
               # Verify signature (basic validation)
-              # Build expected certificate identity dynamically from environment variables
-              EXPECTED_IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/${{ github.workflow }}@refs/heads/main"
-              if ! cosign verify-blob --certificate "${f}.crt" --signature "${f}.sig" "$f" --certificate-identity-regexp "^${EXPECTED_IDENTITY}$" --certificate-oidc-issuer-regexp "^https://token\.actions\.githubusercontent\.com$"; then
+              # Build expected certificate identity using exact workflow reference
+              EXPECTED_IDENTITY="https://github.com/${{ github.repository }}/${{ github.workflow_ref }}"
+              if ! cosign verify-blob --certificate "${f}.crt" --signature "${f}.sig" "$f" --certificate-identity "$EXPECTED_IDENTITY" --certificate-oidc-issuer "https://token.actions.githubusercontent.com"; then
                 echo "❌ Error: Signature verification failed for $base" >&2
                 exit 1
               fi

@@ -76,7 +76,7 @@ wget https://github.com/UncleSp1d3r/gold_digger/releases/download/v1.0.0/gold_di
 cosign verify-blob \
   --certificate gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt \
   --signature gold_digger-x86_64-unknown-linux-gnu.tar.gz.sig \
-  --certificate-identity-regexp "^https://github\.com/UncleSp1d3r/gold_digger/\.github/workflows/release\.yml@refs/heads/main$" \
+  --certificate-identity-regexp "^https://github\.com/UncleSp1d3r/gold_digger/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$" \
   --certificate-oidc-issuer-regexp "^https://token\.actions\.githubusercontent\.com$" \
   gold_digger-x86_64-unknown-linux-gnu.tar.gz
 ```
@@ -109,7 +109,7 @@ openssl x509 -in gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt -text -noout | 
 ```
 
 The certificate identity should match the pattern:
-`https://github.com/UncleSp1d3r/gold_digger/.github/workflows/release.yml@refs/heads/main`
+`https://github.com/UncleSp1d3r/gold_digger/.github/workflows/release.yml@refs/tags/v1.0.0`
 
 The OIDC issuer should be:
 `https://token.actions.githubusercontent.com`
@@ -191,8 +191,8 @@ echo "🔏 Verifying signature..."
 if cosign verify-blob \
     --certificate "${ARTIFACT_NAME}.crt" \
     --signature "${ARTIFACT_NAME}.sig" \
-    --certificate-identity-regexp "^https://github\.com/UncleSp1d3r/gold_digger/\.github/workflows/release\.yml@refs/heads/main$" \
-    --certificate-oidc-issuer-regexp "^https://token\.actions\.githubusercontent\.com$" \
+    --certificate-identity "https://github.com/UncleSp1d3r/gold_digger/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}" \
+    --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
     "${ARTIFACT_NAME}"; then
     echo "✅ Signature verification passed"
 else
@@ -264,7 +264,7 @@ If Cosign is available in the airgap environment:
 cosign verify-blob \
   --certificate gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt \
   --signature gold_digger-x86_64-unknown-linux-gnu.tar.gz.sig \
-  --certificate-identity-regexp "^https://github\.com/UncleSp1d3r/gold_digger/\.github/workflows/release\.yml@refs/heads/main$" \
+  --certificate-identity-regexp "^https://github\.com/UncleSp1d3r/gold_digger/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$" \
   --certificate-oidc-issuer-regexp "^https://token\.actions\.githubusercontent\.com$" \
   gold_digger-x86_64-unknown-linux-gnu.tar.gz
 ```
