@@ -185,11 +185,21 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/uncles
 3. **Install pre-commit hooks** (recommended):
 
    ```bash
-   # Install pre-commit
-   pip install pre-commit
+   # Install pre-commit (cross-platform installer recommended)
+   python -m pip install --upgrade pip setuptools wheel
+   python -m pip install pre-commit
+
+   # Alternative: Use pip directly (may have issues in Python2 environments)
+   # pip install pre-commit
 
    # Install hooks for this repository
    pre-commit install
+
+   # Install commit-msg hook for Conventional Commit validation
+   pre-commit install --hook-type commit-msg
+
+   # Alternative: Install all hooks at once
+   # pre-commit install --all-hooks
 
    # Test hooks (optional)
    pre-commit run --all-files
@@ -254,7 +264,7 @@ Gold Digger follows strict code style guidelines enforced through automated tool
 
 Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) format, enforced by pre-commit hooks:
 
-```text
+```bash
 <type>[optional scope]: <description>
 
 [optional body]
@@ -274,7 +284,7 @@ Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) fo
 
 #### Examples
 
-```text
+```bash
 feat(csv): add support for custom delimiters
 fix(json): handle null values in nested objects
 docs(api): update configuration examples
