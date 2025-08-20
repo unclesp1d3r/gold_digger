@@ -57,21 +57,6 @@ If you then still feel the need to ask a question and need clarification, we rec
 
 We will then take care of the issue as soon as possible.
 
-<!--
-You might want to create a separate issue tag for questions and include it in this description. People should then tag their issues accordingly.
-
-Depending on how large the project is, you may want to outsource the questioning, e.g. to Stack Overflow or Gitter. You may add additional contact and information possibilities:
-- IRC
-- Slack
-- Gitter
-- Stack Overflow tag
-- Blog
-- FAQ
-- Roadmap
-- E-Mail List
-- Forum
--->
-
 ## I Want To Contribute
 
 > ### Legal Notice <!-- omit in toc -->
@@ -269,7 +254,7 @@ Gold Digger follows strict code style guidelines enforced through automated tool
 
 Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) format, enforced by pre-commit hooks:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -289,7 +274,7 @@ Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) fo
 
 #### Examples
 
-```
+```text
 feat(csv): add support for custom delimiters
 fix(json): handle null values in nested objects
 docs(api): update configuration examples
