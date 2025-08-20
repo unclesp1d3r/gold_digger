@@ -67,6 +67,31 @@ cargo install cargo-audit --locked
 cargo install cargo-deny --locked
 ```
 
+### 3. Set Up Pre-commit Hooks (Recommended)
+
+Gold Digger uses comprehensive pre-commit hooks for code quality:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install hooks for this repository
+pre-commit install
+
+# Test hooks on all files (optional)
+pre-commit run --all-files
+```
+
+**Pre-commit Hook Coverage:**
+
+- **Rust**: Formatting (`cargo fmt`), linting (`cargo clippy`), security audit (`cargo audit`)
+- **YAML/JSON**: Formatting with Prettier
+- **Markdown**: Formatting (`mdformat`) with GitHub Flavored Markdown support
+- **Shell Scripts**: Validation with ShellCheck
+- **GitHub Actions**: Workflow validation with actionlint
+- **Commit Messages**: Conventional commit format validation
+- **Documentation**: Link checking and build validation
+
 ### 3. Install Documentation Tools
 
 ```bash
@@ -88,6 +113,9 @@ cargo test
 
 # Check code quality
 just ci-check
+
+# Test pre-commit hooks (if installed)
+pre-commit run --all-files
 ```
 
 ## Development Tools
@@ -160,7 +188,7 @@ docs/
 ### 1. Code Quality Checks
 
 ```bash
-# Format code
+# Format code (includes pre-commit hooks)
 just format
 
 # Check formatting
@@ -171,6 +199,9 @@ just lint
 
 # Run all quality checks
 just ci-check
+
+# Run pre-commit hooks manually
+pre-commit run --all-files
 ```
 
 ### 2. Testing
@@ -380,6 +411,7 @@ just run-safe
 3. **Update documentation** if needed
 4. **Follow commit conventions** (Conventional Commits)
 5. **Test feature combinations** if adding features
+6. **Ensure pre-commit hooks pass**: `pre-commit run --all-files`
 
 ### Pull Request Process
 

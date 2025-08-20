@@ -57,21 +57,6 @@ If you then still feel the need to ask a question and need clarification, we rec
 
 We will then take care of the issue as soon as possible.
 
-<!--
-You might want to create a separate issue tag for questions and include it in this description. People should then tag their issues accordingly.
-
-Depending on how large the project is, you may want to outsource the questioning, e.g. to Stack Overflow or Gitter. You may add additional contact and information possibilities:
-- IRC
-- Slack
-- Gitter
-- Stack Overflow tag
-- Blog
-- FAQ
-- Roadmap
-- E-Mail List
-- Forum
--->
-
 ## I Want To Contribute
 
 > ### Legal Notice <!-- omit in toc -->
@@ -178,10 +163,64 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/uncles
 
 ### Your First Code Contribution
 
-<!-- TODO
-include Setup of env, IDE and typical getting started instructions?
+#### Development Environment Setup
 
--->
+1. **Clone the repository**:
+
+   ```bash
+   git clone https://github.com/unclesp1d3r/gold_digger.git
+   cd gold_digger
+   ```
+
+2. **Set up development tools**:
+
+   ```bash
+   # Install Rust components and development tools
+   just setup
+
+   # Install additional tools (optional)
+   just install-tools
+   ```
+
+3. **Install pre-commit hooks** (recommended):
+
+   ```bash
+   # Install pre-commit
+   pip install pre-commit
+
+   # Install hooks for this repository
+   pre-commit install
+
+   # Test hooks (optional)
+   pre-commit run --all-files
+   ```
+
+4. **Verify setup**:
+
+   ```bash
+   # Run all quality checks
+   just ci-check
+   ```
+
+#### Code Quality Standards
+
+Before submitting any code, ensure it passes all quality gates:
+
+- **Formatting**: `cargo fmt --check` (100-character line limit)
+- **Linting**: `cargo clippy -- -D warnings` (zero tolerance for warnings)
+- **Testing**: `cargo test` (all tests must pass)
+- **Security**: `cargo audit` (no known vulnerabilities)
+- **Pre-commit hooks**: All hooks must pass
+
+The pre-commit configuration automatically enforces:
+
+- Rust code formatting and linting
+- YAML/JSON formatting with Prettier
+- Markdown formatting with mdformat
+- Shell script validation with ShellCheck
+- GitHub Actions workflow validation
+- Conventional commit message format
+- Documentation link checking
 
 ### Improving The Documentation
 
@@ -192,11 +231,60 @@ Updating, improving and correcting the documentation
 
 ## Styleguides
 
+### Code Style
+
+Gold Digger follows strict code style guidelines enforced through automated tools:
+
+#### Rust Code Style
+
+- **Formatting**: Use `rustfmt` with 100-character line limit (configured in `rustfmt.toml`)
+- **Linting**: Zero tolerance for clippy warnings (`cargo clippy -- -D warnings`)
+- **Error Handling**: Use `anyhow::Result<T>` for fallible functions
+- **Documentation**: Document all public APIs with `///` comments
+- **Feature Gates**: Use `#[cfg(feature = "...")]` for conditional compilation
+
+#### File Formatting
+
+- **YAML/JSON**: Formatted with Prettier
+- **Markdown**: Formatted with mdformat (GitHub Flavored Markdown)
+- **Shell Scripts**: Must pass ShellCheck validation
+- **Line Endings**: Unix-style (LF) enforced by `.editorconfig`
+
 ### Commit Messages
 
-<!-- TODO
+Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) format, enforced by pre-commit hooks:
 
--->
+```text
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Types
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+
+#### Examples
+
+```text
+feat(csv): add support for custom delimiters
+fix(json): handle null values in nested objects
+docs(api): update configuration examples
+test(integration): add TLS connection tests
+chore(deps): update mysql crate to v24.0
+```
+
+#### Pre-commit Validation
+
+The `commitizen` hook validates commit messages automatically. If your commit message doesn't follow the convention, the commit will be rejected with guidance on the correct format.
 
 ## IDE and Editor Configuration
 
