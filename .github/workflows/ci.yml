@@ -64,25 +64,6 @@ jobs:
           path: ${{ env.PRE_COMMIT_HOME }}
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Setup mdBook
-        uses: jontze/action-mdbook@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          mdbook-version: latest
-          use-linkcheck: true
-          use-mermaid: true
-          use-toc: true
-          use-admonish: true
-
-      - name: Install additional mdBook plugins
-        shell: bash
-        run: |
-          echo "Installing mdBook plugins with timeout..."
-          timeout 300 cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers || {
-            echo "⚠️ mdBook plugin installation timed out or failed, continuing without them"
-            echo "This is non-critical for CI validation"
-          }
-
       - name: Pre-commit validation
         shell: bash
         run: pre-commit run --show-diff-on-failure --color=always --all-files

@@ -105,7 +105,7 @@ To extract the exact certificate identity and issuer values for verification:
 openssl x509 -in gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt -text -noout | grep -A1 "X509v3 Subject Alternative Name" | grep URI
 
 # Extract the OIDC issuer
-openssl x509 -in gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt -text -noout | grep "Issuer:"
+openssl x509 -in gold_digger-x86_64-unknown-linux-gnu.tar.gz.crt -text -noout | grep -A10 "X509v3 extensions" | grep -A5 "1.3.6.1.4.1.57264.1.1" | grep "https://token.actions.githubusercontent.com"
 ```
 
 The certificate identity should match the pattern:

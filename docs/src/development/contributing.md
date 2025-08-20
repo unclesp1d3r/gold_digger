@@ -5,19 +5,27 @@ Guidelines for contributing to Gold Digger.
 ## Getting Started
 
 1. Fork the repository
+
 2. Create a feature branch
+
 3. Set up development environment:
+
    ```bash
    just setup
    pre-commit install  # Install pre-commit hooks
    ```
+
 4. Make your changes
+
 5. Add tests for new functionality
+
 6. Ensure all quality checks pass:
+
    ```bash
    just ci-check
    pre-commit run --all-files
    ```
+
 7. Submit a pull request
 
 ## Code Standards

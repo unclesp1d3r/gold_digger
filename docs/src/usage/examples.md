@@ -20,8 +20,8 @@ Export with joins and formatting:
 ```bash
 gold_digger \
   --db-url "mysql://user:pass@localhost/mydb" \
-  --query "SELECT u.name, p.title, CAST(p.created_at AS CHAR) as created 
-           FROM users u JOIN posts p ON u.id = p.user_id 
+  --query "SELECT u.name, p.title, CAST(p.created_at AS CHAR) as created
+           FROM users u JOIN posts p ON u.id = p.user_id
            WHERE p.published = 1" \
   --output posts.json
 ```
@@ -41,7 +41,7 @@ gold_digger
 Always cast non-string columns:
 
 ```sql
-SELECT 
+SELECT
   CAST(id AS CHAR) as id,
   name,
   CAST(price AS CHAR) as price,

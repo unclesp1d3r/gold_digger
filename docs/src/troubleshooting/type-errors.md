@@ -10,7 +10,7 @@ Solutions for data type conversion and NULL handling issues.
 
 **Error Message**:
 
-```
+```rust
 thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value'
 ```
 
@@ -20,8 +20,8 @@ thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value'
 -- ❌ Dangerous - can panic on NULL
 SELECT id, name, created_at FROM users;
 
--- ✅ Safe - handles NULL values properly  
-SELECT 
+-- ✅ Safe - handles NULL values properly
+SELECT
   CAST(id AS CHAR) as id,
   CAST(name AS CHAR) as name,
   CAST(created_at AS CHAR) as created_at
@@ -35,7 +35,7 @@ FROM users;
 **Solution**: Cast all non-string columns:
 
 ```sql
-SELECT 
+SELECT
   CAST(user_id AS CHAR) as user_id,
   username,  -- Already string, no cast needed
   CAST(balance AS CHAR) as balance,
@@ -53,7 +53,7 @@ FROM accounts;
 CAST(price AS CHAR) as price,
 CAST(quantity AS CHAR) as quantity,
 
--- For dates and timestamps  
+-- For dates and timestamps
 CAST(created_at AS CHAR) as created_at,
 CAST(updated_at AS CHAR) as updated_at,
 
@@ -65,7 +65,7 @@ CAST(is_enabled AS CHAR) as is_enabled
 
 ```sql
 -- Use COALESCE for default values
-SELECT 
+SELECT
   CAST(COALESCE(phone, '') AS CHAR) as phone,
   CAST(COALESCE(address, 'No address') AS CHAR) as address
 FROM contacts;
@@ -77,8 +77,8 @@ Before running large exports, test with a small subset:
 
 ```sql
 -- Test with LIMIT first
-SELECT CAST(id AS CHAR) as id, name 
-FROM large_table 
+SELECT CAST(id AS CHAR) as id, name
+FROM large_table
 LIMIT 5;
 ```
 
@@ -134,11 +134,11 @@ SHOW COLUMNS FROM your_table;
 ### Use Information Schema
 
 ```sql
-SELECT 
+SELECT
   COLUMN_NAME,
   DATA_TYPE,
   IS_NULLABLE
-FROM INFORMATION_SCHEMA.COLUMNS 
+FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_NAME = 'your_table';
 ```
 
@@ -148,7 +148,7 @@ WHERE TABLE_NAME = 'your_table';
 
 ```sql
 -- Format numbers with specific precision
-SELECT 
+SELECT
   CAST(FORMAT(price, 2) AS CHAR) as price,
   CAST(FORMAT(tax_rate, 4) AS CHAR) as tax_rate
 FROM products;
@@ -158,7 +158,7 @@ FROM products;
 
 ```sql
 -- Custom date formats
-SELECT 
+SELECT
   CAST(DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS CHAR) as created_at,
   CAST(DATE_FORMAT(updated_at, '%Y-%m-%d') AS CHAR) as updated_date
 FROM records;

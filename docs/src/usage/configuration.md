@@ -59,7 +59,7 @@ export OUTPUT_FILE="results.json"
 
 ### Connection String Format
 
-```
+```text
 mysql://username:password@hostname:port/database?ssl-mode=required
 ```
 
@@ -94,7 +94,7 @@ Format is automatically detected by file extension:
 # CSV output
 export OUTPUT_FILE="data.csv"
 
-# JSON output  
+# JSON output
 export OUTPUT_FILE="data.json"
 
 # TSV output (default for unknown extensions)
@@ -120,7 +120,7 @@ gold_digger \
 
 **Safe logging example:**
 
-```
+```text
 Connecting to database... ✓
 Query executed successfully
 Wrote 150 rows to output.json
@@ -154,10 +154,10 @@ Store complex queries in files:
 
 ```bash
 # Create query file
-echo "SELECT u.name, COUNT(p.id) as post_count 
-      FROM users u 
-      LEFT JOIN posts p ON u.id = p.user_id 
-      GROUP BY u.id, u.name 
+echo "SELECT u.name, COUNT(p.id) as post_count
+      FROM users u
+      LEFT JOIN posts p ON u.id = p.user_id
+      GROUP BY u.id, u.name
       ORDER BY post_count DESC" > complex_query.sql
 
 # Use query file
@@ -185,7 +185,7 @@ gold_digger --allow-empty --query "SELECT * FROM users WHERE id = 999999" --outp
 
 **Missing required parameters:**
 
-```
+```text
 Error: Missing required configuration: DATABASE_URL
 ```
 
@@ -193,7 +193,7 @@ Error: Missing required configuration: DATABASE_URL
 
 **Mutually exclusive flags:**
 
-```
+```text
 Error: Cannot use both --query and --query-file
 ```
 
@@ -201,7 +201,7 @@ Error: Cannot use both --query and --query-file
 
 **Invalid connection string:**
 
-```
+```text
 Error: Invalid database URL format
 ```
 

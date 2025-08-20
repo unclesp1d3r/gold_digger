@@ -42,6 +42,8 @@
         ".venv/**",
         "**/node_modules/**",
         "**/__pycache__/**",
-        "**/*.tpl.md"
+        "**/*.tpl.md",
+        "docs/src/SUMMARY.md",
+        "docs/src/usage/output-formats.md"
     ]
 }
