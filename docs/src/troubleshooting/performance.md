@@ -19,7 +19,9 @@ Monitor memory usage during execution:
 ```bash
 # Linux/macOS
 top -p $(pgrep gold_digger)
+```
 
+```powershell
 # Windows
 tasklist /fi "imagename eq gold_digger.exe"
 ```

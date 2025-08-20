@@ -36,7 +36,7 @@ jobs:
           use-admonish: true
 
       - name: Install additional plugins
-        run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+        run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers mdbook-alerts mdbook-yml-header mdbook-toc
 
       - name: Build rustdoc
         run: |

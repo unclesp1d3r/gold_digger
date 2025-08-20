@@ -23,7 +23,7 @@ Troubleshooting database connection issues.
 
 ### Certificate Verification Failures
 
-```
+```text
 SSL connection error: certificate verify failed
 ```
 
