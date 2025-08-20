@@ -91,6 +91,31 @@ pre-commit install
 just ci-check
 ```
 
+### Pre-commit Hooks
+
+Gold Digger uses pre-commit hooks to maintain code quality. The configuration includes:
+
+- **Code formatting**: Rust (`cargo fmt`), YAML (`prettier`), Markdown (`mdformat`)
+- **Linting**: Rust (`cargo clippy`), Shell scripts (`shellcheck`), GitHub Actions (`actionlint`)
+- **Security**: Dependency auditing (`cargo audit`), commit message validation (`commitizen`)
+- **Documentation**: Link checking and build validation (`mdbook`)
+
+Install and run pre-commit hooks:
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install hooks for this repository
+pre-commit install
+
+# Run hooks on all files (optional)
+pre-commit run --all-files
+
+# Run hooks automatically on commit
+git commit -m "your commit message"
+```
+
 ### Available Commands
 
 Use `just` to run common development tasks:
@@ -102,6 +127,7 @@ just test-nextest   # Run tests with nextest
 just coverage-llvm  # Generate coverage report
 just ci-check       # Run all CI checks locally
 just build-release  # Build optimized release binary
+just release-dry    # Simulate release process locally
 ```
 
 See `just help` for a complete list of available commands.
@@ -195,6 +221,24 @@ Gold Digger follows strict quality gates and security practices:
 - **SLSA Attestation:** Level 3 provenance for supply chain integrity
 - **Multi-Platform:** Automated builds for Linux, macOS, and Windows
 - **Comprehensive Artifacts:** Binaries, SBOMs, signatures, and attestations
+
+### Local Release Testing
+
+Before creating an actual release, you can simulate the entire release process locally:
+
+```bash
+# Test the complete release pipeline locally
+just release-dry
+
+# This will:
+# 1. Build the release binary with rustls TLS
+# 2. Generate SBOM with syft (if installed)
+# 3. Create SHA256 checksums
+# 4. Simulate the signing process
+# 5. Show you exactly what would be released
+```
+
+The simulation creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces.
 
 ### Testing Recommendations
 

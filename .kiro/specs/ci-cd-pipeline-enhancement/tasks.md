@@ -32,7 +32,7 @@
   - Coverage artifacts uploaded and available in PR comments
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 5. Secure release automation with Rust-native tooling
+- [x] 5. Secure release automation with Rust-native tooling
 
   - Implement cross-platform release builds
   - Implement Cosign keyless OIDC signing
@@ -59,7 +59,7 @@
 
 - [ ] 8. Implement Rust-native release workflow
 
-  - Replace SLSA framework with simpler, more reliable approach
+  - ReplaceIn .kiro/specs/ci-cd-pipeline-enhancement/tasks.md around lines 35 to 43, Task 5 is marked complete but duplicates the same deliverables listed in Task 8, causing confusing status tracking; update the spec by either merging Task 8 into Task 5 or marking Task 8 complete and removing duplicated checklist items so each requirement appears only once, and add a brief note in the tasks file indicating which task is the canonical owner of the Rust-native release workflow to prevent future duplication. SLSA framework with simpler, more reliable approach
   - Implement taiki-e/upload-rust-binary-action for native Rust packaging
   - Add syft-based SBOM generation with CycloneDX format
   - Configure Cosign keyless signing with OIDC authentication
@@ -130,6 +130,7 @@
   - Add Cosign signature verification instructions
   - Document SBOM inspection and vulnerability assessment procedures
   - Write airgap installation guide for offline environments
+  - Complete verification script with error handling and validation
   - _Requirements: Security verification and offline installation standards_
 
 ## Toolchain Solution Summary
