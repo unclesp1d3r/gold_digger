@@ -1,0 +1,116 @@
+# cargo-dist configuration for Gold Digger
+# Cross-platform distribution with automated checksum generation and artifact signing
+
+# The version of cargo-dist to use (should be kept in sync with the version in CI)
+cargo-dist-version = "0.22.1"
+
+# CI backend to use for releases
+ci = "github"
+
+# The installers to generate for each app
+installers = ["shell", "powershell", "homebrew", "msi"]
+
+# Target platforms for distribution
+targets = [
+    # Linux targets
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+
+    # macOS targets
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+
+    # Windows targets
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+]
+
+# Whether to auto-include files like README/LICENSE/CHANGELOG
+auto-includes = true
+
+# Include additional files in the release
+include = [
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "TLS.md",
+    "WARP.md",
+]
+
+# Generate checksums for all artifacts
+checksum = "sha256"
+
+# Create archives for different platforms
+[create-release]
+# Create GitHub releases
+github-release = true
+
+# Archive formats by platform
+[archive]
+unix = "tar.xz"
+windows = "zip"
+
+# Homebrew configuration for macOS/Linux package management
+[homebrew]
+# Repository for Homebrew tap (would need to be created)
+tap = "unclesp1d3r/homebrew-tap"
+# Package name in Homebrew
+name = "gold-digger"
+# Description for Homebrew formula
+description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables"
+# Homepage for Homebrew formula
+homepage = "https://github.com/unclesp1d3r/gold_digger"
+# License for Homebrew formula
+license = "MIT"
+
+# MSI installer configuration for Windows
+[msi]
+# Upgrade code for MSI (should be a stable GUID for the application)
+upgrade-code = "7C9FA5C0-8E2A-4B6D-9F1E-2D3C4B5A6789"
+# Product name for MSI
+product-name = "Gold Digger"
+# Manufacturer for MSI
+manufacturer = "UncleSp1d3r"
+# Help URL for MSI
+help-url = "https://github.com/unclesp1d3r/gold_digger/issues"
+
+# Build configuration
+[build]
+# Use the same feature set as the current release workflow (rustls for pure Rust TLS)
+features = ["json", "csv", "ssl-rustls", "additional_mysql_types", "verbose"]
+# Don't use default features to ensure consistent builds
+default-features = false
+
+# Signing configuration (integrates with existing Cosign setup)
+[sign]
+# Enable signing (will be handled by existing Cosign workflow)
+enable = true
+
+# GitHub configuration
+[github]
+# Repository
+repo = "unclesp1d3r/gold_digger"
+# Whether to create GitHub releases
+create-release = true
+# Whether to upload artifacts to GitHub releases
+upload-artifacts = true
+
+# Custom build script integration
+[build-local-artifacts]
+# This allows cargo-dist to work with the existing justfile build process
+# The actual builds will still use the existing release workflow
+enabled = false
+
+# Publish configuration
+[publish]
+# Don't auto-publish to crates.io (manual control preferred)
+crates-io = false
+
+# Custom pre/post build hooks
+[pre-build-hooks]
+# Ensure we're using the correct Rust toolchain
+rust-toolchain = true
+
+[post-build-hooks]
+# Generate SBOM after build (integrates with existing syft workflow)
+sbom = true

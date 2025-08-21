@@ -235,9 +235,6 @@ just test-nextest
 # Run with coverage
 just coverage
 
-# Run with coverage (CI format)
-just cover
-
 # Run specific test
 cargo test test_name
 ```

@@ -23,7 +23,38 @@ The name "Gold Digger" refers to the tool's ability to extract valuable data fro
 
 ## Installation
 
-To build and install Gold Digger, use the following commands in your terminal:
+### Pre-built Binaries (Recommended)
+
+Download pre-built binaries from the [GitHub Releases](https://github.com/unclesp1d3r/gold_digger/releases) page, which include:
+
+- **Cross-platform binaries** for Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), and Windows
+- **Automated installers** for easy setup
+- **Signed artifacts** with Cosign for supply chain security
+- **Complete SBOMs** (Software Bill of Materials) for security auditing
+
+#### Quick Install Scripts
+
+```bash
+# Shell installer (Linux/macOS)
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/unclesp1d3r/gold_digger/releases/latest/download/gold_digger-installer.sh | sh
+
+# PowerShell installer (Windows)
+powershell -c "irm https://github.com/unclesp1d3r/gold_digger/releases/latest/download/gold_digger-installer.ps1 | iex"
+```
+
+#### Package Managers
+
+```bash
+# Homebrew (macOS/Linux)
+brew install unclesp1d3r/tap/gold-digger
+
+# MSI installer (Windows)
+# Download from releases page: gold_digger-x86_64-pc-windows-msvc.msi
+```
+
+### Build from Source
+
+To build and install Gold Digger from source:
 
 ```bash
 git clone git@github.com:unclesp1d3r/gold_digger.git
@@ -89,6 +120,27 @@ pre-commit install
 
 # Run development checks
 just ci-check
+```
+
+### Distribution Testing
+
+Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for cross-platform distribution:
+
+```bash
+# Install cargo-dist
+just install-tools
+
+# Test distribution configuration
+just dist-check
+
+# Plan a release (dry-run)
+just dist-plan
+
+# Build distribution artifacts locally
+just dist-build
+
+# Generate installers
+just dist-generate
 ```
 
 ### Pre-commit Hooks

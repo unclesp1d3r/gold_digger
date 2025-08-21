@@ -21,6 +21,7 @@ install-tools:
     cargo install cargo-tarpaulin --locked || echo "cargo-tarpaulin already installed"
     cargo install cargo-audit --locked || echo "cargo-audit already installed"
     cargo install cargo-deny --locked || echo "cargo-deny already installed"
+    cargo install cargo-dist --locked || echo "cargo-dist already installed"
     @echo "✅ Tools installed!"
 
 # Format code
@@ -159,6 +160,84 @@ sbom:
         echo ""; \
         echo "Alternative: Use cargo tree for dependency inspection:"; \
         cargo tree --format "{p} {f}"; \
+    fi
+
+# Initialize cargo-dist configuration
+dist-init:
+    @echo "🚀 Initializing cargo-dist configuration..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist init..."; \
+        cargo dist init --yes; \
+        echo "✅ cargo-dist initialized successfully"; \
+        echo "📋 Configuration written to cargo-dist.toml"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Plan cargo-dist release (dry-run)
+dist-plan:
+    @echo "📋 Planning cargo-dist release..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist plan..."; \
+        cargo dist plan; \
+        echo ""; \
+        echo "✅ Release plan generated"; \
+        echo "📊 This shows what would be built and distributed"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Build cargo-dist artifacts locally
+dist-build:
+    @echo "🔨 Building cargo-dist artifacts locally..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist build..."; \
+        cargo dist build; \
+        echo ""; \
+        echo "✅ Local distribution artifacts built"; \
+        echo "📦 Check target/distrib/ for generated artifacts"; \
+        echo "🔍 Artifacts include:"; \
+        find target/distrib -type f -name "*" | head -10 || echo "  (no artifacts found)"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Generate cargo-dist installers
+dist-generate:
+    @echo "📦 Generating cargo-dist installers..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist generate..."; \
+        cargo dist generate; \
+        echo ""; \
+        echo "✅ Installers generated"; \
+        echo "📋 Generated files:"; \
+        echo "  🐚 Shell installer script"; \
+        echo "  🪟 PowerShell installer script"; \
+        echo "  🍺 Homebrew formula (if configured)"; \
+        echo "  📦 MSI installer (if configured)"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Validate cargo-dist configuration
+dist-check:
+    @echo "🔍 Validating cargo-dist configuration..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Checking cargo-dist.toml configuration..."; \
+        cargo dist plan --check; \
+        echo ""; \
+        echo "✅ cargo-dist configuration is valid"; \
+        echo "📋 Configuration summary:"; \
+        echo "  📁 Config file: cargo-dist.toml"; \
+        echo "  🎯 Targets: $(grep -A 10 'targets = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
+        echo "  📦 Installers: $(grep -A 5 'installers = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
     fi
 
 # Validate TLS dependency tree (for rustls migration)
@@ -667,5 +746,12 @@ help:
     @echo "  release-check Pre-release checklist and validation"
     @echo "  release-dry   Simulate release process locally"
     @echo "  validate-release-please  Validate Release Please configuration"
+    @echo ""
+    @echo "Distribution (cargo-dist):"
+    @echo "  dist-init     Initialize cargo-dist configuration"
+    @echo "  dist-plan     Plan cargo-dist release (dry-run)"
+    @echo "  dist-build    Build cargo-dist artifacts locally"
+    @echo "  dist-generate Generate cargo-dist installers"
+    @echo "  dist-check    Validate cargo-dist configuration"
     @echo ""
     @echo "📖 For detailed project information, see WARP.md, AGENTS.md, or .cursor/rules/"

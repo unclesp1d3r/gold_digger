@@ -28,7 +28,7 @@ gold_digger \
 | Flag                  | Short | Environment Variable | Description                                            |
 | --------------------- | ----- | -------------------- | ------------------------------------------------------ |
 | `--db-url <URL>`      | -     | `DATABASE_URL`       | Database connection string                             |
-| `--query <SQL>`       | `-q`  | -                    | SQL query to execute                                   |
+| `--query <SQL>`       | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
 | `--query-file <FILE>` | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
 | `--output <FILE>`     | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
 | `--format <FORMAT>`   | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
