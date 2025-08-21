@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v[0-9]+.*"
+  release:
+    types: [published]
+  workflow_run:
+    workflows: ["Release Please"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       tag:
@@ -18,8 +24,10 @@ permissions:
 jobs:
   resolve-tag:
     runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
+      actions: read
     outputs:
       tag: ${{ steps.get-tag.outputs.tag }}
     steps:
@@ -29,24 +37,103 @@ jobs:
           REF: ${{ github.ref }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Function to validate semantic versioning pattern
+          validate_semver() {
+            local tag="$1"
+            if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "Error: Tag '${tag}' does not match semantic versioning pattern." >&2
+              return 1
+            fi
+            return 0
+          }
+
+          # Priority 1: Manual workflow dispatch with explicit tag
           if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
-            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "Error: Provided tag '${INPUT_TAG}' does not match semantic versioning pattern." >&2
+            echo "📋 Using manually provided tag from workflow dispatch"
+            if ! validate_semver "${INPUT_TAG}"; then
               exit 1
             fi
             echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
-          elif [[ "${REF}" == refs/tags/* ]]; then
+            exit 0
+          fi
+
+          # Priority 2: Release event with direct tag access
+          if [[ "${EVENT_NAME}" == "release" && -n "${RELEASE_TAG}" ]]; then
+            echo "📋 Using tag from release event payload"
+            if ! validate_semver "${RELEASE_TAG}"; then
+              exit 1
+            fi
+            echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Priority 3: Tag push event - parse from GITHUB_REF
+          if [[ "${REF}" == refs/tags/* ]]; then
             TAG="${REF#refs/tags/}"
-            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "Error: Extracted tag '${TAG}' does not match semantic versioning pattern." >&2
+            echo "📋 Using tag from push event: ${TAG}"
+            if ! validate_semver "${TAG}"; then
               exit 1
             fi
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          else
-            echo "Error: No valid tag detected. Please provide a valid semantic version tag." >&2
-            exit 1
+            exit 0
           fi
+
+          # Priority 4: Workflow run from Release Please (restricted fallback)
+          if [[ "${EVENT_NAME}" == "workflow_run" && "${WORKFLOW_RUN_CONCLUSION}" == "success" ]]; then
+            # Only proceed if this is clearly from Release Please workflow
+            if [[ "${WORKFLOW_RUN_NAME}" != "Release Please" ]]; then
+              echo "❌ Error: Workflow run is not from 'Release Please' workflow (got: ${WORKFLOW_RUN_NAME})" >&2
+              exit 1
+            fi
+
+            # Only proceed if running on main branch (or specific release branch)
+            if [[ "${WORKFLOW_RUN_HEAD_BRANCH}" != "main" ]]; then
+              echo "❌ Error: Workflow run is not from main branch (got: ${WORKFLOW_RUN_HEAD_BRANCH})" >&2
+              exit 1
+            fi
+
+            echo "🔍 Workflow run triggered by successful Release Please workflow"
+            echo "📋 Querying latest release as last-resort fallback..."
+
+            # Verify GitHub token is available
+            if [[ -z "${GITHUB_TOKEN}" ]]; then
+              echo "❌ Error: GITHUB_TOKEN environment variable is not set. Cannot authenticate with GitHub API." >&2
+              exit 1
+            fi
+
+            # Query the latest release to get the tag that was just created
+            # Use GITHUB_TOKEN for authentication to avoid rate limiting
+            LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name')
+
+            if [[ -z "${LATEST_RELEASE}" ]]; then
+              echo "❌ Error: Could not determine latest release tag" >&2
+              exit 1
+            fi
+
+            if ! validate_semver "${LATEST_RELEASE}"; then
+              exit 1
+            fi
+
+            echo "✅ Found valid tag from latest release: ${LATEST_RELEASE}"
+            echo "tag=${LATEST_RELEASE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # No valid tag source found
+          echo "❌ Error: No valid tag detected from any source." >&2
+          echo "Available sources:" >&2
+          echo "  - workflow_dispatch: ${INPUT_TAG:-'not provided'}" >&2
+          echo "  - release event: ${RELEASE_TAG:-'not available'}" >&2
+          echo "  - tag push: ${REF:-'not a tag'}" >&2
+          echo "  - workflow_run: ${WORKFLOW_RUN_NAME:-'not available'}" >&2
+          exit 1
 
   create-release:
     needs: resolve-tag
@@ -61,9 +148,10 @@ jobs:
         uses: taiki-e/create-gh-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: refs/tags/${{ needs.resolve-tag.outputs.tag }}
 
   build-and-package:
-    needs: create-release
+    needs: [create-release, resolve-tag]
     strategy:
       matrix:
         os: [ubuntu-22.04, macos-13, windows-2022]
@@ -96,8 +184,9 @@ jobs:
           bin: ${{ env.BIN_NAME }}
           tar: unix
           zip: windows
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ref: refs/tags/${{ needs.resolve-tag.outputs.tag }}
+          features: rustls
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify built binaries
         shell: bash
@@ -284,3 +373,44 @@ jobs:
             dist/*.crt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Trigger cargo-dist workflow for standardized distribution
+  trigger-cargo-dist:
+    needs: [sbom-and-sign, resolve-tag]
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Trigger cargo-dist workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ needs.resolve-tag.outputs.tag }}';
+
+            console.log(`🚀 Triggering cargo-dist workflow for tag: ${tag}`);
+
+            try {
+              const result = await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'cargo-dist.yml',
+                ref: 'main',
+                inputs: {
+                  tag: tag
+                }
+              });
+
+              console.log('✅ cargo-dist workflow triggered successfully');
+              console.log(`📋 This will generate:`);
+              console.log(`  🐚 Shell installer script`);
+              console.log(`  🪟 PowerShell installer script`);
+              console.log(`  🍺 Homebrew formula`);
+              console.log(`  📦 MSI installer for Windows`);
+              console.log(`  🔐 Additional signed artifacts`);
+
+            } catch (error) {
+              console.error('❌ Failed to trigger cargo-dist workflow:', error);
+              // Don't fail the main release workflow if cargo-dist trigger fails
+              console.log('⚠️  Continuing with main release workflow...');
+            }

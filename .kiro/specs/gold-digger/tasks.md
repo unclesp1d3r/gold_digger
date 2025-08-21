@@ -62,17 +62,26 @@
   - Add proper file I/O error handling and directory creation ✓
   - _Requirements: 4.7, 9.1, 9.2_
 
-- [ ] 9. Fix critical type safety issues
+- [x] 9. Add comprehensive TLS support and testing
 
-  - Replace unsafe MySQL value access in rows_to_strings function with safe get_opt() iteration
-  - Implement TypeTransformer::row_to_strings() with comprehensive NULL value handling
-  - Add TypeTransformer::value_to_string() with safe conversion for all MySQL Value types (Int, UInt, Float, Date, Time, Bytes)
-  - Create TypeTransformer::value_to_json() for JSON-specific type preservation
-  - Add structured logging for type conversion warnings and errors
-  - Implement comprehensive error handling for type conversion failures with meaningful messages
+  - Implement TlsConfig struct with builder pattern for SSL configuration ✓
+  - Add create_tls_connection function with enhanced error handling ✓
+  - Implement credential redaction in URL logging via redact_url function ✓
+  - Add comprehensive TLS integration tests with testcontainers ✓
+  - Create TLS error types with helpful user guidance ✓
+  - Add dependency validation tests for SSL feature flags ✓
+  - _Requirements: 5.1, 5.2, 5.3, 7.3_
+
+- [ ] 10. Fix critical type safety issues in rows_to_strings
+
+  - Replace unsafe MySQL value access in rows_to_strings function with safe iteration
+  - Implement safe NULL value handling using match patterns instead of direct indexing
+  - Add comprehensive type conversion for all MySQL Value types (Int, UInt, Float, Date, Time, Bytes)
+  - Create separate JSON value conversion logic to preserve type information
+  - Add proper error handling for type conversion failures with meaningful messages
   - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 10. Implement streaming query execution
+- [ ] 11. Implement streaming query execution
 
   - Create QueryExecutor struct with execute_streaming() method using mysql::query_iter
   - Implement RowStream iterator with proper column metadata handling
@@ -82,31 +91,28 @@
   - Implement proper query error handling with structured logging and meaningful error messages
   - _Requirements: 6.1, 6.2, 6.3_
 
-- [ ] 11. Implement structured logging
+- [ ] 12. Implement structured logging with tracing
 
   - Add tracing and tracing-subscriber dependencies to Cargo.toml
   - Create LoggingConfig struct with init_tracing() method for verbosity-based configuration
-  - Implement RedactedUrl wrapper for automatic credential redaction in logs
   - Replace all println!/eprintln! with structured logging using tracing macros (info!, debug!, warn!, error!)
   - Add #[instrument] attributes to key functions (connect_to_database, execute_query)
   - Implement --verbose flag with structured logging levels (warn=0, info=1, debug=2, trace=3+)
   - Add --quiet flag for suppressing all output except errors
-  - Create credential redaction for DATABASE_URL in all log output and error messages
+  - Integrate existing redact_url functionality with structured logging
   - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 12. Create comprehensive testing suite
+- [ ] 13. Expand testing coverage
 
-  - Add development dependencies (criterion, insta, assert_cmd, testcontainers) to Cargo.toml
-  - Create unit tests for TypeTransformer with comprehensive NULL handling and edge cases
-  - Write unit tests for RedactedUrl credential protection functionality
-  - Add unit tests for all FormatWriter implementations (CSV, JSON, TSV)
-  - Create integration tests with testcontainers for MySQL/MariaDB streaming scenarios
+  - Add development dependencies (criterion, insta, assert_cmd) to Cargo.toml
+  - Create unit tests for safe type conversion with comprehensive NULL handling and edge cases
+  - Add unit tests for all FormatWriter implementations (CSV, JSON, TSV) with streaming support
   - Implement end-to-end CLI tests using assert_cmd for all exit codes and error conditions
   - Add performance benchmarks for streaming memory usage validation (O(row_width) not O(row_count))
   - Create snapshot tests using insta for deterministic output format validation
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 6.1, 6.2, 6.3, 7.2, 7.3_
 
-- [ ] 13. Final integration and validation
+- [ ] 14. Final integration and validation
 
   - Wire together all components in main execution pipeline with proper error propagation
   - Integrate LoggingConfig initialization in main() based on CLI flags

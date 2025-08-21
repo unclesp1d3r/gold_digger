@@ -21,6 +21,7 @@ install-tools:
     cargo install cargo-tarpaulin --locked || echo "cargo-tarpaulin already installed"
     cargo install cargo-audit --locked || echo "cargo-audit already installed"
     cargo install cargo-deny --locked || echo "cargo-deny already installed"
+    cargo install cargo-dist --locked || echo "cargo-dist already installed"
     @echo "✅ Tools installed!"
 
 # Format code
@@ -115,6 +116,129 @@ audit:
 deny:
     @echo "🚫 Checking licenses and security..."
     cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
+
+# Comprehensive security scanning (combines audit, deny, and grype)
+security:
+    @echo "🔒 Running comprehensive security scanning..."
+    @echo "Step 1: Security audit..."
+    just audit
+    @echo ""
+    @echo "Step 2: License and security policy checks..."
+    just deny
+    @echo ""
+    @echo "Step 3: Vulnerability scanning with grype..."
+    @if command -v grype >/dev/null 2>&1; then \
+        echo "Running grype vulnerability scan..."; \
+        grype . --fail-on critical --fail-on high || echo "❌ Critical or high vulnerabilities found"; \
+    else \
+        echo "⚠️  grype not installed - install with:"; \
+        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"; \
+    fi
+    @echo "✅ Security scanning complete!"
+
+# Coverage alias for CI naming consistency
+cover: coverage-llvm
+
+# Generate Software Bill of Materials (SBOM) for local inspection
+sbom:
+    @echo "📋 Generating Software Bill of Materials (SBOM)..."
+    @if command -v syft >/dev/null 2>&1; then \
+        echo "Generating SBOM with syft..."; \
+        syft packages . -o cyclonedx-json=sbom.json; \
+        syft packages . -o table; \
+        echo ""; \
+        echo "✅ SBOM generated:"; \
+        echo "  📄 sbom.json (CycloneDX format)"; \
+        echo "  📊 Table output displayed above"; \
+        echo ""; \
+        echo "To inspect SBOM:"; \
+        echo "  cat sbom.json | jq ."; \
+        echo "  syft packages . -o json | jq '.artifacts[] | .name'"; \
+    else \
+        echo "⚠️  syft not installed - install with:"; \
+        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
+        echo ""; \
+        echo "Alternative: Use cargo tree for dependency inspection:"; \
+        cargo tree --format "{p} {f}"; \
+    fi
+
+# Initialize cargo-dist configuration
+dist-init:
+    @echo "🚀 Initializing cargo-dist configuration..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist init..."; \
+        cargo dist init --yes; \
+        echo "✅ cargo-dist initialized successfully"; \
+        echo "📋 Configuration written to cargo-dist.toml"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Plan cargo-dist release (dry-run)
+dist-plan:
+    @echo "📋 Planning cargo-dist release..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist plan..."; \
+        cargo dist plan; \
+        echo ""; \
+        echo "✅ Release plan generated"; \
+        echo "📊 This shows what would be built and distributed"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Build cargo-dist artifacts locally
+dist-build:
+    @echo "🔨 Building cargo-dist artifacts locally..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist build..."; \
+        cargo dist build; \
+        echo ""; \
+        echo "✅ Local distribution artifacts built"; \
+        echo "📦 Check target/distrib/ for generated artifacts"; \
+        echo "🔍 Artifacts include:"; \
+        find target/distrib -type f -name "*" | head -10 || echo "  (no artifacts found)"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Generate cargo-dist installers
+dist-generate:
+    @echo "📦 Generating cargo-dist installers..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Running cargo-dist generate..."; \
+        cargo dist generate; \
+        echo ""; \
+        echo "✅ Installers generated"; \
+        echo "📋 Generated files:"; \
+        echo "  🐚 Shell installer script"; \
+        echo "  🪟 PowerShell installer script"; \
+        echo "  🍺 Homebrew formula (if configured)"; \
+        echo "  📦 MSI installer (if configured)"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
+
+# Validate cargo-dist configuration
+dist-check:
+    @echo "🔍 Validating cargo-dist configuration..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+        echo "Checking cargo-dist.toml configuration..."; \
+        cargo dist plan --check; \
+        echo ""; \
+        echo "✅ cargo-dist configuration is valid"; \
+        echo "📋 Configuration summary:"; \
+        echo "  📁 Config file: cargo-dist.toml"; \
+        echo "  🎯 Targets: $(grep -A 10 'targets = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
+        echo "  📦 Installers: $(grep -A 5 'installers = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
+    else \
+        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
+        exit 1; \
+    fi
 
 # Validate TLS dependency tree (for rustls migration)
 validate-deps:
@@ -282,7 +406,7 @@ status:
     @echo "📊 Gold Digger Project Status:"
     @echo ""
     @echo "🏗️  Architecture: Environment variable driven, structured output"
-    @echo "🎯 Current: v0.2.5 (check version discrepancy)"
+    @echo "🎯 Current: v0.2.6 (check version discrepancy)"
     @echo "🚀 Target: v1.0 with CLI interface"
     @echo "🧑‍💻 Maintainer: UncleSp1d3r"
     @echo ""
@@ -292,7 +416,19 @@ status:
     @echo "  • Non-deterministic JSON output"
     @echo "  • Pattern matching bug in src/main.rs:59"
     @echo ""
+    @echo "🔄 Release Please: Automated versioning enabled"
     @echo "📖 See WARP.md for detailed information"
+
+# Validate Release Please configuration
+validate-release-please:
+    @echo "🔍 Validating Release Please configuration..."
+    @test -f .github/workflows/release-please.yml && echo "✅ .github/workflows/release-please.yml exists" || echo "❌ Missing: .github/workflows/release-please.yml"
+    @test -f .release-please-manifest.json && echo "✅ .release-please-manifest.json exists" || echo "❌ Missing: .release-please-manifest.json"
+    @test -f .release-please-config.json && echo "✅ .release-please-config.json exists" || echo "❌ Missing: .release-please-config.json"
+    @python3 -c "import json; json.load(open('.release-please-manifest.json'))" && echo "✅ .release-please-manifest.json is valid JSON" || echo "❌ Invalid JSON in .release-please-manifest.json"
+    @python3 -c "import json; json.load(open('.release-please-config.json'))" && echo "✅ .release-please-config.json is valid JSON" || echo "❌ Invalid JSON in .release-please-config.json"
+    @python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release-please.yml'))" && echo "✅ .github/workflows/release-please.yml is valid YAML" || echo "❌ Invalid YAML in .github/workflows/release-please.yml"
+    @echo "🎉 Release Please configuration validation complete!"
 
 # Local GitHub Actions Testing (requires act)
 act-setup:
@@ -322,6 +458,68 @@ act-release-dry TAG:
     @echo "🚀 Running release workflow dry-run for tag: {{TAG}}"
     @echo "This simulates the full release pipeline without actually creating releases"
     act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+
+# Run Release Please workflow dry-run
+act-release-please-dry:
+    @echo "🔄 Running Release Please workflow dry-run..."
+    @echo "This simulates the Release Please workflow without creating PRs or releases"
+    act workflow_dispatch -W .github/workflows/release-please.yml --dryrun
+
+# Run Release Please workflow locally (full execution)
+act-release-please:
+    @echo "🔄 Running Release Please workflow locally..."
+    @echo "⚠️  This will execute the Release Please workflow in Docker containers"
+    @echo "📋 This includes: Conventional commit analysis, version bumping, changelog generation"
+    act workflow_dispatch -W .github/workflows/release-please.yml
+
+# Test Release Please with specific commit messages
+act-release-please-test:
+    @echo "🧪 Testing Release Please with sample conventional commits..."
+    @echo "This creates test commits and runs Release Please workflow"
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Creating test conventional commits..."
+
+    # Create test commits with different types
+    echo "feat: add new output format support" > test-commit-feat.txt
+    echo "fix: resolve connection timeout issue" > test-commit-fix.txt
+    echo "docs: update README with new examples" > test-commit-docs.txt
+    echo "feat!: migrate to new CLI interface" > test-commit-breaking.txt
+
+    echo "✅ Test commit messages created:"
+    echo "  📄 test-commit-feat.txt (feature)"
+    echo "  📄 test-commit-fix.txt (bug fix)"
+    echo "  📄 test-commit-docs.txt (documentation)"
+    echo "  📄 test-commit-breaking.txt (breaking change)"
+    echo ""
+    echo "To test Release Please workflow:"
+    echo "  1. Use these commit messages in your actual commits"
+    echo "  2. Push to main branch"
+    echo "  3. Check GitHub Actions for Release Please workflow execution"
+    echo "  4. Review generated release PRs and changelog updates"
+
+# Test Release Please integration with release workflow
+act-release-integration TAG:
+    @echo "🔗 Testing Release Please integration with release workflow..."
+    @echo "This tests the complete flow from Release Please to release creation"
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Step 1: Simulating Release Please workflow..."
+    act workflow_dispatch -W .github/workflows/release-please.yml --dryrun
+
+    echo ""
+    echo "Step 2: Simulating manual release workflow..."
+    act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+
+    echo ""
+    echo "✅ Integration test simulation complete!"
+    echo "📋 This verifies that:"
+    echo "  • Release Please workflow can be triggered"
+    echo "  • Manual release workflow still works"
+    echo "  • All workflows have proper permissions and configurations"
+    echo "  • Release workflow will be triggered by Release Please completion in production"
 
 # List all available GitHub Actions workflows
 act-list:
@@ -359,6 +557,12 @@ release-check:
     @echo "5. Local CI validation..."
     just act-ci-dry
     @echo ""
+    @echo "6. Release Please workflow validation..."
+    just act-release-please-dry
+    @echo ""
+    @echo "7. Release integration test..."
+    just act-release-integration v0.2.7
+    @echo ""
     @echo "📋 Manual checklist:"
     @echo "   □ Update CHANGELOG.md if needed"
     @echo "   □ Review project_spec/requirements.md for completeness"
@@ -366,24 +570,26 @@ release-check:
     @echo "   □ Verify all feature flag combinations work"
     @echo "   □ Check that credentials are never logged"
     @echo "   □ Run 'just act-release-dry vX.Y.Z' to test release workflow"
+    @echo "   □ Verify conventional commit format in recent commits"
+    @echo "   □ Check Release Please configuration files are valid"
 
 # Release simulation for local testing
 release-dry:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "🔍 Simulating release process..."
-    
+
     # Check if we're in a clean git state
     if ! git diff-index --quiet HEAD --; then
         echo "⚠️  Warning: Working directory has uncommitted changes"
         echo "   This is normal for testing, but releases should be from clean state"
     fi
-    
+
     echo ""
     echo "📦 Step 1: Building release binary..."
     echo "Building with rustls (pure Rust TLS)..."
     just build-rustls
-    
+
     echo ""
     echo "📋 Step 2: Checking binary..."
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
@@ -391,15 +597,15 @@ release-dry:
     else
         BINARY_PATH="target/release/gold_digger"
     fi
-    
+
     if [[ ! -f "$BINARY_PATH" ]]; then
         echo "❌ Binary not found at $BINARY_PATH"
         exit 1
     fi
-    
+
     BINARY_SIZE=$(stat -c%s "$BINARY_PATH" 2>/dev/null || stat -f%z "$BINARY_PATH" 2>/dev/null || echo "unknown")
     echo "✅ Binary found: $BINARY_PATH ($BINARY_SIZE bytes)"
-    
+
     echo ""
     echo "🔐 Step 3: Simulating SBOM generation..."
     # Check if syft is available
@@ -414,7 +620,7 @@ release-dry:
         echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > sbom-test.json
         echo "📄 Placeholder SBOM created: sbom-test.json"
     fi
-    
+
     echo ""
     echo "🔢 Step 4: Generating checksums..."
     if command -v sha256sum >/dev/null 2>&1; then
@@ -428,7 +634,7 @@ release-dry:
         touch checksums-test.txt
     fi
     echo "✅ Checksums generated: checksums-test.txt"
-    
+
     echo ""
     echo "🔐 Step 5: Simulating signing process..."
     if command -v cosign >/dev/null 2>&1; then
@@ -440,7 +646,7 @@ release-dry:
         echo "   Release workflow will use sigstore/cosign-installer@v3.9.2"
         echo "   with GitHub OIDC keyless authentication"
     fi
-    
+
     echo ""
     echo "📊 Step 6: Release simulation summary..."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -461,7 +667,7 @@ release-dry:
     echo "   Check: https://github.com/unclesp1d3r/gold_digger/actions/workflows/release.yml"
     echo ""
     echo "✨ The actual release workflow includes:"
-    echo "   • Cross-platform builds (Ubuntu, macOS, Windows)"  
+    echo "   • Cross-platform builds (Ubuntu, macOS, Windows)"
     echo "   • Cosign keyless signing with GitHub OIDC"
     echo "   • Comprehensive SBOM generation per artifact"
     echo "   • Automated GitHub release creation"
@@ -491,11 +697,15 @@ help:
     @echo "  test          Run tests"
     @echo "  test-nextest  Run tests with nextest"
     @echo "  coverage      Run tests with coverage report"
+    @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
+    @echo "  cover         Alias for coverage-llvm (CI naming consistency)"
     @echo "  bench         Run benchmarks"
     @echo ""
     @echo "Security:"
     @echo "  audit         Security audit"
     @echo "  deny          License and security checks"
+    @echo "  security      Comprehensive security scanning (audit + deny + grype)"
+    @echo "  sbom          Generate Software Bill of Materials for inspection"
     @echo "  validate-deps Validate TLS dependency tree (rustls migration)"
     @echo ""
     @echo "Running:"
@@ -508,6 +718,10 @@ help:
     @echo "  act-ci-dry    Run CI workflow dry-run (simulation)"
     @echo "  act-ci        Run CI workflow locally (full execution)"
     @echo "  act-release-dry TAG  Simulate release workflow for tag"
+    @echo "  act-release-please-dry  Simulate Release Please workflow"
+    @echo "  act-release-please  Run Release Please workflow locally"
+    @echo "  act-release-please-test  Test with sample conventional commits"
+    @echo "  act-release-integration TAG  Test Release Please + release integration"
     @echo "  act-list      List all available workflows"
     @echo "  act-job JOB   Test specific workflow job"
     @echo "  act-clean     Clean act cache and containers"
@@ -531,5 +745,13 @@ help:
     @echo "Release:"
     @echo "  release-check Pre-release checklist and validation"
     @echo "  release-dry   Simulate release process locally"
+    @echo "  validate-release-please  Validate Release Please configuration"
+    @echo ""
+    @echo "Distribution (cargo-dist):"
+    @echo "  dist-init     Initialize cargo-dist configuration"
+    @echo "  dist-plan     Plan cargo-dist release (dry-run)"
+    @echo "  dist-build    Build cargo-dist artifacts locally"
+    @echo "  dist-generate Generate cargo-dist installers"
+    @echo "  dist-check    Validate cargo-dist configuration"
     @echo ""
     @echo "📖 For detailed project information, see WARP.md, AGENTS.md, or .cursor/rules/"

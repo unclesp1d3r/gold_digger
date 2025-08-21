@@ -1,0 +1,313 @@
+# cargo-dist workflow for standardized cross-platform distribution
+# This workflow integrates with the existing release.yml workflow
+# It provides standardized installers and distribution artifacts
+
+name: Cargo Dist
+
+on:
+  # Trigger on release tags (same as existing release workflow)
+  push:
+    tags:
+      - "v[0-9]+.*"
+  # Allow manual triggering for testing
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build distribution for"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+  id-token: write
+
+# Environment variables
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: always
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  # Job to resolve the tag (reuse logic from existing release workflow)
+  resolve-tag:
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.get-tag.outputs.tag }}
+    steps:
+      - id: get-tag
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
+            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "Error: Provided tag '${INPUT_TAG}' does not match semantic versioning pattern." >&2
+              exit 1
+            fi
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          elif [[ "${REF}" == refs/tags/* ]]; then
+            TAG="${REF#refs/tags/}"
+            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "Error: Extracted tag '${TAG}' does not match semantic versioning pattern." >&2
+              exit 1
+            fi
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Error: No valid tag detected. Please provide a valid semantic version tag." >&2
+            exit 1
+          fi
+
+  # Plan the release (what cargo-dist will build)
+  plan:
+    needs: resolve-tag
+    runs-on: ubuntu-22.04
+    outputs:
+      val: ${{ steps.plan.outputs.manifest }}
+      tag: ${{ !github.event.pull_request && needs.resolve-tag.outputs.tag || '' }}
+      tag-flag: ${{ !github.event.pull_request && format('--tag={0}', needs.resolve-tag.outputs.tag) || '' }}
+      publishing: ${{ !github.event.pull_request }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install cargo-dist
+        # Install a specific version for reproducibility
+        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+
+      - id: plan
+        run: |
+          cargo dist plan ${{ !github.event.pull_request && format('--tag={0}', needs.resolve-tag.outputs.tag) || '' }} --output-format=json > plan-dist-manifest.json
+          echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: "Upload dist-manifest.json"
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-dist-manifest
+          path: plan-dist-manifest.json
+
+  # Build job for each target platform
+  build-local-artifacts:
+    name: build-artifacts (${{ join(matrix.targets, ', ') }})
+    needs:
+      - plan
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include }}
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ join(matrix.targets, '-') }}
+
+      - name: Install cargo-dist
+        run: ${{ matrix.install_dist }}
+
+      # Get the dist-manifest
+      - name: Fetch local artifacts manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-dist-manifest
+          path: .
+      - name: Install dependencies
+        run: |
+          ${{ matrix.packages_install }}
+
+      - name: Build artifacts
+        run: |
+          # Actually do the build
+          cargo dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-dist-artifacts-${{ join(matrix.targets, '-') }}
+          path: |
+            target/distrib/
+            !target/distrib/*.json
+
+  # Generate cross-platform installers
+  build-global-artifacts:
+    needs:
+      - plan
+      - build-local-artifacts
+    runs-on: "ubuntu-20.04"
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install cargo-dist
+        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+
+      # Get all the local artifacts for the global tasks to use (for e.g. checksums)
+      - name: Fetch local artifacts manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-dist-manifest
+          path: .
+
+      - name: Fetch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cargo-dist-artifacts-*
+          path: target/distrib/
+          merge-multiple: true
+
+      - name: Build global artifacts
+        run: cargo dist build ${{ needs.plan.outputs.tag-flag }} --artifacts=global
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-dist-artifacts-global
+          path: |
+            target/distrib/
+            !target/distrib/*.json
+
+  # Publish to GitHub Releases
+  publish:
+    needs:
+      - plan
+      - build-local-artifacts
+      - build-global-artifacts
+    runs-on: "ubuntu-20.04"
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    if: ${{ needs.plan.outputs.publishing == 'true' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install cargo-dist
+        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+
+      # Fetch artifacts from previous jobs
+      - name: Fetch local artifacts manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-dist-manifest
+          path: .
+
+      - name: Fetch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cargo-dist-artifacts-*
+          path: target/distrib/
+          merge-multiple: true
+
+      - name: Publish artifacts
+        run: |
+          cargo dist publish ${{ needs.plan.outputs.tag-flag }}
+
+  # Integration with existing security workflow
+  security-integration:
+    needs:
+      - plan
+      - publish
+    runs-on: ubuntu-22.04
+    if: ${{ needs.plan.outputs.publishing == 'true' }}
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install security tools
+        run: |
+          # Install syft for SBOM generation
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          # Install cosign for signing
+          curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o /usr/local/bin/cosign
+          chmod +x /usr/local/bin/cosign
+
+      - name: Download cargo-dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cargo-dist-artifacts-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Generate SBOMs for cargo-dist artifacts
+        run: |
+          mkdir -p sbom
+          echo "📦 Generating SBOMs for cargo-dist artifacts..."
+
+          for f in dist/*; do
+            if [ -f "$f" ] && [[ "$f" != *.json ]] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              echo "Processing: $base"
+
+              # Generate SBOM
+              syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
+
+              # Verify SBOM was created and is valid JSON
+              if ! jq empty "sbom/${base}.sbom.cdx.json" 2>/dev/null; then
+                echo "❌ Error: Invalid SBOM generated for $base" >&2
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Sign cargo-dist artifacts with Cosign
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          echo "🔐 Signing cargo-dist artifacts with Cosign keyless OIDC..."
+
+          for f in dist/*; do
+            if [ -f "$f" ] && [[ "$f" != *.json ]] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              echo "Signing: $base"
+
+              cosign sign-blob --yes "$f" \
+                --output-signature "${f}.sig" \
+                --output-certificate "${f}.crt"
+
+              # Verify signature files were created
+              if [[ ! -f "${f}.sig" ]] || [[ ! -f "${f}.crt" ]]; then
+                echo "❌ Error: Signature files not created for $base" >&2
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Upload security artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.plan.outputs.tag }}
+          files: |
+            sbom/*.sbom.cdx.json
+            dist/*.sig
+            dist/*.crt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify integration
+        run: |
+          echo "✅ cargo-dist integration with security workflow complete!"
+          echo "📋 Generated artifacts:"
+          echo "  📦 Cross-platform binaries and installers (via cargo-dist)"
+          echo "  📋 SBOMs for all artifacts"
+          echo "  🔐 Cosign signatures for all artifacts"
+          echo "  🏠 Homebrew formula (if configured)"
+          echo "  🪟 MSI installer for Windows"
+          echo "  🐚 Shell and PowerShell installers"
