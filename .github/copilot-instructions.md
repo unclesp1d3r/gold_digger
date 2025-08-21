@@ -76,11 +76,13 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 ### Quality Gates (Required Before Commits)
 
 ```bash
-cargo fmt --check           # 100-character line limit enforced
-cargo clippy -- -D warnings # Zero tolerance for warnings
-cargo nextest run           # Parallel test execution (preferred)
-cargo audit                 # Security vulnerability scanning (advisory)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### Commit Standards
 
@@ -198,8 +200,8 @@ DATABASE_URL="mysql://user:pass@host:3306/db" \
 DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 5" \
 cargo run --release
 
-# Quality checks
-cargo fmt --check && cargo clippy -- -D warnings
+# Quality checks (pipeline standards)
+just fmt-check && just lint && just test
 ```
 
 ---

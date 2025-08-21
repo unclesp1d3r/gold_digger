@@ -95,7 +95,7 @@ os: [ubuntu-latest, windows-latest, macos-latest]
 
 ### Documentation Tools
 
-- **MkDocs Material** theme for documentation site
+- **mdBook + RustDoc** comprehensive documentation site
 - **Mermaid diagrams** for visual documentation
 - Auto-deployment on push to `main` and release tags
 

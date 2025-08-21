@@ -27,13 +27,20 @@ from_value::<String>(row[column.name_str().as_ref()])
 **Example**: `SELECT CAST(column AS CHAR) AS column FROM table`
 **Fallback**: Use `from_value_opt` with proper error handling in Rust code
 
-### Environment Variable Interface (Current)
+### Configuration Interface (CLI-First Design)
 
 ```rust
-// Required environment variables (CLI present but env vars still supported)
-OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
+// CLI flags (highest priority)
+--db-url <URL>      // Database connection (overrides DATABASE_URL)
+--query <SQL>       // Inline SQL (mutually exclusive with --query-file)
+--query-file <FILE> // SQL from file (mutually exclusive with --query)
+--output <FILE>     // Output path (overrides OUTPUT_FILE)
+--format <FORMAT>   // Force format (csv|json|tsv)
+
+// Environment variables (fallback when CLI flags not provided)
 DATABASE_URL   // MySQL connection string with optional SSL params
 DATABASE_QUERY // SQL to execute
+OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
 ```
 
 **No dotenv support** - despite README implications, use exported environment variables only.
@@ -42,7 +49,8 @@ DATABASE_QUERY // SQL to execute
 
 ```text
 src/
-├── main.rs     # Entry point, env var handling, format dispatch
+├── main.rs     # Entry point, CLI parsing, format dispatch
+├── cli.rs      # Clap CLI definitions and configuration
 ├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
 ├── csv.rs      # RFC4180-ish, QuoteStyle::Necessary
 ├── json.rs     # {"data":[{...}]} using BTreeMap (deterministic key order)
@@ -61,11 +69,13 @@ src/
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["openssl-sys", "mysql/native-tls"]
-vendored = ["openssl-sys?/vendored"]       # Static OpenSSL linking
+ssl = ["mysql/native-tls"]                 # Platform native TLS (no OpenSSL dependency)
+ssl-rustls = ["mysql/rustls-tls"]         # Pure Rust TLS implementation
 additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decimal", ...]
 verbose = []                               # Conditional println!/eprintln!
 ```
+
+**Note**: `ssl` and `ssl-rustls` are mutually exclusive. The `vendored` feature has been **REMOVED** in v0.2.7+ as OpenSSL dependencies have been eliminated.
 
 ## Code Quality Standards (Zero Tolerance)
 
@@ -188,14 +198,20 @@ fn write_output(rows: &[Row], output_file: &str, output: &mut impl Write) -> Res
 
 ```bash
 # Build variations
-cargo build --release
-cargo build --release --features vendored    # Static OpenSSL
-cargo build --no-default-features --features "csv json"  # Minimal
+cargo build --release                                    # Standard build (native TLS)
+cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS
+cargo build --no-default-features --features "csv json" # Minimal build
 
-# Development
+# Development (CLI-first approach)
 cargo install --path .  # Local install
-OUTPUT_FILE=/tmp/out.json DATABASE_URL="mysql://u:p@h:3306/db" DATABASE_QUERY="SELECT CAST(id AS CHAR) FROM t" cargo run --release
+cargo run --release -- \
+  --db-url "mysql://u:p@h:3306/db" \
+  --query "SELECT CAST(id AS CHAR) FROM t" \
+  --output /tmp/out.json
 
-# Quality assurance
-cargo fmt --check && cargo clippy -- -D warnings && cargo test
+# Quality assurance (pipeline standards)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```

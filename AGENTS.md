@@ -62,11 +62,18 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 # Build (release recommended for testing)
 cargo build --release
 
-# Lint and format (REQUIRED for PRs)
-cargo fmt --check
-cargo clippy -- -D warnings
+# Quality gates (REQUIRED for PRs)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
 
-# Run with environment variables
+# Run with CLI flags (preferred)
+cargo run --release -- \
+  --db-url "mysql://user:pass@host:3306/db" \
+  --query "SELECT CAST(id AS CHAR) as id FROM table LIMIT 5" \
+  --output /tmp/out.json
+
+# Run with environment variables (fallback)
 OUTPUT_FILE=/tmp/out.json \
 DATABASE_URL="mysql://user:pass@host:3306/db" \
 DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM table LIMIT 5" \
@@ -106,11 +113,13 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 ### Quality Gates (Required Before Commits)
 
 ```bash
-cargo fmt --check           # 100-character line limit enforced
-cargo clippy -- -D warnings # Zero tolerance for warnings
-cargo nextest run           # Parallel test execution (preferred)
-cargo audit                 # Security vulnerability scanning (advisory)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### Commit Standards
 
