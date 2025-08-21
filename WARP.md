@@ -209,11 +209,29 @@ Based on `project_spec/requirements.md`, major missing features:
 
 ## Development Workflow and Conventions
 
-### Code Standards
+### Quality Gates (Required Before Commits)
 
-- **Formatting:** `rustfmt` with 100-character line length (see `rustfmt.toml`)
-- **Linting:** `cargo clippy -- -D warnings` (zero tolerance)
-- **Commits:** Conventional Commits format
+```bash
+cargo fmt --check           # 100-character line limit enforced
+cargo clippy -- -D warnings # Zero tolerance for warnings
+cargo nextest run           # Parallel test execution (preferred)
+cargo audit                 # Security vulnerability scanning (advisory)
+```
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 - **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
 
 ### Recommended Justfile
@@ -297,11 +315,20 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ## Security and Operational Guidelines
 
-### Critical Security Rules
+### Critical Security Requirements
 
-1. **Never log DATABASE_URL or credentials** - implement redaction
-2. **No telemetry or external calls** at runtime
-3. **Respect system umask** for output files
+- **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
+- **No hardcoded secrets:** Use environment variables or GitHub OIDC
+- **Vulnerability policy:** Block releases with critical vulnerabilities
+- **Airgap compatibility:** No telemetry or external calls in production
+- **Respect system umask** for output files
+
+### Error Handling Patterns
+
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
 
 ### TLS Configuration
 

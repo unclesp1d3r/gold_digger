@@ -103,20 +103,48 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 ## Code Quality Standards
 
-### Required Checks
+### Quality Gates (Required Before Commits)
 
-- **Formatting:** `cargo fmt --check` (100-char line length via rustfmt.toml)
-- **Linting:** `cargo clippy -- -D warnings` (zero tolerance)
-- **Commits:** Conventional Commits format
+```bash
+cargo fmt --check           # 100-character line limit enforced
+cargo clippy -- -D warnings # Zero tolerance for warnings
+cargo nextest run           # Parallel test execution (preferred)
+cargo audit                 # Security vulnerability scanning (advisory)
+```
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 - **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
 
-### Security Rules
+### Security Requirements
 
-1. **Never log DATABASE_URL or credentials** - implement redaction
-2. **No telemetry or external calls** at runtime
-3. **Respect system umask** for output files
-4. **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
-5. **TLS Implementation:** Supports both platform-native TLS via the `ssl` feature (native-tls: SChannel on Windows, SecureTransport on macOS, may use OpenSSL on Linux) and pure Rust TLS via the `ssl-rustls` feature (rustls implementation)
+#### Critical Security Rules
+
+- **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
+- **No hardcoded secrets:** Use environment variables or GitHub OIDC
+- **Vulnerability policy:** Block releases with critical vulnerabilities
+- **Airgap compatibility:** No telemetry or external calls in production
+- **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
+- **TLS Implementation:** Supports both platform-native TLS via the `ssl` feature and pure Rust TLS via the `ssl-rustls` feature
+
+#### Error Handling Patterns
+
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
 
 ## Common Tasks for AI Assistants
 

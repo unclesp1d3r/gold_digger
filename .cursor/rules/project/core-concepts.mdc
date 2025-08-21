@@ -67,28 +67,42 @@ additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decima
 verbose = []                               # Conditional println!/eprintln!
 ```
 
-## Code Quality Gates
+## Code Quality Standards (Zero Tolerance)
 
-### Required Before PRs
+### Quality Gates (Required Before Commits)
 
 ```bash
-cargo fmt --check      # 100-char line length via rustfmt.toml
-cargo clippy -- -D warnings  # Zero tolerance for warnings
+cargo fmt --check           # 100-character line limit enforced
+cargo clippy -- -D warnings # Zero tolerance for warnings
+cargo nextest run           # Parallel test execution (preferred)
+cargo audit                 # Security vulnerability scanning (advisory)
 ```
 
-### Rust Style Guidelines
+### Commit Standards
 
-- Use `anyhow::Result<T>` for fallible functions
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Error Handling Patterns
+
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
 - Feature-gate verbose output: `#[cfg(feature = "verbose")]`
-- Never log DATABASE_URL or credentials
-- Handle NULL database values gracefully
 
-## Security Invariants
+## Security Requirements
 
-1. **No credential logging** - implement redaction for DATABASE_URL
-2. **Offline-first design** - no external service calls at runtime
-3. **Respect system umask** for output file permissions
-4. **TLS/SSL configuration** - must be configured programmatically via mysql crate's `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the mysql crate
+### Critical Security Rules
+
+- **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
+- **No hardcoded secrets:** Use environment variables or GitHub OIDC
+- **Vulnerability policy:** Block releases with critical vulnerabilities
+- **Airgap compatibility:** No telemetry or external calls in production
+- **Respect system umask** for output file permissions
+- **TLS/SSL configuration** - must be configured programmatically via mysql crate's `SslOpts` and `OptsBuilder::ssl_opts()`; URL-based ssl-mode parameters are not supported by the mysql crate
 
 ## Memory & Performance Characteristics
 

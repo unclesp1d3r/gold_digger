@@ -15,7 +15,8 @@
       "deny.toml",
       "justfile",
       ".pre-commit-config.yaml",
-      "project_spec/*.md"
+      "project_spec/*.md",
+      ".kiro/steering/**/*.md"
     ]
   },
   "then": {

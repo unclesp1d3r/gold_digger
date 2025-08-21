@@ -19,19 +19,47 @@ alwaysApply: true
 - Use `pub mod` in [`lib.rs`](mdc:src/lib.rs) to expose modules.
 - Maintainers should ensure documentation reflects the actual module layout and public exports in [`lib.rs`](mdc:src/lib.rs).
 
-## Error Handling
+## Error Handling Patterns
 
-- Use the [`anyhow`](mdc:https://docs.rs/anyhow) crate for error propagation and context, as seen in function signatures like `Result<()>`.
-- Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases (e.g., missing header row in [`json.rs`](mdc:src/json.rs)).
-- Use `?` for error propagation.
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
+- Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases
 
-## Code Style
+## Code Quality Standards (Zero Tolerance)
 
-- Follow [Rustfmt](mdc:https://github.com/rust-lang/rustfmt) conventions for formatting. Run `cargo fmt` before committing.
-- Use `snake_case` for function and variable names, `CamelCase` for types and structs.
-- Prefer iterators and combinators over manual loops where possible.
-- Use explicit types for function signatures, especially for public APIs.
-- Group imports by standard library, external crates, and local modules, separated by newlines.
+### Quality Gates (Required Before Commits)
+
+```bash
+cargo fmt --check           # 100-character line limit enforced
+cargo clippy -- -D warnings # Zero tolerance for warnings
+cargo nextest run           # Parallel test execution (preferred)
+cargo audit                 # Security vulnerability scanning (advisory)
+```
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+
+### Code Style
+
+- Follow [Rustfmt](mdc:https://github.com/rust-lang/rustfmt) conventions for formatting
+- Use `snake_case` for function and variable names, `CamelCase` for types and structs
+- Prefer iterators and combinators over manual loops where possible
+- Use explicit types for function signatures, especially for public APIs
+- Group imports by standard library, external crates, and local modules, separated by newlines
 
 ## Features and Conditional Compilation
 
