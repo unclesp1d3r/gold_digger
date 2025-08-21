@@ -129,9 +129,9 @@
     - Include coding standards and best practices
     - _Requirements: 2.3, 2.4_
 
-- [ ] 9. Add version synchronization and content validation
+- [x] 9. Add version synchronization and content validation
 
-  - [ ] 9.1 Implement version extraction from Cargo.toml
+  - [x] 9.1 Implement version extraction from Cargo.toml
 
     - Create template variables for version-specific content
     - Ensure documentation reflects current version
@@ -171,7 +171,23 @@
     - Validate that deployed site has all expected functionality
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 12. Finalize documentation content and polish
+- [ ] 12. Fix mdBook plugin configuration issues
+
+  - [ ] 12.1 Update book.toml plugin configuration
+
+    - Replace deprecated `mdbook-admonish` with `mdbook-alerts` (already installed in CI)
+    - Add missing `mdbook-linkcheck` configuration
+    - Ensure all plugins in CI workflow match book.toml configuration
+    - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+  - [ ] 12.2 Update mdformat configuration for mdBook compatibility
+
+    - Add mdBook-specific extensions to preserve plugin syntax
+    - Configure mdformat to handle alerts/admonitions properly
+    - Test that mdformat doesn't break mdBook rendering
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [ ] 13. Finalize documentation content and polish
 
   - Review all content for technical accuracy and completeness
   - Ensure consistent tone and style across all documentation

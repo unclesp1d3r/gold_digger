@@ -18,7 +18,7 @@
 
 - [x] 3. Comprehensive security scanning
 
-  - CodeQL analysis for Rust already configured in separate workflow
+  - CodeQL analysis for Rust now integrated into consolidated security workflow
   - SBOM generation with syft (CycloneDX format) already implemented in security.yml
   - Vulnerability scanning with grype (--fail-on critical) already implemented
   - cargo-audit and cargo-deny already integrated
@@ -77,9 +77,10 @@
 
 - [x] 10. Consolidate security workflows
 
-  - Merge CodeQL workflow into security.yml for unified security scanning
-  - Optimize security workflow execution to reduce redundant steps
-  - Ensure all security scans run in single workflow for better coordination
+  - ✅ Removed standalone .github/workflows/codeql.yml to eliminate duplicate CodeQL runs
+  - ✅ Added full CodeQL sequence (init, autobuild, analyze) to security.yml workflow
+  - ✅ Verified security.yml contains complete security scanning pipeline with proper triggers
+  - ✅ All security scans now run in single consolidated workflow for better coordination
   - _Requirements: 3.1, 3.2, 3.3_
 
 - [x] 11. Add missing configuration files for standards compliance

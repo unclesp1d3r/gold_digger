@@ -24,8 +24,8 @@ alwaysApply: true
 
 ## Error Handling Patterns
 
-- Use `anyhow::Result<T>` for all fallible functions
-- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Use `anyhow::Result<T>` for application binaries and `thiserror` (or library-specific error types) for library crates
+- Handle nullable database values via `Option<T>` or explicit null checks/conversions rather than using unchecked database driver conversions
 - Implement credential redaction in all log output
 - Use `?` operator for error propagation
 - Use `get_required_env()` helper for environment variable validation with contextual error messages

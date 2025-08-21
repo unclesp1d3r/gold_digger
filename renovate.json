@@ -15,8 +15,6 @@
     ":prHourlyLimit2",
     ":prConcurrentLimit10"
   ],
-  "semanticCommitType": "chore",
-  "semanticCommitScope": "deps",
   "timezone": "America/New_York",
   "schedule": [
     "before 6am on Monday"
@@ -36,7 +34,7 @@
   },
   "packageRules": [
     {
-      "description": "Auto-merge development tools and CI dependencies",
+      "description": "Auto-merge Cargo dev-dependencies",
       "matchManagers": [
         "cargo"
       ],
@@ -45,11 +43,60 @@
       ],
       "matchPackageNames": [
         "cargo-nextest",
-        "cargo-tarpaulin",
-        "cargo-audit",
-        "cargo-deny",
-        "just",
+        "cargo-tarpaulin"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Auto-merge pre-commit hooks",
+      "matchManagers": [
         "pre-commit"
+      ],
+      "matchPackageNames": [
+        "pre-commit"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Auto-merge GitHub Actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/checkout",
+        "actions/setup-node",
+        "actions/upload-artifact",
+        "actions/download-artifact",
+        "actions/cache",
+        "actions/rust-toolchain",
+        "actions-rs/toolchain",
+        "actions-rs/audit-check",
+        "actions-rs/cargo",
+        "actions-rs/clippy-check",
+        "actions-rs/tarpaulin",
+        "codecov/codecov-action",
+        "peaceiris/actions-gh-pages",
+        "dawidd6/action-download-artifact",
+        "softprops/action-gh-release",
+        "taiki-e/install-action",
+        "taiki-e/upload-disk-image",
+        "taiki-e/upload-rust-binary"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Auto-merge justfile dependencies",
+      "matchManagers": [
+        "regex"
+      ],
+      "matchPackageNames": [
+        "just"
       ],
       "automerge": true,
       "automergeType": "pr",
@@ -82,8 +129,11 @@
     },
     {
       "description": "Require manual review for production dependencies",
-      "matchCategories": [
-        "prod"
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchDepTypes": [
+        "dependencies"
       ],
       "matchPackageNames": [
         "mysql",
@@ -128,8 +178,6 @@
       "before 6am on Monday"
     ]
   },
-  "prCreation": "immediate",
   "prNotPendingHours": 1,
-  "stabilityDays": 3,
-  "minimumReleaseAge": "3 days"
+  "stabilityDays": 3
 }

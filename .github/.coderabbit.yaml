@@ -35,6 +35,11 @@ reviews:
       mode: warning
 
   # Path-based review rules
+  path_filters:
+    - "target/**"
+    - "**/*.lock"
+    - ".kiro/hooks/**"
+
   path_instructions:
     - path: "src/**"
       instructions: |
@@ -121,12 +126,6 @@ custom_instructions: |
   - Check output format detection by file extension
   - Ensure justfile integration for CI parity
   - Validate cross-platform compatibility
-
-# Exclude certain file types from review
-exclude:
-  - "target/**"
-  - "**/*.lock"
-  - ".kiro/hooks/**"
 
 # Enable specific review types
 enable_auto_security_review: true
