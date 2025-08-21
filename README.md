@@ -191,7 +191,14 @@ just fmt-check      # Check code formatting
 just lint           # Run clippy with zero warnings tolerance
 just test-nextest   # Run tests with nextest
 just coverage-llvm  # Generate coverage report
+just cover          # Alias for coverage-llvm (CI naming consistency)
 just ci-check       # Run all CI checks locally
+
+# Security Scanning
+just audit          # Run cargo audit for security vulnerabilities
+just deny           # Check licenses and security policies
+just security       # Comprehensive security scan (audit + deny + grype)
+just sbom           # Generate Software Bill of Materials (SBOM)
 
 # Building
 just build-release  # Build optimized release binary

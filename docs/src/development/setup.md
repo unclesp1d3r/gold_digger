@@ -204,7 +204,26 @@ just ci-check
 pre-commit run --all-files
 ```
 
-### 2. Testing
+### 2. Security Scanning
+
+```bash
+# Run security audit
+just audit
+
+# Check licenses and security policies
+just deny
+
+# Comprehensive security scanning (audit + deny + grype)
+just security
+
+# Generate Software Bill of Materials (SBOM)
+just sbom
+
+# Coverage alias for CI consistency
+just cover
+```
+
+### 3. Testing
 
 ```bash
 # Run tests (standard)
@@ -216,11 +235,14 @@ just test-nextest
 # Run with coverage
 just coverage
 
+# Run with coverage (CI format)
+just cover
+
 # Run specific test
 cargo test test_name
 ```
 
-### 3. Building
+### 4. Building
 
 ```bash
 # Debug build
@@ -236,7 +258,7 @@ just build-rustls
 just build-all
 ```
 
-### 4. Documentation
+### 5. Documentation
 
 ```bash
 # Build documentation
@@ -508,6 +530,15 @@ just check
 
 # Full CI reproduction
 just ci-check
+
+# Security scanning
+just security
+
+# Generate SBOM
+just sbom
+
+# Coverage analysis
+just cover
 
 # Release preparation
 just release-check

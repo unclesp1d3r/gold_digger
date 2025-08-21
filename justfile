@@ -116,6 +116,51 @@ deny:
     @echo "🚫 Checking licenses and security..."
     cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
 
+# Comprehensive security scanning (combines audit, deny, and grype)
+security:
+    @echo "🔒 Running comprehensive security scanning..."
+    @echo "Step 1: Security audit..."
+    just audit
+    @echo ""
+    @echo "Step 2: License and security policy checks..."
+    just deny
+    @echo ""
+    @echo "Step 3: Vulnerability scanning with grype..."
+    @if command -v grype >/dev/null 2>&1; then \
+        echo "Running grype vulnerability scan..."; \
+        grype . --fail-on critical --fail-on high || echo "❌ Critical or high vulnerabilities found"; \
+    else \
+        echo "⚠️  grype not installed - install with:"; \
+        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"; \
+    fi
+    @echo "✅ Security scanning complete!"
+
+# Coverage alias for CI naming consistency
+cover: coverage-llvm
+
+# Generate Software Bill of Materials (SBOM) for local inspection
+sbom:
+    @echo "📋 Generating Software Bill of Materials (SBOM)..."
+    @if command -v syft >/dev/null 2>&1; then \
+        echo "Generating SBOM with syft..."; \
+        syft packages . -o cyclonedx-json=sbom.json; \
+        syft packages . -o table; \
+        echo ""; \
+        echo "✅ SBOM generated:"; \
+        echo "  📄 sbom.json (CycloneDX format)"; \
+        echo "  📊 Table output displayed above"; \
+        echo ""; \
+        echo "To inspect SBOM:"; \
+        echo "  cat sbom.json | jq ."; \
+        echo "  syft packages . -o json | jq '.artifacts[] | .name'"; \
+    else \
+        echo "⚠️  syft not installed - install with:"; \
+        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
+        echo ""; \
+        echo "Alternative: Use cargo tree for dependency inspection:"; \
+        cargo tree --format "{p} {f}"; \
+    fi
+
 # Validate TLS dependency tree (for rustls migration)
 validate-deps:
     @echo "🔍 Validating TLS dependency tree..."
@@ -573,11 +618,15 @@ help:
     @echo "  test          Run tests"
     @echo "  test-nextest  Run tests with nextest"
     @echo "  coverage      Run tests with coverage report"
+    @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
+    @echo "  cover         Alias for coverage-llvm (CI naming consistency)"
     @echo "  bench         Run benchmarks"
     @echo ""
     @echo "Security:"
     @echo "  audit         Security audit"
     @echo "  deny          License and security checks"
+    @echo "  security      Comprehensive security scanning (audit + deny + grype)"
+    @echo "  sbom          Generate Software Bill of Materials for inspection"
     @echo "  validate-deps Validate TLS dependency tree (rustls migration)"
     @echo ""
     @echo "Running:"
