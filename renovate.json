@@ -1,0 +1,126 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separateMajorReleases",
+    ":combinePatchMinorReleases",
+    ":ignoreUnstable",
+    ":prImmediately",
+    ":updateNotScheduled",
+    ":automergeDisabled",
+    ":ignoreModulesAndTests",
+    ":autodetectPinVersions",
+    ":prHourlyLimit2",
+    ":prConcurrentLimit10"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "before 6am on Monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [
+    "UncleSp1d3r"
+  ],
+  "reviewers": [
+    "UncleSp1d3r"
+  ],
+  "cargo": {
+    "enabled": true,
+    "rangeStrategy": "bump"
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge development tools and CI dependencies",
+      "matchCategories": [
+        "dev"
+      ],
+      "matchPackageNames": [
+        "cargo-nextest",
+        "cargo-tarpaulin",
+        "cargo-audit",
+        "cargo-deny",
+        "just",
+        "pre-commit"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Group Rust toolchain updates",
+      "matchPackageNames": [
+        "rust",
+        "rustc",
+        "cargo"
+      ],
+      "groupName": "Rust toolchain",
+      "schedule": [
+        "before 6am on Monday"
+      ]
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "schedule": [
+        "before 6am on Monday"
+      ]
+    },
+    {
+      "description": "Require manual review for production dependencies",
+      "matchCategories": [
+        "prod"
+      ],
+      "matchPackageNames": [
+        "mysql",
+        "anyhow",
+        "clap",
+        "serde_json",
+        "csv"
+      ],
+      "automerge": false,
+      "reviewersFromCodeOwners": true,
+      "addLabels": [
+        "needs-review"
+      ]
+    },
+    {
+      "description": "Security updates get high priority",
+      "matchPackageNames": [
+        "mysql",
+        "serde_json",
+        "rustls"
+      ],
+      "priority": 10,
+      "automerge": false,
+      "addLabels": [
+        "security",
+        "high-priority"
+      ]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "addLabels": [
+      "security",
+      "vulnerability"
+    ]
+  },
+  "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on Monday"
+    ]
+  },
+  "prCreation": "immediate",
+  "prNotPendingHours": 1,
+  "stabilityDays": 3,
+  "minimumReleaseAge": "3 days"
+}
