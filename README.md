@@ -103,7 +103,7 @@ Gold Digger uses pre-commit hooks to maintain code quality. The configuration in
 
 Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and release management. All commit messages should follow this format:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -154,7 +154,16 @@ Release Please automatically:
 - Creates release PRs with updated CHANGELOG.md
 - Generates semantic version tags (patch/minor/major)
 - Integrates with the existing release workflow for artifact generation
-- **Documentation**: Link checking and build validation (`mdbook`)
+
+You can test the Release Please workflow locally using the justfile:
+
+```bash
+# Test Release Please workflow (dry-run)
+just act-release-please-dry
+
+# Test Release Please integration with release workflow
+just act-release-integration v1.0.0
+```
 
 Install and run pre-commit hooks:
 
@@ -177,16 +186,31 @@ git commit -m "your commit message"
 Use `just` to run common development tasks:
 
 ```bash
+# Code Quality
 just fmt-check      # Check code formatting
 just lint           # Run clippy with zero warnings tolerance
 just test-nextest   # Run tests with nextest
 just coverage-llvm  # Generate coverage report
 just ci-check       # Run all CI checks locally
+
+# Building
 just build-release  # Build optimized release binary
+just build-rustls   # Build with pure Rust TLS
+just build-all      # Build all feature combinations
+
+# Local Testing
 just release-dry    # Simulate release process locally
+just act-setup      # Set up act for GitHub Actions testing
+just act-ci-dry     # Test CI workflow locally (requires act)
+just act-release-dry v1.0.0  # Test release workflow locally
+
+# Development
+just setup          # Set up development environment
+just docs-serve     # Serve documentation locally
+just validate-deps  # Validate TLS dependency tree
 ```
 
-See `just help` for a complete list of available commands.
+See `just help` for a complete list of available commands, including GitHub Actions testing with `act`.
 
 ## Usage (CLI-first with env fallback)
 
@@ -213,6 +237,13 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
   --output /tmp/results --format csv
+
+# Generate shell completions
+gold_digger completion bash > ~/.bash_completion.d/gold_digger
+
+# Debug configuration (credentials redacted)
+gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT 1" --output test.json --dump-config
 ```
 
 ### Environment Variables (Fallback)
@@ -225,8 +256,7 @@ When CLI flags are not provided, Gold Digger falls back to environment variables
   - `.json` → JSON output with `{"data": [...]}` structure
   - `.txt` or any other extension → TSV (tab-separated values)
 
-- `DATABASE_URL`: MySQL/MariaDB connection URL in standard format:
-  `mysql://username:password@host:port/database`
+- `DATABASE_URL`: MySQL/MariaDB connection URL in standard format: `mysql://username:password@host:port/database`
 
 - `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
 
@@ -286,15 +316,16 @@ Before creating an actual release, you can simulate the entire release process l
 # Test the complete release pipeline locally
 just release-dry
 
-# This will:
-# 1. Build the release binary with rustls TLS
-# 2. Generate SBOM with syft (if installed)
-# 3. Create SHA256 checksums
-# 4. Simulate the signing process
-# 5. Show you exactly what would be released
+# Test GitHub Actions workflows locally (requires act)
+just act-setup      # Set up act and pull Docker images
+just act-ci-dry     # Test CI workflow (dry-run)
+just act-release-dry v1.0.0  # Test release workflow (dry-run)
+
+# Test Release Please workflow
+just act-release-please-dry  # Test automated versioning
 ```
 
-The simulation creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces.
+The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.
 
 ### Testing Recommendations
 
@@ -308,15 +339,11 @@ Gold Digger is authored by [@unclesp1d3r](https://www.github.com/unclesp1d3r)
 
 ## Contributing and Feedback
 
-We welcome your feedback and suggestions for Gold Digger! If you have any ideas for new features, encounter any bugs or
-issues, or have any other comments, please reach out to us by creating an issue on
-our [GitHub repository](https://github.com/unclesp1d3r/gold_digger/issues).
+We welcome your feedback and suggestions for Gold Digger! If you have any ideas for new features, encounter any bugs or issues, or have any other comments, please reach out to us by creating an issue on our [GitHub repository](https://github.com/unclesp1d3r/gold_digger/issues).
 
-If you're interested in contributing to Gold Digger, we encourage you to submit a pull request. Please see
-our `CONTRIBUTING.md` for more information on how to get started.
+If you're interested in contributing to Gold Digger, we encourage you to submit a pull request. Please see our `CONTRIBUTING.md` for more information on how to get started.
 
-Our team is committed to providing a welcoming and inclusive environment for all contributors. Please adhere to
-our `CODE_OF_CONDUCT.md` when contributing to the project.
+Our team is committed to providing a welcoming and inclusive environment for all contributors. Please adhere to our `CODE_OF_CONDUCT.md` when contributing to the project.
 
 Thank you for your interest in Gold Digger, and we look forward to hearing from you!
 

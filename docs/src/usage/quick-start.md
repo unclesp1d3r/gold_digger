@@ -31,6 +31,24 @@ gold_digger \
   --output users.csv
 ```
 
+## Shell Completion
+
+Generate shell completion scripts for better CLI experience:
+
+```bash
+# Bash
+gold_digger completion bash > ~/.bash_completion.d/gold_digger
+
+# Zsh
+gold_digger completion zsh > ~/.zsh/completions/_gold_digger
+
+# Fish
+gold_digger completion fish > ~/.config/fish/completions/gold_digger.fish
+
+# PowerShell
+gold_digger completion powershell > gold_digger.ps1
+```
+
 ## Next Steps
 
 - Learn about [Configuration Options](configuration.md)

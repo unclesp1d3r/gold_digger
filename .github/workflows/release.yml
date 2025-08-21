@@ -22,6 +22,7 @@ permissions:
 jobs:
   resolve-tag:
     runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
     outputs:
@@ -33,6 +34,8 @@ jobs:
           REF: ${{ github.ref }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
           if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
             if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
@@ -47,6 +50,25 @@ jobs:
               exit 1
             fi
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          elif [[ "${EVENT_NAME}" == "workflow_run" && "${WORKFLOW_RUN_CONCLUSION}" == "success" ]]; then
+            echo "🔍 Workflow run triggered by successful Release Please workflow"
+            echo "📋 Querying latest release to determine tag..."
+
+            # Query the latest release to get the tag that was just created
+            LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name')
+
+            if [[ -z "${LATEST_RELEASE}" ]]; then
+              echo "❌ Error: Could not determine latest release tag" >&2
+              exit 1
+            fi
+
+            if [[ ! "${LATEST_RELEASE}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "❌ Error: Latest release tag '${LATEST_RELEASE}' does not match semantic versioning pattern." >&2
+              exit 1
+            fi
+
+            echo "✅ Found valid tag from latest release: ${LATEST_RELEASE}"
+            echo "tag=${LATEST_RELEASE}" >> "$GITHUB_OUTPUT"
           else
             echo "Error: No valid tag detected. Please provide a valid semantic version tag." >&2
             exit 1

@@ -381,14 +381,14 @@ act-release-integration TAG:
     @echo "This tests the complete flow from Release Please to release creation"
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     echo "Step 1: Simulating Release Please workflow..."
     act workflow_dispatch -W .github/workflows/release-please.yml --dryrun
-    
+
     echo ""
     echo "Step 2: Simulating manual release workflow..."
     act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
-    
+
     echo ""
     echo "✅ Integration test simulation complete!"
     echo "📋 This verifies that:"

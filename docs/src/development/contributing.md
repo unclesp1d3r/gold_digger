@@ -111,6 +111,9 @@ pre-commit run --all-files
 
 # Test multiple feature combinations
 just build-all
+
+# Test release workflow (optional)
+just release-dry
 ```
 
 ## Code Review

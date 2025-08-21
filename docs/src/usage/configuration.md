@@ -25,17 +25,26 @@ gold_digger \
 
 ### All Available Flags
 
-| Flag                  | Environment Variable | Description                                            |
-| --------------------- | -------------------- | ------------------------------------------------------ |
-| `--db-url <URL>`      | `DATABASE_URL`       | Database connection string                             |
-| `--query <SQL>`       | `DATABASE_QUERY`     | SQL query to execute                                   |
-| `--query-file <FILE>` | -                    | Read SQL from file (mutually exclusive with `--query`) |
-| `--output <FILE>`     | `OUTPUT_FILE`        | Output file path                                       |
-| `--format <FORMAT>`   | -                    | Force output format: `csv`, `json`, or `tsv`           |
-| `--pretty`            | -                    | Pretty-print JSON output                               |
-| `--verbose`           | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
-| `--quiet`             | -                    | Suppress non-error output                              |
-| `--allow-empty`       | -                    | Exit with code 0 even if no results                    |
+| Flag                  | Short | Environment Variable | Description                                            |
+| --------------------- | ----- | -------------------- | ------------------------------------------------------ |
+| `--db-url <URL>`      | -     | `DATABASE_URL`       | Database connection string                             |
+| `--query <SQL>`       | `-q`  | -                    | SQL query to execute                                   |
+| `--query-file <FILE>` | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
+| `--output <FILE>`     | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
+| `--format <FORMAT>`   | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
+| `--pretty`            | -     | -                    | Pretty-print JSON output                               |
+| `--verbose`           | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
+| `--quiet`             | -     | -                    | Suppress non-error output                              |
+| `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
+| `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+
+### Subcommands
+
+| Subcommand           | Description                       |
+| -------------------- | --------------------------------- |
+| `completion <shell>` | Generate shell completion scripts |
+
+Supported shells: `bash`, `zsh`, `fish`, `powershell`
 
 ### Mutually Exclusive Options
 
@@ -147,6 +156,28 @@ export DATABASE_URL="mysql://user:pass@host:3306/db?ssl-mode=verify-ca"
 ```
 
 ## Advanced Configuration
+
+### Configuration Debugging
+
+Use the `--dump-config` flag to see the resolved configuration:
+
+```bash
+# Show current configuration (credentials redacted)
+gold_digger --db-url "mysql://user:pass@host:3306/db" \
+  --query "SELECT 1" --output test.json --dump-config
+
+# Example output:
+{
+  "database_url": "mysql://user:***@host:3306/db",
+  "query": "SELECT 1",
+  "output_file": "test.json",
+  "format": "json",
+  "verbose": 0,
+  "quiet": false,
+  "pretty": false,
+  "allow_empty": false
+}
+```
 
 ### Query from File
 

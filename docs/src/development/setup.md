@@ -457,6 +457,12 @@ just act-job ci
 # Test release workflow
 just act-release-dry v1.0.0
 
+# Test Release Please workflow
+just act-release-please-dry
+
+# Test Release Please integration with release workflow
+just act-release-please-test
+
 # Clean up act containers
 just act-clean
 ```
