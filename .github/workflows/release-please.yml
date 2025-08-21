@@ -16,10 +16,19 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      upload_url: ${{ steps.release.outputs.upload_url }}
     steps:
       - name: Run Release Please
         id: release
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: rust
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Show Release Please outputs
+        if: steps.release.outputs.release_created
+        run: |
+          echo "🎉 Release created!"
+          echo "Tag: ${{ steps.release.outputs.tag_name }}"
+          echo "Upload URL: ${{ steps.release.outputs.upload_url }}"
