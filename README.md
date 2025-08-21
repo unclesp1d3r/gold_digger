@@ -98,6 +98,62 @@ Gold Digger uses pre-commit hooks to maintain code quality. The configuration in
 - **Code formatting**: Rust (`cargo fmt`), YAML (`prettier`), Markdown (`mdformat`)
 - **Linting**: Rust (`cargo clippy`), Shell scripts (`shellcheck`), GitHub Actions (`actionlint`)
 - **Security**: Dependency auditing (`cargo audit`), commit message validation (`commitizen`)
+
+### Conventional Commits
+
+Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and release management. All commit messages should follow this format:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Commit Types
+
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies
+- **ci**: Changes to CI configuration files and scripts
+- **chore**: Other changes that don't modify src or test files
+
+#### Examples
+
+```bash
+# Feature
+git commit -m "feat: add new output format support"
+
+# Bug fix
+git commit -m "fix: resolve connection timeout issue"
+
+# Breaking change (note the !)
+git commit -m "feat!: migrate to new CLI interface"
+
+# With scope
+git commit -m "feat(cli): add --version flag"
+
+# With body
+git commit -m "feat: add TLS support
+
+This adds comprehensive TLS support for secure database connections.
+Includes both native-tls and rustls implementations."
+```
+
+#### Automated Releases
+
+Release Please automatically:
+
+- Analyzes conventional commits to determine version bumps
+- Creates release PRs with updated CHANGELOG.md
+- Generates semantic version tags (patch/minor/major)
+- Integrates with the existing release workflow for artifact generation
 - **Documentation**: Link checking and build validation (`mdbook`)
 
 Install and run pre-commit hooks:
