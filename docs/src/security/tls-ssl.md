@@ -13,7 +13,7 @@ Gold Digger supports TLS/SSL through:
 
 Configure TLS in your connection URL:
 
-```
+```text
 mysql://user:pass@host:3306/db?ssl-mode=required
 ```
 

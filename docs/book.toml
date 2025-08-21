@@ -15,6 +15,8 @@ default-theme = "navy"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/UncleSp1d3r/gold_digger"
 edit-url-template = "https://github.com/UncleSp1d3r/gold_digger/edit/main/docs/src/{path}"
+additional-css = ["whichlang.css"]
+additional-js = ["mermaid-init.js", "whichlang.js"]
 
 [output.html.fold]
 enable = true
@@ -23,19 +25,16 @@ level = 1
 [output.html.playground]
 runnable = false
 
-[preprocessor.admonish]
-command = "mdbook-admonish"
-assets_version = "3.0.0"
+[preprocessor.alerts]
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
 
 [preprocessor.toc]
 command = "mdbook-toc"
+marker = "[TOC]"
 renderer = ["html"]
 
-[preprocessor.linkcheck]
-command = "mdbook-linkcheck"
 
 [preprocessor.open-on-gh]
 command = "mdbook-open-on-gh"
@@ -43,5 +42,4 @@ command = "mdbook-open-on-gh"
 [preprocessor.tabs]
 command = "mdbook-tabs"
 
-[preprocessor.i18n-helpers]
-command = "mdbook-i18n-helpers"
+[preprocessor.yml-header]

@@ -142,9 +142,9 @@ Fields are quoted only when they contain:
 ### Example Output
 
 ```tsv
-id	name	email	created_at
-1	John Doe	john@example.com	2024-01-15 10:30:00
-2	Jane Smith	jane@example.com	2024-01-16 14:22:33
+id  name	email	created_at
+1   John Doe	john@example.com	2024-01-15 10:30:00
+2   Jane Smith	jane@example.com	2024-01-16 14:22:33
 3	Bob Johnson		2024-01-17 09:15:45
 ```
 
@@ -179,7 +179,7 @@ Different formats handle database NULL values differently:
 
 ```sql
 -- ✅ Safe - all columns cast to CHAR
-SELECT 
+SELECT
   CAST(id AS CHAR) as id,
   name,  -- Already string
   CAST(created_at AS CHAR) as created_at,

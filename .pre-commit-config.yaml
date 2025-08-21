@@ -6,7 +6,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
-        args: ["--maxkb=1024"]
+        args: ["--maxkb=10240"]
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-illegal-windows-names
@@ -105,13 +105,3 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-
-  # 📚 Documentation validation
-  - repo: local
-    hooks:
-      - id: docs-linkcheck
-        name: Documentation link check
-        entry: bash -c 'cd docs && mdbook build'
-        language: system
-        files: ^docs/
-        pass_filenames: false

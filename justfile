@@ -367,6 +367,106 @@ release-check:
     @echo "   □ Check that credentials are never logged"
     @echo "   □ Run 'just act-release-dry vX.Y.Z' to test release workflow"
 
+# Release simulation for local testing
+release-dry:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🔍 Simulating release process..."
+    
+    # Check if we're in a clean git state
+    if ! git diff-index --quiet HEAD --; then
+        echo "⚠️  Warning: Working directory has uncommitted changes"
+        echo "   This is normal for testing, but releases should be from clean state"
+    fi
+    
+    echo ""
+    echo "📦 Step 1: Building release binary..."
+    echo "Building with rustls (pure Rust TLS)..."
+    just build-rustls
+    
+    echo ""
+    echo "📋 Step 2: Checking binary..."
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        BINARY_PATH="target/release/gold_digger.exe"
+    else
+        BINARY_PATH="target/release/gold_digger"
+    fi
+    
+    if [[ ! -f "$BINARY_PATH" ]]; then
+        echo "❌ Binary not found at $BINARY_PATH"
+        exit 1
+    fi
+    
+    BINARY_SIZE=$(stat -c%s "$BINARY_PATH" 2>/dev/null || stat -f%z "$BINARY_PATH" 2>/dev/null || echo "unknown")
+    echo "✅ Binary found: $BINARY_PATH ($BINARY_SIZE bytes)"
+    
+    echo ""
+    echo "🔐 Step 3: Simulating SBOM generation..."
+    # Check if syft is available
+    if command -v syft >/dev/null 2>&1; then
+        echo "Generating SBOM with syft..."
+        syft packages . -o cyclonedx-json=sbom-test.json
+        echo "✅ SBOM generated: sbom-test.json"
+    else
+        echo "⚠️  syft not installed - install with:"
+        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"
+        echo "   Creating placeholder SBOM..."
+        echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > sbom-test.json
+        echo "📄 Placeholder SBOM created: sbom-test.json"
+    fi
+    
+    echo ""
+    echo "🔢 Step 4: Generating checksums..."
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$BINARY_PATH" > checksums-test.txt
+        sha256sum sbom-test.json >> checksums-test.txt
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$BINARY_PATH" > checksums-test.txt
+        shasum -a 256 sbom-test.json >> checksums-test.txt
+    else
+        echo "⚠️  No SHA256 utility found, skipping checksums"
+        touch checksums-test.txt
+    fi
+    echo "✅ Checksums generated: checksums-test.txt"
+    
+    echo ""
+    echo "🔐 Step 5: Simulating signing process..."
+    if command -v cosign >/dev/null 2>&1; then
+        echo "Note: In actual release, Cosign would sign with OIDC keyless authentication"
+        echo "Local signing simulation would require additional setup"
+        echo "✅ Cosign available for signing simulation"
+    else
+        echo "ℹ️  cosign not installed locally (not required for simulation)"
+        echo "   Release workflow will use sigstore/cosign-installer@v3.9.2"
+        echo "   with GitHub OIDC keyless authentication"
+    fi
+    
+    echo ""
+    echo "📊 Step 6: Release simulation summary..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🎯 Release Simulation Complete!"
+    echo ""
+    echo "Generated artifacts:"
+    echo "  📦 Binary:    $BINARY_PATH"
+    echo "  📋 SBOM:      sbom-test.json"
+    echo "  🔢 Checksums: checksums-test.txt"
+    echo ""
+    echo "Current version: $(grep '^version' Cargo.toml | cut -d'"' -f2)"
+    echo ""
+    echo "🚀 To create an actual release:"
+    echo "   git tag -a v0.test.1 -m 'Test release'"
+    echo "   git push origin v0.test.1"
+    echo ""
+    echo "🔍 To verify release workflow:"
+    echo "   Check: https://github.com/unclesp1d3r/gold_digger/actions/workflows/release.yml"
+    echo ""
+    echo "✨ The actual release workflow includes:"
+    echo "   • Cross-platform builds (Ubuntu, macOS, Windows)"  
+    echo "   • Cosign keyless signing with GitHub OIDC"
+    echo "   • Comprehensive SBOM generation per artifact"
+    echo "   • Automated GitHub release creation"
+    echo "   • Complete supply chain security attestation"
+
 # Show help
 help:
     @echo "🛠️  Gold Digger Justfile Commands:"
@@ -430,5 +530,6 @@ help:
     @echo ""
     @echo "Release:"
     @echo "  release-check Pre-release checklist and validation"
+    @echo "  release-dry   Simulate release process locally"
     @echo ""
     @echo "📖 For detailed project information, see WARP.md, AGENTS.md, or .cursor/rules/"

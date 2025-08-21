@@ -107,13 +107,18 @@ jobs:
               echo "Error: Windows binary not found at target/release/${{ env.BIN_NAME }}.exe" >&2
               exit 1
             fi
+            echo "✅ Windows binary verified: target/release/${{ env.BIN_NAME }}.exe"
+            # Test binary execution
+            ./target/release/${{ env.BIN_NAME }}.exe --version || { echo "Error: binary --version check failed" >&2; exit 1; }
           else
             if [[ ! -f "target/release/${{ env.BIN_NAME }}" ]]; then
               echo "Error: Unix binary not found at target/release/${{ env.BIN_NAME }}" >&2
               exit 1
             fi
+            echo "✅ Unix binary verified: target/release/${{ env.BIN_NAME }}"
+            # Test binary execution
+            ./target/release/${{ env.BIN_NAME }} --version || { echo "Error: binary --version check failed" >&2; exit 1; }
           fi
-                    echo "✅ Binary verification passed"
 
   sbom-and-sign:
     needs: [build-and-package, resolve-tag]
@@ -131,6 +136,12 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.9.2
 
+      - name: Install jq for JSON validation
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends jq
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
       - name: Download release assets
         run: |
           mkdir -p dist
@@ -138,20 +149,57 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate SBOMs
+      - name: Generate SBOMs and checksums
         run: |
-          mkdir -p sbom
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          mkdir -p sbom checksums
+          echo "📦 Processing release artifacts..."
+
+          artifact_count=0
           for f in dist/*; do
             if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
               base=$(basename "$f")
+              echo "Processing: $base"
+
+              # Generate SBOM
+              echo "  🔍 Generating SBOM..."
               syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
+
+              # Verify SBOM was created and is valid JSON
+              if ! jq empty "sbom/${base}.sbom.cdx.json" 2>/dev/null; then
+                echo "❌ Error: Invalid SBOM generated for $base" >&2
+                exit 1
+              fi
+
+              # Generate SHA256 checksum
+              echo "  🔐 Generating checksum..."
+              # Run sha256sum from dist directory to get relative paths in output
+              (cd dist && sha256sum "$base") > "checksums/${base}.sha256"
+
+              artifact_count=$((artifact_count + 1))
             fi
           done
 
-      - name: Upload SBOMs
+          if [ "$artifact_count" -eq 0 ]; then
+            echo "❌ Error: No artifacts found to process" >&2
+            exit 1
+          fi
+
+          # Create consolidated checksums file
+          echo "📋 Creating consolidated checksums file..."
+          cat checksums/*.sha256 > checksums/SHA256SUMS
+
+          echo "✅ Processed $artifact_count artifacts successfully"
+
+      - name: Upload SBOMs and checksums
         uses: softprops/action-gh-release@v2
         with:
-          files: sbom/*.sbom.cdx.json
+          files: |
+            sbom/*.sbom.cdx.json
+            checksums/SHA256SUMS
+            checksums/*.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -159,13 +207,74 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          echo "🔐 Signing release artifacts with Cosign keyless OIDC..."
+
+          signed_count=0
           for f in dist/*; do
             if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              echo "Signing: $base"
+
               cosign sign-blob --yes "$f" \
                 --output-signature "${f}.sig" \
                 --output-certificate "${f}.crt"
+
+              # Verify signature files were created
+              if [[ ! -f "${f}.sig" ]] || [[ ! -f "${f}.crt" ]]; then
+                echo "❌ Error: Signature files not created for $base" >&2
+                exit 1
+              fi
+
+              # Verify signature (basic validation)
+              # Build expected certificate identity using exact workflow reference
+              EXPECTED_IDENTITY="https://github.com/${{ github.repository }}/${{ github.workflow_ref }}"
+              if ! cosign verify-blob --certificate "${f}.crt" --signature "${f}.sig" "$f" --certificate-identity "$EXPECTED_IDENTITY" --certificate-oidc-issuer "https://token.actions.githubusercontent.com"; then
+                echo "❌ Error: Signature verification failed for $base" >&2
+                exit 1
+              fi
+
+              signed_count=$((signed_count + 1))
             fi
           done
+
+          echo "✅ Successfully signed $signed_count artifacts"
+
+      - name: Verify all artifacts before upload
+        run: |
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          echo "🔍 Verifying all required artifacts are present..."
+
+          # Check for SBOMs
+          sbom_count=$(find sbom -name "*.sbom.cdx.json" | wc -l)
+          if [ "$sbom_count" -eq 0 ]; then
+            echo "❌ Error: No SBOM files found" >&2
+            exit 1
+          fi
+          echo "✅ Found $sbom_count SBOM files"
+
+          # Check for checksums
+          if [[ ! -f "checksums/SHA256SUMS" ]]; then
+            echo "❌ Error: Consolidated checksums file not found" >&2
+            exit 1
+          fi
+          checksum_count=$(find checksums -name "*.sha256" | wc -l)
+          echo "✅ Found consolidated checksums and $checksum_count individual checksum files"
+
+          # Check for signatures
+          sig_count=$(find dist -name "*.sig" | wc -l)
+          crt_count=$(find dist -name "*.crt" | wc -l)
+          if [ "$sig_count" -eq 0 ] || [ "$crt_count" -eq 0 ]; then
+            echo "❌ Error: Missing signature files (sig: $sig_count, crt: $crt_count)" >&2
+            exit 1
+          fi
+          echo "✅ Found $sig_count signature files and $crt_count certificate files"
+
+          echo "🎉 All required artifacts verified successfully"
 
       - name: Upload signatures
         uses: softprops/action-gh-release@v2

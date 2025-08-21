@@ -17,6 +17,7 @@
 
 - [Database Security](security/database-security.md)
 - [TLS/SSL Configuration](security/tls-ssl.md)
+- [Release Verification](security/release-verification.md)
 - [Best Practices](security/best-practices.md)
 
 # Troubleshooting

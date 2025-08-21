@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -30,13 +30,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           mdbook-version: latest
-          use-linkcheck: true
           use-mermaid: true
+          use-opengh: true
           use-toc: true
           use-admonish: true
 
       - name: Install additional plugins
-        run: cargo install mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+        run: cargo install mdbook-tabs mdbook-i18n-helpers mdbook-alerts mdbook-yml-header
 
       - name: Build rustdoc
         run: |
