@@ -75,15 +75,19 @@ os: [ubuntu-latest, windows-latest, macos-latest]
 
 - **No hardcoded secrets** in code or configuration
 - **Credential redaction** in logs and error messages (especially `DATABASE_URL`)
-- **Airgap compatibility** - no external network calls during operation
+- **Airgap compatibility** - only explicitly-configured service endpoints allowed:
+  - **Allowed:** Configured database connections (MySQL/MariaDB), specified internal hosts
+  - **Prohibited:** Telemetry, third-party call-home, non-essential outbound connections
+  - **Documentation:** Required network endpoints and offline setup steps must be documented for airgapped environments
 - **Vulnerability scanning** via `cargo audit` (advisory)
-- **SBOM generation** for all releases
+- **SBOM generation** - CycloneDX format JSON files for all releases
 
 ### Security Tools
 
 - **CodeQL:** Static analysis for Rust code
 - **Cosign:** Artifact signing with keyless OIDC
 - **CodeRabbit.ai:** AI-powered code review (advisory)
+- **CycloneDX:** SBOM generation using `cyclonedx-bom` cargo tool
 
 ## Documentation Standards
 
@@ -134,7 +138,7 @@ All releases must satisfy:
 2. **No critical vulnerabilities** (high vulnerabilities require justification)
 3. **Cross-platform artifacts** via `cargo-dist`
 4. **Checksums and signatures** for all artifacts
-5. **SBOM generation** with dependency information
+5. **SBOM generation** - CycloneDX JSON format with complete dependency information
 6. **Documentation updates** for user-facing changes
 
 ### Artifact Requirements

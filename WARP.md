@@ -357,10 +357,10 @@ Gold Digger supports two TLS implementations to eliminate OpenSSL dependencies w
 cargo build --release
 
 # Pure Rust TLS build
-cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # No TLS support (insecure connections only)
-cargo build --release --no-default-features --features "json,csv,additional_mysql_types,verbose"
+cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
 ```
 
 #### Programmatic TLS Configuration

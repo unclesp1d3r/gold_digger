@@ -1,6 +1,6 @@
 use std::{env, fs::File, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use clap_complete::{Shell as CompletionShell, generate};
 use mysql::Pool;
@@ -152,10 +152,9 @@ fn parse_tls_config_from_url(_database_url: &str) -> Result<Option<TlsConfig>> {
 fn resolve_database_url(cli: &Cli) -> Result<String> {
     if let Some(url) = &cli.db_url {
         Ok(url.clone())
-    } else if let Ok(url) = env::var("DATABASE_URL") {
-        Ok(url)
     } else {
-        anyhow::bail!("Missing database URL. Provide --db-url or set DATABASE_URL environment variable");
+        gold_digger::get_required_env("DATABASE_URL")
+            .context("Missing database URL. Provide --db-url or set DATABASE_URL environment variable")
     }
 }
 
@@ -166,12 +165,10 @@ fn resolve_database_query(cli: &Cli) -> Result<String> {
     } else if let Some(query_file) = &cli.query_file {
         std::fs::read_to_string(query_file)
             .map_err(|e| anyhow::anyhow!("Failed to read query file {}: {}", query_file.display(), e))
-    } else if let Ok(query) = env::var("DATABASE_QUERY") {
-        Ok(query)
     } else {
-        anyhow::bail!(
-            "Missing database query. Provide --query, --query-file, or set DATABASE_QUERY environment variable"
-        );
+        gold_digger::get_required_env("DATABASE_QUERY").context(
+            "Missing database query. Provide --query, --query-file, or set DATABASE_QUERY environment variable",
+        )
     }
 }
 
@@ -179,10 +176,10 @@ fn resolve_database_query(cli: &Cli) -> Result<String> {
 fn resolve_output_file(cli: &Cli) -> Result<PathBuf> {
     if let Some(output) = &cli.output {
         Ok(output.clone())
-    } else if let Ok(output) = env::var("OUTPUT_FILE") {
-        Ok(PathBuf::from(output))
     } else {
-        anyhow::bail!("Missing output file. Provide --output or set OUTPUT_FILE environment variable");
+        let output = gold_digger::get_required_env("OUTPUT_FILE")
+            .context("Missing output file. Provide --output or set OUTPUT_FILE environment variable")?;
+        Ok(PathBuf::from(output))
     }
 }
 

@@ -26,7 +26,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 4. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
 
-5. **Pattern Matching Bug:** In `src/main.rs`, line 59 has `Some(&_)` which should be `Some(_)` in the match expression.
+5. **Pattern Matching Bug:** In `src/main.rs`, the `if let Some(url) = &cli.db_url` pattern (and similar patterns in the resolve functions) uses `Some(&_)` which should be `Some(_)` in the match arm. This pattern appears in the option value matching constructs throughout the resolve functions.
 
 ### Environment Variables (Required)
 
@@ -62,10 +62,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 # Build (release recommended for testing)
 cargo build --release
 
-# Quality gates (REQUIRED for PRs)
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
+# Quality gates (see "Code Quality Standards" section below for commands)
 
 # Run with CLI flags (preferred)
 cargo run --release -- \
@@ -154,6 +151,34 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 - Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
 - Implement credential redaction in all log output
 - Use `?` operator for error propagation
+
+#### Credential Redaction Example
+
+```rust
+use regex::Regex;
+use std::sync::OnceLock;
+
+static CREDENTIAL_REGEX: OnceLock<Regex> = OnceLock::new();
+
+/// Redacts database credentials from connection URLs for safe logging
+/// Replaces "user:pass@" with "****:****@" to prevent credential exposure
+fn redact_database_url(url: &str) -> String {
+    let regex = CREDENTIAL_REGEX.get_or_init(|| {
+        Regex::new(r"([^/]+):([^@]+)@").unwrap_or_else(|_| {
+            // Fallback regex that matches any credential pattern
+            Regex::new(r".*@").unwrap()
+        })
+    });
+
+    regex.replace(url, "****:****@").to_string()
+}
+
+// Usage example:
+// let safe_url = redact_database_url("mysql://user:secret@localhost:3306/db");
+// Result: "mysql://****:****@localhost:3306/db"
+```
+
+**Note:** Add `regex = "1"` to `Cargo.toml` dependencies. The `OnceLock` ensures thread-safe, one-time regex compilation.
 
 ## Common Tasks for AI Assistants
 

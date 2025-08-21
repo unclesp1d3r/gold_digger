@@ -15,6 +15,8 @@
     ":prHourlyLimit2",
     ":prConcurrentLimit10"
   ],
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
   "timezone": "America/New_York",
   "schedule": [
     "before 6am on Monday"
@@ -35,8 +37,11 @@
   "packageRules": [
     {
       "description": "Auto-merge development tools and CI dependencies",
-      "matchCategories": [
-        "dev"
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchDepTypes": [
+        "dev-dependencies"
       ],
       "matchPackageNames": [
         "cargo-nextest",
@@ -70,6 +75,9 @@
       "groupName": "GitHub Actions",
       "schedule": [
         "before 6am on Monday"
+      ],
+      "labels": [
+        "ci"
       ]
     },
     {
@@ -95,9 +103,10 @@
       "matchPackageNames": [
         "mysql",
         "serde_json",
-        "rustls"
+        "rustls",
+        "webpki-roots"
       ],
-      "priority": 10,
+      "priority": 20,
       "automerge": false,
       "addLabels": [
         "security",

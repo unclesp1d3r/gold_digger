@@ -15,6 +15,9 @@ alwaysApply: true
 
 - Each output format (CSV, JSON, Tab) should have its own module with a `write` function that takes rows and an output writer.
 - Follow the established pattern: `csv.rs`, `json.rs`, `tab.rs` with consistent `write<W: Write>(rows: Vec<Vec<String>>, output: W) -> anyhow::Result<()>` interface.
+- Import `std::io::Write` in all output format modules to enable generic writer support.
+- Implementations should accept a generic `W: Write` parameter to support any writer type (files, stdout, memory buffers, etc.).
+- Callers should wrap file handles with `std::io::BufWriter` when passing to module write functions to reduce small-write overhead and improve performance.
 - CLI module [`cli.rs`](mdc:src/cli.rs) contains Clap-based CLI definitions and configuration.
 - Public functions in modules should be documented with doc comments (`///`).
 - Use `pub mod` in [`lib.rs`](mdc:src/lib.rs) to expose modules.
@@ -25,7 +28,9 @@ alwaysApply: true
 - Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
 - Implement credential redaction in all log output
 - Use `?` operator for error propagation
+- Use `get_required_env()` helper for environment variable validation with contextual error messages
 - Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases
+- Library crates must return Result-based errors instead of panicking (including in tests) to avoid surprising consumers
 
 ## Code Quality Standards (Zero Tolerance)
 
@@ -35,7 +40,7 @@ alwaysApply: true
 just fmt-check    # cargo fmt --check (100-char line limit)
 just lint         # cargo clippy -- -D warnings (zero tolerance)
 just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit (advisory)
+just security     # cargo audit + cargo deny + grype (comprehensive security scanning)
 ```
 
 All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
@@ -53,7 +58,7 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 - **Linting:** Zero clippy warnings (`-D warnings`)
 - **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
 - **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin` (see coverage guidelines below)
 
 ### Code Style
 
@@ -61,7 +66,7 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 - Use `snake_case` for function and variable names, `CamelCase` for types and structs
 - Prefer iterators and combinators over manual loops where possible
 - Use explicit types for function signatures, especially for public APIs
-- Group imports by standard library, external crates, and local modules, separated by newlines
+- Prefer grouping imports by standard library, external crates, and local modules, separated by newlines (advisory rule to prevent format-only diffs during reviews)
 
 ## Features and Conditional Compilation
 
@@ -77,7 +82,15 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 - Add tests in a `tests/` directory or as `#[cfg(test)]` modules within each file.
 - Validate all external input (e.g., environment variables) and handle missing/invalid values gracefully.
+- Use the `get_required_env()` helper function for environment variable validation with contextual error messages.
 - Prefer returning early on error conditions.
+
+### Test Coverage Guidelines
+
+- **Default Target:** ≥80% coverage with `cargo tarpaulin`
+- **Recommended Exclusions:** `main.rs`, binary crates, auto-generated code, error enums, and integration test scaffolding
+- **Documentation Requirement:** Maintainers must document coverage overrides in `CONTRIBUTING.md` with justification
+- **Flexibility:** Coverage targets are guidelines, not absolute blockers. Lower coverage is acceptable with explanation and maintainer approval
 
 ## Documentation
 
