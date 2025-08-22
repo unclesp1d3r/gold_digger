@@ -125,8 +125,16 @@ fn json_from_mysql_value(val: mysql::Value) -> serde_json::Value {
         },
         mysql::Value::Int(i) => serde_json::Value::Number(i.into()),
         mysql::Value::UInt(u) => serde_json::Value::Number(u.into()),
-        mysql::Value::Float(f) => serde_json::Value::Number(serde_json::Number::from_f64(f as f64).unwrap_or_else(|| serde_json::Value::String(format!("{:?}", f)).as_number().unwrap().clone())),
-        mysql::Value::Double(d) => serde_json::Value::Number(serde_json::Number::from_f64(d).unwrap_or_else(|| serde_json::Value::String(format!("{:?}", d)).as_number().unwrap().clone())),
+        mysql::Value::Float(f) => {
+            serde_json::Number::from_f64(f as f64)
+                .map(serde_json::Value::Number)
+                .unwrap_or_else(|| serde_json::Value::String(format!("{:?}", f)))
+        },
+        mysql::Value::Double(d) => {
+            serde_json::Number::from_f64(d)
+                .map(serde_json::Value::Number)
+                .unwrap_or_else(|| serde_json::Value::String(format!("{:?}", d)))
+        },
         _ => serde_json::Value::String(format!("{:?}", val))
     }
 }

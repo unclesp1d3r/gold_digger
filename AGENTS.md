@@ -26,7 +26,7 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 
 4. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
 
-5. **Pattern Matching Bug:** In `src/main.rs`, line 59 has `Some(&_)` which should be `Some(_)` in the match expression.
+5. **Pattern Matching Bug:** In `src/main.rs`, the `if let Some(url) = &cli.db_url` pattern (and similar patterns in the resolve functions) uses `Some(&_)` which should be `Some(_)` in the match arm. This pattern appears in the option value matching constructs throughout the resolve functions.
 
 ### Environment Variables (Required)
 
@@ -62,11 +62,15 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 # Build (release recommended for testing)
 cargo build --release
 
-# Lint and format (REQUIRED for PRs)
-cargo fmt --check
-cargo clippy -- -D warnings
+# Quality gates (see "Code Quality Standards" section below for commands)
 
-# Run with environment variables
+# Run with CLI flags (preferred)
+cargo run --release -- \
+  --db-url "mysql://user:pass@host:3306/db" \
+  --query "SELECT CAST(id AS CHAR) as id FROM table LIMIT 5" \
+  --output /tmp/out.json
+
+# Run with environment variables (fallback)
 OUTPUT_FILE=/tmp/out.json \
 DATABASE_URL="mysql://user:pass@host:3306/db" \
 DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM table LIMIT 5" \
@@ -76,10 +80,13 @@ cargo run --release
 ### Feature Flags
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: MySQL native TLS support
-- `vendored`: Static linking with vendored OpenSSL
+- `ssl`: MySQL native TLS support using platform-native libraries (SChannel on Windows, SecureTransport on macOS, may use OpenSSL on Linux)
+- `ssl-rustls`: Pure Rust TLS implementation (alternative to native TLS)
+- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
+
+**Important**: `ssl` and `ssl-rustls` are mutually exclusive features.
 
 ## Requirements Gap Analysis
 
@@ -100,19 +107,78 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 
 ## Code Quality Standards
 
-### Required Checks
+### Quality Gates (Required Before Commits)
 
-- **Formatting:** `cargo fmt --check` (100-char line length via rustfmt.toml)
-- **Linting:** `cargo clippy -- -D warnings` (zero tolerance)
-- **Commits:** Conventional Commits format
+```bash
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
+```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 - **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
 
-### Security Rules
+### Security Requirements
 
-1. **Never log DATABASE_URL or credentials** - implement redaction
-2. **No telemetry or external calls** at runtime
-3. **Respect system umask** for output files
-4. **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
+#### Critical Security Rules
+
+- **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
+- **No hardcoded secrets:** Use environment variables or GitHub OIDC
+- **Vulnerability policy:** Block releases with critical vulnerabilities
+- **Airgap compatibility:** No telemetry or external calls in production
+- **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
+- **TLS Implementation:** Supports both platform-native TLS via the `ssl` feature and pure Rust TLS via the `ssl-rustls` feature
+
+#### Error Handling Patterns
+
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
+
+#### Credential Redaction Example
+
+```rust
+use regex::Regex;
+use std::sync::OnceLock;
+
+static CREDENTIAL_REGEX: OnceLock<Regex> = OnceLock::new();
+
+/// Redacts database credentials from connection URLs for safe logging
+/// Replaces "user:pass@" with "****:****@" to prevent credential exposure
+fn redact_database_url(url: &str) -> String {
+    let regex = CREDENTIAL_REGEX.get_or_init(|| {
+        Regex::new(r"([^/]+):([^@]+)@").unwrap_or_else(|_| {
+            // Fallback regex that matches any credential pattern
+            Regex::new(r".*@").unwrap()
+        })
+    });
+
+    regex.replace(url, "****:****@").to_string()
+}
+
+// Usage example:
+// let safe_url = redact_database_url("mysql://user:secret@localhost:3306/db");
+// Result: "mysql://****:****@localhost:3306/db"
+```
+
+**Note:** Add `regex = "1"` to `Cargo.toml` dependencies. The `OnceLock` ensures thread-safe, one-time regex compilation.
 
 ## Common Tasks for AI Assistants
 

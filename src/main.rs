@@ -1,6 +1,6 @@
 use std::{env, fs::File, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser};
 use clap_complete::{Shell as CompletionShell, generate};
 use mysql::Pool;
@@ -9,6 +9,9 @@ use mysql::prelude::Queryable;
 use gold_digger::cli::{Cli, Commands, OutputFormat, Shell};
 use gold_digger::exit::{exit_no_rows, exit_success, exit_with_error};
 use gold_digger::rows_to_strings;
+
+#[cfg(feature = "ssl")]
+use gold_digger::tls::{TlsConfig, create_tls_connection};
 
 /// Main entry point for the gold_digger CLI tool.
 ///
@@ -48,7 +51,7 @@ fn main() {
         Err(e) => exit_with_error(e, Some("Output file resolution failed")),
     };
 
-    let pool = match Pool::new(database_url.as_str()) {
+    let pool = match create_database_connection(&database_url) {
         Ok(pool) => pool,
         Err(e) => exit_with_error(anyhow::anyhow!("Database connection pool creation failed: {}", e), None),
     };
@@ -107,14 +110,51 @@ fn main() {
     exit_success(None);
 }
 
+/// Creates a database connection pool with optional TLS configuration
+fn create_database_connection(database_url: &str) -> Result<Pool> {
+    #[cfg(feature = "ssl")]
+    {
+        // Parse TLS configuration from URL (placeholder for future enhancement)
+        let tls_config = parse_tls_config_from_url(database_url)?;
+
+        // Use TLS-aware connection creation
+        create_tls_connection(database_url, tls_config)
+    }
+
+    #[cfg(not(feature = "ssl"))]
+    {
+        // Fallback to direct Pool creation when SSL feature is disabled
+        Pool::new(database_url).map_err(|e| anyhow::anyhow!("Database connection failed: {}", e))
+    }
+}
+
+/// Parses TLS configuration from database URL
+/// Currently returns None as the mysql crate doesn't support URL-based SSL configuration
+/// This function provides a foundation for future TLS URL parameter support
+#[cfg(feature = "ssl")]
+fn parse_tls_config_from_url(_database_url: &str) -> Result<Option<TlsConfig>> {
+    // The mysql crate doesn't support URL-based SSL configuration like ssl-mode, ssl-ca, etc.
+    // For now, we return None to use default TLS behavior when the ssl feature is enabled
+    // Future enhancement: Parse URL parameters and create appropriate TlsConfig
+
+    // Example of what this could look like in the future:
+    // if database_url.contains("ssl-mode=required") {
+    //     return Ok(Some(TlsConfig::new()));
+    // }
+    // if database_url.contains("ssl-ca=") {
+    //     // Extract CA path and create config
+    // }
+
+    Ok(None)
+}
+
 /// Resolves the database URL from CLI arguments or environment variables
 fn resolve_database_url(cli: &Cli) -> Result<String> {
     if let Some(url) = &cli.db_url {
         Ok(url.clone())
-    } else if let Ok(url) = env::var("DATABASE_URL") {
-        Ok(url)
     } else {
-        anyhow::bail!("Missing database URL. Provide --db-url or set DATABASE_URL environment variable");
+        gold_digger::get_required_env("DATABASE_URL")
+            .context("Missing database URL. Provide --db-url or set DATABASE_URL environment variable")
     }
 }
 
@@ -125,12 +165,10 @@ fn resolve_database_query(cli: &Cli) -> Result<String> {
     } else if let Some(query_file) = &cli.query_file {
         std::fs::read_to_string(query_file)
             .map_err(|e| anyhow::anyhow!("Failed to read query file {}: {}", query_file.display(), e))
-    } else if let Ok(query) = env::var("DATABASE_QUERY") {
-        Ok(query)
     } else {
-        anyhow::bail!(
-            "Missing database query. Provide --query, --query-file, or set DATABASE_QUERY environment variable"
-        );
+        gold_digger::get_required_env("DATABASE_QUERY").context(
+            "Missing database query. Provide --query, --query-file, or set DATABASE_QUERY environment variable",
+        )
     }
 }
 
@@ -138,10 +176,10 @@ fn resolve_database_query(cli: &Cli) -> Result<String> {
 fn resolve_output_file(cli: &Cli) -> Result<PathBuf> {
     if let Some(output) = &cli.output {
         Ok(output.clone())
-    } else if let Ok(output) = env::var("OUTPUT_FILE") {
-        Ok(PathBuf::from(output))
     } else {
-        anyhow::bail!("Missing output file. Provide --output or set OUTPUT_FILE environment variable");
+        let output = gold_digger::get_required_env("OUTPUT_FILE")
+            .context("Missing output file. Provide --output or set OUTPUT_FILE environment variable")?;
+        Ok(PathBuf::from(output))
     }
 }
 
@@ -203,4 +241,43 @@ fn dump_configuration(cli: &Cli) -> Result<()> {
 
     println!("{}", serde_json::to_string_pretty(&config)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_database_connection_invalid_url() {
+        // Test with invalid URL to ensure error handling works
+        let result = create_database_connection("invalid://url");
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "ssl")]
+    #[test]
+    fn test_parse_tls_config_from_url() {
+        // Test the TLS config parsing function
+        let result = parse_tls_config_from_url("mysql://user:pass@localhost:3306/db");
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none()); // Currently returns None as documented
+    }
+
+    #[cfg(feature = "ssl")]
+    #[test]
+    fn test_create_database_connection_with_ssl_feature() {
+        // Test that the function exists and handles errors properly when ssl feature is enabled
+        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
+        // Should fail due to invalid connection details, but not panic
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "ssl"))]
+    #[test]
+    fn test_create_database_connection_without_ssl_feature() {
+        // Test that the function works without ssl feature
+        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
+        // Should fail due to invalid connection details, but not panic
+        assert!(result.is_err());
+    }
 }

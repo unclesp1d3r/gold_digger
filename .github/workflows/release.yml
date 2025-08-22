@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v[0-9]+.*"
+  release:
+    types: [published]
+  workflow_run:
+    workflows: ["Release Please"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       tag:
@@ -18,8 +24,10 @@ permissions:
 jobs:
   resolve-tag:
     runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
+      actions: read
     outputs:
       tag: ${{ steps.get-tag.outputs.tag }}
     steps:
@@ -29,24 +37,103 @@ jobs:
           REF: ${{ github.ref }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Function to validate semantic versioning pattern
+          validate_semver() {
+            local tag="$1"
+            if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "Error: Tag '${tag}' does not match semantic versioning pattern." >&2
+              return 1
+            fi
+            return 0
+          }
+
+          # Priority 1: Manual workflow dispatch with explicit tag
           if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_TAG}" ]]; then
-            if [[ ! "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "Error: Provided tag '${INPUT_TAG}' does not match semantic versioning pattern." >&2
+            echo "📋 Using manually provided tag from workflow dispatch"
+            if ! validate_semver "${INPUT_TAG}"; then
               exit 1
             fi
             echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
-          elif [[ "${REF}" == refs/tags/* ]]; then
+            exit 0
+          fi
+
+          # Priority 2: Release event with direct tag access
+          if [[ "${EVENT_NAME}" == "release" && -n "${RELEASE_TAG}" ]]; then
+            echo "📋 Using tag from release event payload"
+            if ! validate_semver "${RELEASE_TAG}"; then
+              exit 1
+            fi
+            echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Priority 3: Tag push event - parse from GITHUB_REF
+          if [[ "${REF}" == refs/tags/* ]]; then
             TAG="${REF#refs/tags/}"
-            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "Error: Extracted tag '${TAG}' does not match semantic versioning pattern." >&2
+            echo "📋 Using tag from push event: ${TAG}"
+            if ! validate_semver "${TAG}"; then
               exit 1
             fi
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          else
-            echo "Error: No valid tag detected. Please provide a valid semantic version tag." >&2
-            exit 1
+            exit 0
           fi
+
+          # Priority 4: Workflow run from Release Please (restricted fallback)
+          if [[ "${EVENT_NAME}" == "workflow_run" && "${WORKFLOW_RUN_CONCLUSION}" == "success" ]]; then
+            # Only proceed if this is clearly from Release Please workflow
+            if [[ "${WORKFLOW_RUN_NAME}" != "Release Please" ]]; then
+              echo "❌ Error: Workflow run is not from 'Release Please' workflow (got: ${WORKFLOW_RUN_NAME})" >&2
+              exit 1
+            fi
+
+            # Only proceed if running on main branch (or specific release branch)
+            if [[ "${WORKFLOW_RUN_HEAD_BRANCH}" != "main" ]]; then
+              echo "❌ Error: Workflow run is not from main branch (got: ${WORKFLOW_RUN_HEAD_BRANCH})" >&2
+              exit 1
+            fi
+
+            echo "🔍 Workflow run triggered by successful Release Please workflow"
+            echo "📋 Querying latest release as last-resort fallback..."
+
+            # Verify GitHub token is available
+            if [[ -z "${GITHUB_TOKEN}" ]]; then
+              echo "❌ Error: GITHUB_TOKEN environment variable is not set. Cannot authenticate with GitHub API." >&2
+              exit 1
+            fi
+
+            # Query the latest release to get the tag that was just created
+            # Use GITHUB_TOKEN for authentication to avoid rate limiting
+            LATEST_RELEASE=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name')
+
+            if [[ -z "${LATEST_RELEASE}" ]]; then
+              echo "❌ Error: Could not determine latest release tag" >&2
+              exit 1
+            fi
+
+            if ! validate_semver "${LATEST_RELEASE}"; then
+              exit 1
+            fi
+
+            echo "✅ Found valid tag from latest release: ${LATEST_RELEASE}"
+            echo "tag=${LATEST_RELEASE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # No valid tag source found
+          echo "❌ Error: No valid tag detected from any source." >&2
+          echo "Available sources:" >&2
+          echo "  - workflow_dispatch: ${INPUT_TAG:-'not provided'}" >&2
+          echo "  - release event: ${RELEASE_TAG:-'not available'}" >&2
+          echo "  - tag push: ${REF:-'not a tag'}" >&2
+          echo "  - workflow_run: ${WORKFLOW_RUN_NAME:-'not available'}" >&2
+          exit 1
 
   create-release:
     needs: resolve-tag
@@ -61,10 +148,10 @@ jobs:
         uses: taiki-e/create-gh-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.resolve-tag.outputs.tag }}
+          ref: refs/tags/${{ needs.resolve-tag.outputs.tag }}
 
   build-and-package:
-    needs: create-release
+    needs: [create-release, resolve-tag]
     strategy:
       matrix:
         os: [ubuntu-22.04, macos-13, windows-2022]
@@ -83,11 +170,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
 
       - name: Build release
         shell: bash
-        run: just build-vendored
+        run: |
+          echo "🔨 Building release with rustls (pure Rust TLS)..."
+          just build-rustls
 
       - name: Upload binaries to Release
         uses: taiki-e/upload-rust-binary-action@v1
@@ -95,134 +184,39 @@ jobs:
           bin: ${{ env.BIN_NAME }}
           tar: unix
           zip: windows
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ref: refs/tags/${{ needs.resolve-tag.outputs.tag }}
+          features: rustls
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify dist directory
+      - name: Verify built binaries
         shell: bash
         run: |
-          if [[ ! -d "dist" || -z $(ls -A "dist") ]]; then
-            echo "Error: dist directory is empty or does not exist." >&2
-            exit 1
-          fi
-
-      - name: Compute artifact hashes (SLSA subjects)
-        id: hash
-        uses: slsa-framework/slsa-github-generator/actions/hash-files@v2
-        with:
-          files: |
-            dist/*
-
-      - name: Persist per-OS subjects
-        shell: bash
-        run: |
-          mkdir -p subjects
-          echo "${{ steps.hash.outputs.hashes }}" > "subjects/subjects-${{ matrix.os }}.b64"
-
-      - name: Upload subjects artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: subjects-${{ matrix.os }}
-          path: subjects/subjects-${{ matrix.os }}.b64
-
-  consolidate-subjects:
-    needs: build-and-package
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    outputs:
-      hashes: ${{ steps.merge.outputs.hashes }}
-    steps:
-      - name: Download subjects artifacts
-        uses: actions/download-artifact@v5
-        with:
-          pattern: subjects-*
-          merge-multiple: true
-
-      - name: Merge base64 subjects
-        id: merge
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          tmpdir=$(mktemp -d)
-          merged="${tmpdir}/merged.json"
-          echo "[]" > "${merged}"
-
-          files=(subjects-*.b64)
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "No subjects-*.b64 files found; skipping merge." >&2
-            exit 0
-          fi
-
-          for f in "${files[@]}"; do
-            base64 -d "$f" > "${tmpdir}/decoded.json"
-            jq -s 'add' "${merged}" "${tmpdir}/decoded.json" > "${tmpdir}/new.json"
-            mv "${tmpdir}/new.json" "${merged}"
-          done
-
-          # Re-encode to base64, single line
-          if command -v openssl >/dev/null 2>&1; then
-            encoded=$(openssl base64 -A < "${merged}")
-          elif command -v base64 >/dev/null 2>&1; then
-            encoded=$(base64 < "${merged}" | tr -d '\n')
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            if [[ ! -f "target/release/${{ env.BIN_NAME }}.exe" ]]; then
+              echo "Error: Windows binary not found at target/release/${{ env.BIN_NAME }}.exe" >&2
+              exit 1
+            fi
+            echo "✅ Windows binary verified: target/release/${{ env.BIN_NAME }}.exe"
+            # Test binary execution
+            ./target/release/${{ env.BIN_NAME }}.exe --version || { echo "Error: binary --version check failed" >&2; exit 1; }
           else
-            echo "Error: Neither openssl nor base64 found." >&2
-            exit 1
+            if [[ ! -f "target/release/${{ env.BIN_NAME }}" ]]; then
+              echo "Error: Unix binary not found at target/release/${{ env.BIN_NAME }}" >&2
+              exit 1
+            fi
+            echo "✅ Unix binary verified: target/release/${{ env.BIN_NAME }}"
+            # Test binary execution
+            ./target/release/${{ env.BIN_NAME }} --version || { echo "Error: binary --version check failed" >&2; exit 1; }
           fi
 
-          echo "hashes=${encoded}" >> "$GITHUB_OUTPUT"
-
-  slsa-provenance:
-    name: Generate SLSA Level 3 Provenance
-    needs: [consolidate-subjects, resolve-tag]
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
-    permissions:
-      id-token: write
-      contents: write
-      actions: read
-      attestations: write
-    with:
-      base64-subjects: ${{ needs.consolidate-subjects.outputs.hashes }}
-      upload-assets: true
-      tag: ${{ needs.resolve-tag.outputs.tag }}
-    secrets: inherit
-
-  sbom-sign-attest:
-    name: SBOM + Cosign (keyless) + Reference Provenance
-    needs: [build-and-package, slsa-provenance, resolve-tag]
+  sbom-and-sign:
+    needs: [build-and-package, resolve-tag]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
       id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@v5
-
-      - name: Resolve TAG env
-        shell: bash
-        run: echo "TAG=${{ needs.resolve-tag.outputs.tag }}" >> "$GITHUB_ENV"
-
-      - name: Download release assets (binaries)
-        run: |
-          mkdir -p dist
-          gh release download "${TAG}" --dir dist
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download SLSA provenance asset
-        run: |
-          mkdir -p provenance
-          # Attempt standard name; fallback glob to be safe
-          gh release download "${TAG}" --pattern "provenance.intoto.jsonl" --dir provenance || true
-          if ! ls provenance/provenance.intoto.jsonl >/dev/null 2>&1; then
-            gh release download "${TAG}" --pattern "*.intoto.jsonl" --dir provenance || true
-          fi
-          ls -lah provenance || true
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install syft
         run: |
@@ -231,40 +225,147 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.9.2
 
-      - name: Generate SBOMs per artifact
-        shell: bash
+      - name: Install jq for JSON validation
         run: |
-          mkdir -p sbom
-          shopt -s nullglob
-          for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
-              base=$(basename "$f")
-              syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
-            fi
-          done
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends jq
+        env:
+          DEBIAN_FRONTEND: noninteractive
 
-      - name: Upload SBOMs to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: sbom/*.sbom.cdx.json
+      - name: Download release assets
+        run: |
+          mkdir -p dist
+          gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Keyless sign artifacts with Cosign (OIDC)
-        shell: bash
-        env:
-          COSIGN_EXPERIMENTAL: "true"
+      - name: Generate SBOMs and checksums
         run: |
-          shopt -s nullglob
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          mkdir -p sbom checksums
+          echo "📦 Processing release artifacts..."
+
+          artifact_count=0
           for f in dist/*; do
-            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]] && [[ "$f" != *.intoto.jsonl ]] && [[ "$f" != *.att ]]; then
-              cosign sign-blob --yes "$f" \
-                --output-signature "${f}.sig" \
-                --output-certificate "${f}.crt"
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              echo "Processing: $base"
+
+              # Generate SBOM
+              echo "  🔍 Generating SBOM..."
+              syft packages "file:$f" -o cyclonedx-json > "sbom/${base}.sbom.cdx.json"
+
+              # Verify SBOM was created and is valid JSON
+              if ! jq empty "sbom/${base}.sbom.cdx.json" 2>/dev/null; then
+                echo "❌ Error: Invalid SBOM generated for $base" >&2
+                exit 1
+              fi
+
+              # Generate SHA256 checksum
+              echo "  🔐 Generating checksum..."
+              # Run sha256sum from dist directory to get relative paths in output
+              (cd dist && sha256sum "$base") > "checksums/${base}.sha256"
+
+              artifact_count=$((artifact_count + 1))
             fi
           done
 
-      - name: Upload signatures to release
+          if [ "$artifact_count" -eq 0 ]; then
+            echo "❌ Error: No artifacts found to process" >&2
+            exit 1
+          fi
+
+          # Create consolidated checksums file
+          echo "📋 Creating consolidated checksums file..."
+          cat checksums/*.sha256 > checksums/SHA256SUMS
+
+          echo "✅ Processed $artifact_count artifacts successfully"
+
+      - name: Upload SBOMs and checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom/*.sbom.cdx.json
+            checksums/SHA256SUMS
+            checksums/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign artifacts
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          echo "🔐 Signing release artifacts with Cosign keyless OIDC..."
+
+          signed_count=0
+          for f in dist/*; do
+            if [ -f "$f" ] && [[ "$f" != *.sig ]] && [[ "$f" != *.crt ]]; then
+              base=$(basename "$f")
+              echo "Signing: $base"
+
+              cosign sign-blob --yes "$f" \
+                --output-signature "${f}.sig" \
+                --output-certificate "${f}.crt"
+
+              # Verify signature files were created
+              if [[ ! -f "${f}.sig" ]] || [[ ! -f "${f}.crt" ]]; then
+                echo "❌ Error: Signature files not created for $base" >&2
+                exit 1
+              fi
+
+              # Verify signature (basic validation)
+              # Build expected certificate identity using exact workflow reference
+              EXPECTED_IDENTITY="https://github.com/${{ github.repository }}/${{ github.workflow_ref }}"
+              if ! cosign verify-blob --certificate "${f}.crt" --signature "${f}.sig" "$f" --certificate-identity "$EXPECTED_IDENTITY" --certificate-oidc-issuer "https://token.actions.githubusercontent.com"; then
+                echo "❌ Error: Signature verification failed for $base" >&2
+                exit 1
+              fi
+
+              signed_count=$((signed_count + 1))
+            fi
+          done
+
+          echo "✅ Successfully signed $signed_count artifacts"
+
+      - name: Verify all artifacts before upload
+        run: |
+          set -euo pipefail
+          IFS=$'\n\t'
+
+          echo "🔍 Verifying all required artifacts are present..."
+
+          # Check for SBOMs
+          sbom_count=$(find sbom -name "*.sbom.cdx.json" | wc -l)
+          if [ "$sbom_count" -eq 0 ]; then
+            echo "❌ Error: No SBOM files found" >&2
+            exit 1
+          fi
+          echo "✅ Found $sbom_count SBOM files"
+
+          # Check for checksums
+          if [[ ! -f "checksums/SHA256SUMS" ]]; then
+            echo "❌ Error: Consolidated checksums file not found" >&2
+            exit 1
+          fi
+          checksum_count=$(find checksums -name "*.sha256" | wc -l)
+          echo "✅ Found consolidated checksums and $checksum_count individual checksum files"
+
+          # Check for signatures
+          sig_count=$(find dist -name "*.sig" | wc -l)
+          crt_count=$(find dist -name "*.crt" | wc -l)
+          if [ "$sig_count" -eq 0 ] || [ "$crt_count" -eq 0 ]; then
+            echo "❌ Error: Missing signature files (sig: $sig_count, crt: $crt_count)" >&2
+            exit 1
+          fi
+          echo "✅ Found $sig_count signature files and $crt_count certificate files"
+
+          echo "🎉 All required artifacts verified successfully"
+
+      - name: Upload signatures
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -273,11 +374,43 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: (Optional) Verify SLSA provenance against one artifact
-        if: always()
-        shell: bash
-        run: |
-          echo "Provenance files (if present):"
-          ls -lah provenance || true
-          echo "Verification is typically done by consumers using slsa-verifier."
-          echo "This step is informational and does not block the pipeline."
+  # Trigger cargo-dist workflow for standardized distribution
+  trigger-cargo-dist:
+    needs: [sbom-and-sign, resolve-tag]
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Trigger cargo-dist workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ needs.resolve-tag.outputs.tag }}';
+
+            console.log(`🚀 Triggering cargo-dist workflow for tag: ${tag}`);
+
+            try {
+              const result = await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'cargo-dist.yml',
+                ref: 'main',
+                inputs: {
+                  tag: tag
+                }
+              });
+
+              console.log('✅ cargo-dist workflow triggered successfully');
+              console.log(`📋 This will generate:`);
+              console.log(`  🐚 Shell installer script`);
+              console.log(`  🪟 PowerShell installer script`);
+              console.log(`  🍺 Homebrew formula`);
+              console.log(`  📦 MSI installer for Windows`);
+              console.log(`  🔐 Additional signed artifacts`);
+
+            } catch (error) {
+              console.error('❌ Failed to trigger cargo-dist workflow:', error);
+              // Don't fail the main release workflow if cargo-dist trigger fails
+              console.log('⚠️  Continuing with main release workflow...');
+            }

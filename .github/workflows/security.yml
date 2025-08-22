@@ -21,39 +21,39 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust Environment
+        uses: ./.github/actions/setup-rust
         with:
-          components: clippy
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+          components: "clippy"
+          install-cargo-audit: "true"
+          install-nextest: "false"
 
       - name: Install SARIF tools
         run: cargo +stable install clippy-sarif sarif-fmt
 
       - name: Clippy to SARIF (no warnings tolerated)
-        run: |
-          set -o pipefail
-          cargo clippy --all-targets --all-features --message-format=json -- -D warnings \
-            | clippy-sarif \
-            | tee clippy.sarif \
-            | sarif-fmt
+        uses: ./.github/actions/run-clippy
+        with:
+          features: "rustls,none"
+          sarif-output: "true"
+          sarif-prefix: "clippy"
 
-      - name: Upload clippy SARIF
+      - name: Upload clippy SARIF (rustls)
         if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: clippy.sarif
+          sarif_file: clippy-rustls.sarif
+          category: clippy-rustls
 
-      - name: Install syft and grype
-        shell: bash
-        run: |
-          # Install syft
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+      - name: Upload clippy SARIF (no-TLS)
+        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: clippy-notls.sarif
+          category: clippy-notls
 
-          # Install grype
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+      - name: Setup Security Tools
+        uses: ./.github/actions/setup-security-tools
 
       - name: Generate SBOM (CycloneDX)
         run: |
@@ -85,16 +85,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-bin-
 
-      - name: Install cargo-audit
-        run: |
-          cargo +stable install cargo-audit --version 0.21.2 --locked
-
       - name: cargo-audit
         run: cargo +stable audit
-
-      - name: Install cargo-deny
-        run: |
-          cargo +stable install cargo-deny --version 0.18.4 --locked
 
       - name: cargo-deny
         run: cargo +stable deny check

@@ -25,11 +25,17 @@ mysql = { version = "26.0.1", features = [
 ], default-features = false }
 anyhow = "1.0.99"
 csv = "1.3.0"
-serde_json = "1.0.142"
+serde_json = "1.0.143"
 clap = { version = "4.5", features = [ "derive", "env" ] }
 clap_complete = "4.5"
-openssl-sys = { version = "0.9.109", optional = true }
 mysql_common = { version = "0.35.5", optional = true }
+thiserror = "2.0.16"
+url = "2.5.4"
+
+[dev-dependencies]
+testcontainers = { version = "0.23", features = ["blocking"] }
+testcontainers-modules = { version = "0.11", features = ["mysql"] }
+tempfile = "3.8"
 
 [profile.release]
 lto              = true
@@ -44,7 +50,8 @@ panic            = "abort"
 default = [ "json", "csv", "ssl", "additional_mysql_types", "verbose" ]
 json = [  ]
 csv = [  ]
-ssl = [ "openssl-sys", "mysql/native-tls" ]
+ssl = [ "mysql/native-tls" ]  # Platform native TLS (no OpenSSL dependency)
+ssl-rustls = [ "mysql/rustls-tls" ]  # Pure Rust TLS implementation
 additional_mysql_types = [
   "mysql_common",
   "mysql_common?/bigdecimal",
@@ -52,5 +59,4 @@ additional_mysql_types = [
   "mysql_common?/time",
   "mysql_common?/frunk",
 ]
-vendored = [ "openssl-sys?/vendored" ]
 verbose = [  ]

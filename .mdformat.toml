@@ -10,6 +10,19 @@ exclude = [
 ]
 validate = true
 number = true
+wrap = "keep"
+end_of_line = "lf"
+extensions = [
+    "gfm",
+    "frontmatter",
+    "footnote",
+    "simple_breaks",
+    "tables",
+    "gfm_alerts",
+    "toc",
+    "wikilink",
+]
+
 
 [plugin.mkdocs]
 align_semantic_breaks_in_lists = true

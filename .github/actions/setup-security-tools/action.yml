@@ -1,0 +1,43 @@
+name: "Setup Security Tools"
+description: "Install common security scanning tools"
+
+inputs:
+  install-syft:
+    description: "Whether to install syft"
+    required: false
+    default: "true"
+  install-grype:
+    description: "Whether to install grype"
+    required: false
+    default: "true"
+  install-cargo-deny:
+    description: "Whether to install cargo-deny"
+    required: false
+    default: "true"
+  cargo-deny-version:
+    description: "cargo-deny version to install"
+    required: false
+    default: "0.18.4"
+
+runs:
+  using: composite
+  steps:
+    - name: Install syft and grype
+      if: inputs.install-syft == 'true' || inputs.install-grype == 'true'
+      shell: bash
+      run: |
+        # Install syft
+        if [[ "${{ inputs.install-syft }}" == "true" ]]; then
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+        fi
+
+        # Install grype
+        if [[ "${{ inputs.install-grype }}" == "true" ]]; then
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+        fi
+
+    - name: Install cargo-deny
+      if: inputs.install-cargo-deny == 'true'
+      shell: bash
+      run: |
+        cargo +stable install cargo-deny --version ${{ inputs.cargo-deny-version }} --locked

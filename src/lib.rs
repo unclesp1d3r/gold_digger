@@ -1,6 +1,6 @@
-use std::{ffi::OsStr, path::Path};
+use std::{env, ffi::OsStr, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use mysql::{Row, from_value_opt};
 
 /// CLI interface module.
@@ -13,6 +13,8 @@ pub mod exit;
 pub mod json;
 /// Tab-delimited output module.
 pub mod tab;
+/// TLS configuration module.
+pub mod tls;
 
 /// Trait for writing data in different formats
 pub trait FormatWriter {
@@ -78,4 +80,47 @@ pub fn rows_to_strings(rows: Vec<Row>) -> anyhow::Result<Vec<Vec<String>>> {
 /// An Option containing the extension as a string slice, or None if not found.
 pub fn get_extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
+}
+
+/// Gets a required environment variable with contextual error information.
+///
+/// # Arguments
+///
+/// * `var_name` - The name of the environment variable to retrieve.
+///
+/// # Returns
+///
+/// A Result containing the environment variable value as a String, or an error with context.
+pub fn get_required_env(var_name: &str) -> Result<String> {
+    env::var(var_name).with_context(|| format!("Missing required environment variable: {}", var_name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_required_env_missing() {
+        let result = get_required_env("NONEXISTENT_ENV_VAR");
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Missing required environment variable: NONEXISTENT_ENV_VAR")
+        );
+    }
+
+    #[test]
+    fn test_get_required_env_present() {
+        unsafe {
+            std::env::set_var("TEST_ENV_VAR", "test_value");
+        }
+        let result = get_required_env("TEST_ENV_VAR");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test_value");
+        unsafe {
+            std::env::remove_var("TEST_ENV_VAR");
+        }
+    }
 }

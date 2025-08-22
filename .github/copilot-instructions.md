@@ -71,25 +71,42 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 2. **JSON Non-determinism:** Uses HashMap instead of BTreeMap
 3. **Exit Codes:** Uses `exit(-1)` instead of proper error codes
 
-## Code Quality Requirements
+## Code Quality Requirements (Zero Tolerance)
 
-### Always Include These Checks
+### Quality Gates (Required Before Commits)
 
 ```bash
-# Before any PR
-cargo fmt --check
-cargo clippy -- -D warnings
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```
 
-### Rust Code Style
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
-- **Line length:** 100 characters (see `rustfmt.toml`)
-- **Error handling:** Use `anyhow::Result<T>` for fallible functions
-- **Naming:** Follow Rust conventions (`snake_case`, etc.)
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** Release Please handles versioning and changelog
+- **CI Parity:** All CI operations executable locally
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 
 ## Security Rules (Non-Negotiable)
 
-1. **Never log credentials:**
+### Critical Security Requirements
+
+1. **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
+2. **No hardcoded secrets:** Use environment variables or GitHub OIDC
+3. **Vulnerability policy:** Block releases with critical vulnerabilities
+4. **Airgap compatibility:** No telemetry or external calls in production
 
 ```rust
 // ❌ NEVER do this
@@ -99,8 +116,12 @@ println!("Connecting to {}", database_url);
 println!("Connecting to database...");
 ```
 
-2. **No external calls at runtime** (offline-first design)
-3. **Feature-gate verbose output** using `#[cfg(feature = "verbose")]`
+### Error Handling Patterns
+
+- Use `anyhow::Result<T>` for all fallible functions
+- Never use `from_value::<String>()` - always handle `mysql::Value::NULL`
+- Implement credential redaction in all log output
+- Use `?` operator for error propagation
 
 ## Feature Development Guidelines
 
@@ -179,8 +200,8 @@ DATABASE_URL="mysql://user:pass@host:3306/db" \
 DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 5" \
 cargo run --release
 
-# Quality checks
-cargo fmt --check && cargo clippy -- -D warnings
+# Quality checks (pipeline standards)
+just fmt-check && just lint && just test
 ```
 
 ---

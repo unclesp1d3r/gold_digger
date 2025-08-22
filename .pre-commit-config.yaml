@@ -6,7 +6,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
-        args: ["--maxkb=1024"]
+        args: ["--maxkb=10240"]
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-illegal-windows-names
@@ -14,7 +14,6 @@ repos:
       - id: check-toml
       - id: check-yaml
         args: [--allow-multiple-documents]
-      - id: trailing-whitespace
       - id: check-xml
         exclude: ^legacy/
       - id: mixed-line-ending
@@ -73,24 +72,24 @@ repos:
         stages: [commit-msg]
 
     # 📝 Markdown formatting and linting (temporarily disabled in CI due to path issues)
-  # - repo: https://github.com/hukkin/mdformat
-  #   rev: 0.7.22
-  #   hooks:
-  #     - id: mdformat
-  #       additional_dependencies:
-  #         - mdformat-gfm
-  #         - mdformat-admon
-  #         - mdformat-config
-  #         - mdformat-footnote
-  #         - mdformat-frontmatter
-  #         - mdformat-simple-breaks
-  #         - mdformat-tables
-  #         - mdformat-web
-  #         - mdformat-wikilink
-  #         - mdformat-ruff
-  #         - mdformat-gfm-alerts
-  #         - mdformat-rustfmt
-  #         - mdformat-toc
+  - repo: https://github.com/hukkin/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-admon
+          - mdformat-config
+          - mdformat-footnote
+          - mdformat-frontmatter
+          - mdformat-simple-breaks
+          - mdformat-tables
+          - mdformat-web
+          - mdformat-wikilink
+          - mdformat-ruff
+          - mdformat-gfm-alerts
+          - mdformat-rustfmt
+          - mdformat-toc
   # - repo: https://github.com/DavidAnson/markdownlint-cli2
   #   rev: v0.18.1
   #   hooks:

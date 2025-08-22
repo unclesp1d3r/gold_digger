@@ -59,8 +59,8 @@ src/
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["openssl-sys", "mysql/native-tls"]
-vendored = ["openssl-sys?/vendored"]       # Static OpenSSL linking
+ssl = ["mysql/native-tls"]                 # Platform native TLS (no OpenSSL dependency)
+ssl-rustls = ["mysql/rustls-tls"]         # Pure Rust TLS implementation
 additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decimal", ...]
 verbose = []                               # Conditional println!/eprintln!
 ```
@@ -166,7 +166,7 @@ match get_extension_from_filename(&output_file) {
 ```bash
 # Build variations
 cargo build --release
-cargo build --release --features vendored    # Static OpenSSL
+cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS
 cargo build --no-default-features --features "csv json"  # Minimal
 
 # Development

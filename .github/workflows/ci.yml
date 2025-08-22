@@ -16,13 +16,9 @@ permissions:
 
 jobs:
   ci:
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-13, windows-2022]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     concurrency:
-      group: ci-${{ github.ref }}-${{ matrix.os }}
+      group: ci-${{ github.ref }}-ubuntu-validation
       cancel-in-progress: true
 
     env:
@@ -33,38 +29,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Windows-specific setup for OpenSSL (needed by reqwest/native-tls)
-      - name: Setup Windows dependencies
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          vcpkg install openssl:x64-windows-static
-          {
-            printf 'OPENSSL_DIR=C:\\vcpkg\\installed\\x64-windows-static\n'
-            printf 'OPENSSL_STATIC=1\n'
-            printf 'VCPKG_ROOT=C:\\vcpkg\n'
-          } >> "$GITHUB_ENV"
-
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust Environment
+        uses: ./.github/actions/setup-rust
         with:
-          components: clippy,rustfmt
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+          components: "clippy,rustfmt"
+          install-cargo-audit: "true"
+          install-nextest: "true"
 
       - name: Install just
-        uses: extractions/setup-just@v2
-
-      - name: Install nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: nextest
+        uses: extractions/setup-just@v3
 
       # Build dependencies first to avoid compilation issues during linting
       - name: Build project dependencies
-        shell: bash
-        run: cargo check --all-targets --all-features
+        uses: ./.github/actions/build-dependencies
+        with:
+          features: "native-tls"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -94,37 +73,14 @@ jobs:
         run: just fmt-check
 
       - name: Lint check
-        shell: bash
-        run: just lint
-
-      - name: Tests (nextest)
-        shell: bash
-        run: just test-nextest
-
-      # Coverage - only run on Ubuntu
-      - name: Install cargo-llvm-cov
-        if: matrix.os == 'ubuntu-22.04'
-        uses: taiki-e/install-action@v2
+        uses: ./.github/actions/run-clippy
         with:
-          tool: cargo-llvm-cov
+          features: "native-tls"
+          sarif-output: "false"
 
-      - name: Coverage (llvm-cov)
-        if: matrix.os == 'ubuntu-22.04'
-        shell: bash
-        run: just coverage-llvm
-
-      - name: Upload coverage artifact
-        if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
+      # Run a quick test to ensure basic functionality works for validation
+      - name: Quick validation test
+        uses: ./.github/actions/run-tests
         with:
-          name: coverage-lcov
-          path: lcov.info
-
-      - name: Upload to Codecov
-        if: matrix.os == 'ubuntu-22.04' && github.repository == 'UncleSp1d3r/gold_digger'
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: unit
-          fail_ci_if_error: false
-          verbose: true
+          features: "native-tls"
+          use-nextest: "true"

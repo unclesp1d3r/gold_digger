@@ -45,10 +45,10 @@ default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
   - **Windows**: Uses SChannel (built-in Windows TLS stack)
   - **macOS**: Uses SecureTransport (built-in macOS TLS stack)
   - **Linux**: Uses OpenSSL backend by default
-- **openssl-sys** - OpenSSL bindings (primarily for Linux or explicit OpenSSL backend selection)
-- **vendored feature** - Forces static OpenSSL linking for deployments requiring OpenSSL
-  - **Opt-in only**: Use `cargo build --features vendored` or CI job matrix
-  - **Not in defaults**: Prevents slow vendored builds for local development
+- **ssl feature** - Platform native TLS (no OpenSSL dependency)
+- **ssl-rustls feature** - Pure Rust TLS implementation
+- **Opt-in only**: Use `cargo build --no-default-features --features ssl-rustls` for pure Rust TLS
+- **Default behavior**: Uses platform-native TLS via `ssl` feature
 
 ### Type System Extensions
 
@@ -170,13 +170,15 @@ just coverage       # Local HTML coverage report
 
 ```bash
 cargo build --release                                    # Standard build (system OpenSSL)
-cargo build --release --features vendored               # Static OpenSSL (opt-in)
+cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS (opt-in)
 cargo build --no-default-features --features "csv json" # Minimal build
 ```
 
+**Note**: If rustls becomes the default TLS implementation, update the "Standard build" comment to reflect this change (e.g., "Standard build (rustls)").
+
 ### Deployment Considerations
 
-- Static linking via `vendored` feature for portability
+- Pure Rust TLS via `ssl-rustls` feature for portability
 - Feature flags allow minimal builds for specific use cases
 - No runtime dependencies beyond system libraries
 
