@@ -34,7 +34,7 @@ url = "2.5.6"
 
 [dev-dependencies]
 testcontainers = { version = "0.23", features = ["blocking"] }
-testcontainers-modules = { version = "0.11", features = ["mysql"] }
+testcontainers-modules = { version = "0.12", features = ["mysql"] }
 tempfile = "3.8"
 
 [profile.release]
