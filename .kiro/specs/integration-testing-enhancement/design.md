@@ -64,7 +64,69 @@ impl TestDatabase {
     }
 
     pub fn seed_data(&self) -> Result<()> {
-        // Execute schema and seed data scripts
+        use mysql::prelude::*;
+        use std::fs;
+        use std::path::Path;
+
+        // Open database connection
+        let pool = mysql::Pool::new(&self.connection_url)?;
+        let mut conn = pool.get_conn()?;
+
+        // Begin transaction for atomic seeding
+        conn.exec_drop("START TRANSACTION", ())?;
+
+        // Load and execute schema.sql with idempotent DDLs
+        let schema_path = Path::new("tests/fixtures/schema.sql");
+        if schema_path.exists() {
+            let schema_sql = fs::read_to_string(schema_path)?;
+
+            // Split on semicolons and execute each statement
+            for statement in schema_sql.split(';') {
+                let trimmed = statement.trim();
+                if !trimmed.is_empty() && !trimmed.starts_with("--") {
+                    // Wrap DDLs with IF NOT EXISTS for idempotency
+                    let idempotent_statement = if trimmed.to_uppercase().contains("CREATE TABLE") {
+                        // Convert CREATE TABLE to CREATE TABLE IF NOT EXISTS
+                        trimmed.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS")
+                    } else {
+                        trimmed.to_string()
+                    };
+
+                    if let Err(e) = conn.exec_drop(&idempotent_statement, ()) {
+                        conn.exec_drop("ROLLBACK", ())?;
+                        return Err(anyhow::anyhow!("Schema execution failed: {}", e));
+                    }
+                }
+            }
+        }
+
+        // Load and execute seed_data.sql with upserts for idempotency
+        let seed_path = Path::new("tests/fixtures/seed_data.sql");
+        if seed_path.exists() {
+            let seed_sql = fs::read_to_string(seed_path)?;
+
+            // Split on semicolons and execute each statement
+            for statement in seed_sql.split(';') {
+                let trimmed = statement.trim();
+                if !trimmed.is_empty() && !trimmed.starts_with("--") {
+                    // Use REPLACE INTO for idempotent inserts
+                    let idempotent_statement = if trimmed.to_uppercase().contains("INSERT INTO") {
+                        trimmed.replace("INSERT INTO", "REPLACE INTO")
+                    } else {
+                        trimmed.to_string()
+                    };
+
+                    if let Err(e) = conn.exec_drop(&idempotent_statement, ()) {
+                        conn.exec_drop("ROLLBACK", ())?;
+                        return Err(anyhow::anyhow!("Seed data execution failed: {}", e));
+                    }
+                }
+            }
+        }
+
+        // Commit transaction
+        conn.exec_drop("COMMIT", ())?;
+        Ok(())
     }
 
     pub fn connection_url(&self) -> &str {
@@ -135,9 +197,16 @@ CREATE TABLE performance_test (
 #### TestRunner Interface
 
 ```rust
+#[derive(Debug, Clone)]
+pub struct GoldDiggerResult {
+    pub row_count: usize,
+    pub output_size: u64,
+}
+
 pub trait TestRunner {
     fn setup(&mut self) -> Result<()>;
     fn execute_test(&self, test_case: &TestCase) -> Result<TestResult>;
+    fn execute_gold_digger(&self, test_case: &TestCase) -> Result<GoldDiggerResult>;
     fn cleanup(&mut self) -> Result<()>;
 }
 
@@ -155,6 +224,101 @@ impl TestRunner for IntegrationTestRunner {
     fn execute_test(&self, test_case: &TestCase) -> Result<TestResult> {
         // Execute Gold Digger with test case parameters
         // Capture output and validate results
+        let result = self.execute_gold_digger(test_case)?;
+
+        // Create TestResult with the execution results
+        Ok(TestResult {
+            test_name: test_case.name.clone(),
+            status: TestStatus::Passed,             // Will be validated later
+            execution_time: Duration::from_secs(0), // Will be measured by caller
+            output_file: None,                      // Will be set by caller
+            error_message: None,
+            validation_results: vec![],
+            performance_metrics: None,
+        })
+    }
+
+    fn execute_gold_digger(&self, test_case: &TestCase) -> Result<GoldDiggerResult> {
+        use std::fs;
+        use std::io::{BufRead, BufReader};
+        use std::process::{Command, Stdio};
+        use tempfile::NamedTempFile;
+
+        // Create temporary output file
+        let output_file = NamedTempFile::new()?;
+        let output_path = output_file.path();
+        self.temp_files.push(output_path.to_path_buf());
+
+        // Build command with test case parameters
+        let mut cmd = Command::new("gold_digger");
+        cmd.arg("--db-url")
+            .arg(self.database.connection_url())
+            .arg("--query")
+            .arg(&test_case.query)
+            .arg("--output")
+            .arg(output_path);
+
+        // Add CLI arguments from test case
+        for arg in &test_case.cli_args {
+            cmd.arg(arg);
+        }
+
+        // Set environment variables
+        for (key, value) in &test_case.env_vars {
+            cmd.env(key, value);
+        }
+
+        // Execute command and capture output
+        let output = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).output()?;
+
+        // Check exit code
+        if output.status.code() != Some(test_case.expected_exit_code) {
+            return Err(anyhow::anyhow!(
+                "Gold Digger exited with code {} (expected {}). Stderr: {}",
+                output.status.code().unwrap_or(-1),
+                test_case.expected_exit_code,
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        // Read output file and calculate metrics
+        let output_content = fs::read_to_string(output_path)?;
+        let output_size = output_content.len() as u64;
+
+        // Calculate row count based on output format
+        let row_count = match test_case.expected_format {
+            OutputFormat::Csv => {
+                let lines: Vec<&str> = output_content.lines().collect();
+                if lines.is_empty() {
+                    0
+                } else {
+                    lines.len() - 1
+                } // Subtract header
+            },
+            OutputFormat::Json => {
+                // Parse JSON to count rows in data array
+                let json: serde_json::Value = serde_json::from_str(&output_content)?;
+                if let Some(data) = json.get("data") {
+                    if let Some(array) = data.as_array() {
+                        array.len()
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            },
+            OutputFormat::Tsv => {
+                let lines: Vec<&str> = output_content.lines().collect();
+                if lines.is_empty() {
+                    0
+                } else {
+                    lines.len() - 1
+                } // Subtract header
+            },
+        };
+
+        Ok(GoldDiggerResult { row_count, output_size })
     }
 
     fn cleanup(&mut self) -> Result<()> {
@@ -170,6 +334,13 @@ impl TestRunner for IntegrationTestRunner {
 #### Test Case Definition
 
 ```rust
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputFormat {
+    Csv,
+    Json,
+    Tsv,
+}
+
 pub struct TestCase {
     pub name: String,
     pub query: String,
@@ -233,48 +404,154 @@ impl FormatValidator for TsvValidator {
 
 #### Benchmark Framework
 
-```rust
+````rust
+use sysinfo::{System, SystemExt, ProcessExt};
+use std::time::{Duration, Instant};
+
 pub struct PerformanceBenchmark {
     pub name: String,
     pub query: String,
     pub expected_row_count: usize,
     pub max_execution_time: Duration,
     pub max_memory_usage: usize,
+    pub warm_up_runs: usize, // Number of warm-up iterations before measurement
 }
 
 pub struct PerformanceResult {
     pub execution_time: Duration,
-    pub memory_usage: usize,
+    pub memory_usage_bytes: u64, // Memory usage in bytes
     pub rows_processed: usize,
     pub output_size: usize,
 }
 
 impl PerformanceBenchmark {
+    /// Execute performance benchmark with warm-up runs and memory measurement
+    ///
+    /// This method performs warm-up runs to avoid first-run noise, then measures
+    /// execution time and memory usage. Memory usage is measured in bytes using
+    /// the sysinfo crate for cross-platform compatibility.
+    ///
+    /// # Arguments
+    /// * `runner` - The test runner to execute Gold Digger
+    /// * `warm_up_runs` - Number of warm-up iterations (default: 2)
+    ///
+    /// # Returns
+    /// PerformanceResult with execution metrics
+    ///
+    /// # Errors
+    /// Returns error if Gold Digger execution fails or memory measurement fails
     pub fn execute(&self, runner: &IntegrationTestRunner) -> Result<PerformanceResult> {
+        // Perform warm-up runs to avoid first-run noise
+        for _ in 0..self.warm_up_runs {
+            let _ = runner.execute_gold_digger(&TestCase {
+                name: format!("{}_warmup", self.name),
+                query: self.query.clone(),
+                expected_format: OutputFormat::Csv, // Default format for warm-up
+                expected_exit_code: 0,
+                cli_args: vec![],
+                env_vars: HashMap::new(),
+                validation_rules: vec![],
+            })?;
+        }
+
+        // Measure memory usage before execution
+        let start_memory = memory_usage_bytes()?;
         let start_time = Instant::now();
-        let start_memory = get_memory_usage();
 
         // Execute test case
-        let result = runner.execute_gold_digger(&self.query)?;
+        let result = runner.execute_gold_digger(&TestCase {
+            name: self.name.clone(),
+            query: self.query.clone(),
+            expected_format: OutputFormat::Csv, // Default format for measurement
+            expected_exit_code: 0,
+            cli_args: vec![],
+            env_vars: HashMap::new(),
+            validation_rules: vec![],
+        })?;
 
         let execution_time = start_time.elapsed();
-        let memory_usage = get_memory_usage() - start_memory;
+        let end_memory = memory_usage_bytes()?;
+        let memory_usage = end_memory.saturating_sub(start_memory);
 
         Ok(PerformanceResult {
             execution_time,
-            memory_usage,
+            memory_usage_bytes: memory_usage,
             rows_processed: result.row_count,
-            output_size: result.output_size,
+            output_size: result.output_size as usize,
         })
     }
 }
-```
+
+/// Get current process memory usage in bytes
+///
+/// Uses sysinfo crate for cross-platform memory measurement.
+/// Returns memory usage in bytes for the current process.
+///
+/// # Returns
+/// Memory usage in bytes, or error if measurement fails
+///
+/// # Platform Notes
+/// - Linux: Uses /proc/self/status for accurate memory measurement
+/// - macOS: Uses sysinfo's process memory APIs
+/// - Windows: Uses sysinfo's Windows-specific memory APIs
+pub fn memory_usage_bytes() -> Result<u64> {
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    let current_pid = std::process::id();
+    if let Some(process) = sys.process(sysinfo::Pid::from_u32(current_pid)) {
+        Ok(process.memory())
+    } else {
+        Err(anyhow::anyhow!("Failed to get memory usage for current process"))
+    }
+}
+
+/// CI Performance Testing Recommendations
+///
+/// For consistent performance testing in CI environments:
+///
+/// ## Linux CI Setup
+/// ```bash
+/// # Pin CPU governor to performance mode
+/// echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+///
+/// # Disable CPU frequency scaling
+/// sudo cpupower frequency-set -g performance
+///
+/// # Set process priority
+/// sudo nice -n -20 cargo test --test performance
+/// ```
+///
+/// ## macOS CI Setup
+/// ```bash
+/// # Disable App Nap for test processes
+/// defaults write com.apple.dt.Xcode NSAppSleepDisabled -bool true
+///
+/// # Set process priority
+/// sudo nice -n -20 cargo test --test performance
+/// ```
+///
+/// ## Warm-up Configuration
+/// - Default warm-up runs: 2 iterations
+/// - Adjust based on test complexity and CI environment
+/// - Monitor warm-up vs measurement variance
+///
+/// ## Memory Measurement Units
+/// - All memory measurements are in bytes
+/// - Use human-readable formatting for reporting (KB, MB, GB)
+/// - Account for baseline memory usage in CI environment
+///
+/// ## Performance Thresholds
+/// - Set thresholds based on CI environment baseline
+/// - Include buffer for CI environment variance
+/// - Monitor trends over time for regression detection
+````
 
 ## Data Models
 
 ### Test Configuration Model
 
-```rust
+````rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestConfiguration {
     pub database_config: DatabaseConfig,
@@ -301,11 +578,45 @@ pub struct TestSuite {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceThresholds {
+    #[serde(with = "humantime_serde")]
     pub max_query_time: Duration,
     pub max_memory_per_row: usize,
+    #[serde(with = "humantime_serde")]
     pub max_output_generation_time: Duration,
 }
-```
+
+/// Performance Thresholds Configuration
+///
+/// The PerformanceThresholds struct uses human-readable duration strings for
+/// time-based thresholds. Duration values should be specified in a format
+/// that humantime can parse:
+///
+/// ## Duration Format Examples
+/// - `"100ms"` - 100 milliseconds
+/// - `"2s"` - 2 seconds
+/// - `"1m 30s"` - 1 minute 30 seconds
+/// - `"1h 15m"` - 1 hour 15 minutes
+///
+/// ## Configuration Example
+/// ```toml
+/// [performance_thresholds]
+/// max_query_time = "5s"
+/// max_memory_per_row = 1024  # bytes per row
+/// max_output_generation_time = "2s"
+/// ```
+///
+/// ## Dependencies
+/// Add to Cargo.toml:
+/// ```toml
+/// [dependencies]
+/// humantime_serde = "1.1"
+/// ```
+///
+/// ## Validation
+/// - max_query_time: Maximum allowed time for SQL query execution
+/// - max_memory_per_row: Maximum memory usage per row in bytes
+/// - max_output_generation_time: Maximum time for output format generation
+````
 
 ### Test Result Model
 
