@@ -112,8 +112,9 @@ Added `mysql_value_to_string()` function that safely handles all MySQL value typ
 
 ### API Compatibility
 
-- `rows_to_strings()` function signature unchanged
+- `rows_to_strings()` function signature unchanged: `pub fn rows_to_strings(rows: Vec<Row>) -> anyhow::Result<Vec<Vec<String>>>`
 - Same return format and structure
+- Note: Return type is `Result` so callers must handle errors
 - No breaking changes to existing code
 
 ### Behavioral Changes
@@ -172,17 +173,11 @@ match database_operation() {
 Run the comprehensive test suite to verify all improvements:
 
 ```bash
-# Run type safety tests (requires Docker)
-cargo test test_type_conversion_safety_with_real_database --ignored
-cargo test test_indexed_access_safety_fix --ignored
-cargo test test_error_handling_edge_cases --ignored
+# Run all integration tests (requires Docker) - these are marked as ignored
+cargo test "test_.*_with_.*" -- --ignored
 
-# Run unit tests
-cargo test mysql_value_to_string
-cargo test rows_to_strings_empty
-
-# Performance validation
-cargo test test_memory_efficiency_with_large_dataset --ignored
+# Run unit tests for the new functions
+cargo test "mysql_value_to_string|rows_to_strings_empty"
 ```
 
 These improvements eliminate the critical type safety issues while maintaining full backward compatibility and improving overall performance and reliability.

@@ -212,7 +212,16 @@ pub trait TestRunner {
 
 pub struct IntegrationTestRunner {
     database: TestDatabase,
-    temp_files: Vec<PathBuf>,
+    temp_files: std::cell::RefCell<Vec<PathBuf>>,
+}
+
+impl IntegrationTestRunner {
+    pub fn new(database: TestDatabase) -> Self {
+        Self {
+            database,
+            temp_files: std::cell::RefCell::new(Vec::new()),
+        }
+    }
 }
 
 impl TestRunner for IntegrationTestRunner {
@@ -239,6 +248,7 @@ impl TestRunner for IntegrationTestRunner {
     }
 
     fn execute_gold_digger(&self, test_case: &TestCase) -> Result<GoldDiggerResult> {
+        use csv::ReaderBuilder;
         use std::fs;
         use std::io::{BufRead, BufReader};
         use std::process::{Command, Stdio};
@@ -247,7 +257,7 @@ impl TestRunner for IntegrationTestRunner {
         // Create temporary output file
         let output_file = NamedTempFile::new()?;
         let output_path = output_file.path();
-        self.temp_files.push(output_path.to_path_buf());
+        self.temp_files.borrow_mut().push(output_path.to_path_buf());
 
         // Build command with test case parameters
         let mut cmd = Command::new("gold_digger");
@@ -288,12 +298,11 @@ impl TestRunner for IntegrationTestRunner {
         // Calculate row count based on output format
         let row_count = match test_case.expected_format {
             OutputFormat::Csv => {
-                let lines: Vec<&str> = output_content.lines().collect();
-                if lines.is_empty() {
-                    0
-                } else {
-                    lines.len() - 1
-                } // Subtract header
+                // Use csv crate to properly handle quoted fields with embedded newlines
+                let mut reader = ReaderBuilder::new()
+                    .has_headers(true)
+                    .from_reader(output_content.as_bytes());
+                reader.records().count()
             },
             OutputFormat::Json => {
                 // Parse JSON to count rows in data array
@@ -309,12 +318,12 @@ impl TestRunner for IntegrationTestRunner {
                 }
             },
             OutputFormat::Tsv => {
-                let lines: Vec<&str> = output_content.lines().collect();
-                if lines.is_empty() {
-                    0
-                } else {
-                    lines.len() - 1
-                } // Subtract header
+                // Use csv crate with tab delimiter to properly handle quoted fields with embedded newlines
+                let mut reader = ReaderBuilder::new()
+                    .has_headers(true)
+                    .delimiter(b'\t')
+                    .from_reader(output_content.as_bytes());
+                reader.records().count()
             },
         };
 
@@ -323,7 +332,7 @@ impl TestRunner for IntegrationTestRunner {
 
     fn cleanup(&mut self) -> Result<()> {
         // Clean up temporary files
-        for file in &self.temp_files {
+        for file in self.temp_files.borrow().iter() {
             let _ = std::fs::remove_file(file);
         }
         Ok(())
