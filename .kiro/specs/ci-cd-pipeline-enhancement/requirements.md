@@ -2,120 +2,130 @@
 
 ## Introduction
 
-This feature implements comprehensive CI/CD pipeline improvements for the Gold Digger project to meet EvilBit Labs pipeline standards. The current CI workflows lack cross-platform testing, comprehensive quality gates, security scanning, and proper coverage reporting. This enhancement will replace existing basic workflows with a complete, secure, and standards-compliant CI/CD pipeline.
+This feature implements focused CI/CD pipeline improvements for the Gold Digger project using simple, maintainable GitHub Actions workflows. The current CI workflows lack cross-platform testing, comprehensive quality gates, security scanning, and proper coverage reporting. This enhancement will create separate, focused workflows that are easy to troubleshoot and can run in parallel, avoiding complex custom scripts and over-engineering.
 
 ## Requirements
 
 ### Requirement 1
 
-**User Story:** As a project maintainer, I want cross-platform CI testing so that I can ensure Gold Digger works reliably on all supported operating systems.
+**User Story:** As a project maintainer, I want simple cross-platform CI testing so that I can ensure Gold Digger works reliably on all supported operating systems with easy troubleshooting.
 
 #### Acceptance Criteria
 
-1. WHEN code is pushed to main branch THEN the CI pipeline SHALL execute tests on Ubuntu 22.04, macOS 13, and Windows 2022
-2. WHEN a pull request is created THEN the CI pipeline SHALL run the complete test matrix across all three platforms
-3. WHEN any platform-specific test fails THEN the CI pipeline SHALL fail and block the merge
-4. WHEN all platform tests pass THEN the CI pipeline SHALL report success for the cross-platform testing job
+1. WHEN code is pushed to main branch THEN separate CI workflows SHALL execute tests on Ubuntu 22.04, macOS 13, and Windows 2022
+2. WHEN a pull request is created THEN each platform SHALL run as an independent workflow for parallel execution and isolated failure diagnosis
+3. WHEN any platform-specific test fails THEN only that specific platform workflow SHALL fail, making the issue easy to identify
+4. WHEN all platform workflows pass THEN the overall CI status SHALL report success
+5. WHEN troubleshooting is needed THEN each workflow SHALL be simple enough to debug without custom scripts
 
 ### Requirement 2
 
-**User Story:** As a developer, I want automated code quality enforcement so that code standards are consistently maintained without manual intervention.
+**User Story:** As a developer, I want simple automated code quality enforcement using well-maintained actions so that code standards are consistently maintained with easy troubleshooting.
 
 #### Acceptance Criteria
 
-1. WHEN code is submitted THEN the CI pipeline SHALL validate pre-commit hooks using pre-commit with OS-aware caching (e.g., actions/cache) and without sharing caches across operating systems
-2. WHEN code formatting violations exist THEN the CI pipeline SHALL fail with `just fmt-check` and block the merge
-3. WHEN clippy warnings are present THEN the CI pipeline SHALL fail with `just lint` using zero-tolerance policy
-4. WHEN code quality checks pass THEN the CI pipeline SHALL proceed to testing phases
-5. IF quality gates fail THEN the pipeline SHALL NOT use continue-on-error and SHALL block progression
-6. WHEN pre-commit caches are used THEN they SHALL include runner-specific keys (e.g., `${{ runner.os }}`) to prevent cross-platform cache pollution
+1. WHEN Rust toolchain setup is needed THEN the workflow SHALL use `dtolnay/rust-toolchain` action
+2. WHEN caching is needed THEN the workflow SHALL use `Swatinem/rust-cache` for automatic Rust-specific caching
+3. WHEN code formatting violations exist THEN the workflow SHALL fail with `cargo fmt --check` and provide clear error messages
+4. WHEN clippy warnings are present THEN the workflow SHALL fail with `cargo clippy -- -D warnings` using zero-tolerance policy
+5. WHEN quality checks fail THEN the workflow SHALL use well-maintained GitHub Actions without custom scripts
+6. WHEN troubleshooting quality issues THEN developers SHALL be able to reproduce failures locally with standard cargo commands
 
 ### Requirement 3
 
-**User Story:** As a security-conscious maintainer, I want comprehensive security scanning so that vulnerabilities and supply chain risks are automatically detected.
+**User Story:** As a security-conscious maintainer, I want simple security scanning so that vulnerabilities are automatically detected with standard GitHub Actions.
 
 #### Acceptance Criteria
 
-1. WHEN code is analyzed THEN the CI pipeline SHALL run CodeQL security analysis for Rust
-2. WHEN dependencies are processed THEN the CI pipeline SHALL generate SBOM using cargo-auditable and cargo-cyclonedx via cargo-dist
-3. WHEN vulnerabilities are scanned THEN the CI pipeline SHALL use grype to consume CycloneDX SBOMs as primary input (grype sbom:target/cyclonedx-bom.json) with fallback to image/file/system scan mode if CycloneDX is unavailable, logging the fallback reason and ensuring proper failure handling and artifact retention
-4. WHEN security issues are found THEN the CI pipeline SHALL report them as failing checks
-5. WHEN SBOM is generated THEN it SHALL be uploaded as a CI artifact for transparency
-6. WHEN release artifacts are created THEN they SHALL be signed with Cosign keyless OIDC authentication
+1. WHEN code is analyzed THEN a dedicated security workflow SHALL run CodeQL analysis using the standard GitHub CodeQL action
+2. WHEN dependencies are audited THEN the workflow SHALL use `cargo audit` with standard GitHub Actions
+3. WHEN vulnerabilities are found THEN the workflow SHALL fail with clear, actionable error messages
+4. WHEN security scans complete THEN results SHALL be visible in the GitHub Security tab using standard integrations
+5. WHEN SBOM generation is needed for releases THEN cargo-dist SHALL handle it automatically as part of the release process
+6. WHEN troubleshooting security issues THEN the workflow SHALL be simple enough to debug without custom logic
 
 ### Requirement 4
 
-**User Story:** As a project maintainer, I want comprehensive test execution and coverage reporting so that I can track code quality metrics and ensure thorough testing.
+**User Story:** As a project maintainer, I want simple test execution and coverage reporting using well-maintained actions so that I can track code quality metrics with easy troubleshooting.
 
 #### Acceptance Criteria
 
-1. WHEN tests are executed THEN the CI pipeline SHALL use `just test-nextest` for test execution
-2. WHEN tests run on Ubuntu THEN the CI pipeline SHALL generate coverage reports
-3. WHEN coverage is generated THEN it SHALL be uploaded to Codecov with proper token authentication
-4. WHEN test failures occur THEN the CI pipeline SHALL block the merge and report detailed failure information
-5. WHEN coverage reports are available THEN they SHALL be visible in pull request comments
+1. WHEN Rust toolchain setup is needed THEN the workflow SHALL use `dtolnay/rust-toolchain` action
+2. WHEN tests are executed THEN the workflow SHALL use standard `cargo test` or `cargo nextest run` commands
+3. WHEN coverage is generated THEN it SHALL use well-maintained coverage actions like `taiki-e/install-action` for coverage tools
+4. WHEN coverage is uploaded THEN it SHALL use the standard `codecov/codecov-action` GitHub Action
+5. WHEN troubleshooting test issues THEN developers SHALL be able to reproduce failures locally with standard cargo commands
 
 ### Requirement 5
 
-**User Story:** As a release manager, I want secure release automation so that all release artifacts are properly signed, attested, and include complete security metadata.
+**User Story:** As a release manager, I want to use cargo-dist for complete release automation so that artifacts, attestation, auditable builds, and SBOM generation are handled by standard Rust tooling.
 
 #### Acceptance Criteria
 
-1. WHEN a version tag is pushed THEN the release pipeline SHALL build artifacts for Ubuntu 22.04, macOS 13, and Windows 2022
-2. WHEN release artifacts are created THEN they SHALL be signed using Cosign keyless OIDC authentication
-3. WHEN releases are published THEN they SHALL include comprehensive SBOMs for all components
-4. WHEN artifacts are generated THEN they SHALL include CycloneDX SBOMs generated with cargo-auditable and cargo-cyclonedx via cargo-dist
-5. WHEN checksums are created THEN they SHALL use SHA256 and be included with release artifacts
-6. WHEN authentication is required THEN the pipeline SHALL use GitHub OIDC authentication instead of personal access tokens
-7. WHEN release workflows execute THEN they SHALL include a lightweight PAT guard step that runs before any network/publish actions, inspects environment variables and secrets for PAT-like tokens (e.g., presence of GITHUB_PAT or secrets matching common PAT prefixes like "ghp\_", "gho\_", "ghu\_" or the legacy 40-char PAT pattern), fails the job with a clear message if any are found, exits non-zero on detection, logs which variable failed the check (without printing the secret), and runs in all release jobs to enforce "no PAT" policy
-8. WHEN binaries are packaged THEN they SHALL use Rust-native tooling (taiki-e/upload-rust-binary-action)
+1. WHEN cargo-dist is configured THEN it SHALL generate the release workflow automatically with attestation support
+2. WHEN a version tag is pushed THEN cargo-dist's generated workflow SHALL build auditable artifacts for all configured platforms
+3. WHEN releases are published THEN cargo-dist SHALL automatically generate and attach SBOMs using cargo-auditable
+4. WHEN attestation is needed THEN cargo-dist SHALL handle artifact signing and attestation automatically
+5. WHEN checksums and signatures are needed THEN cargo-dist SHALL generate them as part of its standard process
+6. WHEN troubleshooting release issues THEN cargo-dist's generated workflow SHALL be the standard, well-documented approach
+7. WHEN release configuration changes are needed THEN they SHALL be made through cargo-dist.toml configuration
 
 ### Requirement 6
 
-**User Story:** As a developer, I want consistent CI integration with project tooling so that all CI operations use the same commands available locally.
+**User Story:** As a developer, I want CI workflows that use well-maintained third-party actions so that setup is reliable and easy to troubleshoot.
 
 #### Acceptance Criteria
 
-1. WHEN CI jobs execute THEN they SHALL use justfile commands where available (just fmt-check, just lint, just test-nextest)
-2. WHEN development setup is needed THEN CI SHALL use `just setup` for consistent environment preparation
-3. WHEN CI commands are executed THEN they SHALL produce the same results as local development execution
-4. WHEN justfile commands are unavailable THEN CI SHALL fall back to direct cargo commands with equivalent parameters
+1. WHEN Rust toolchain setup is needed THEN workflows SHALL use `dtolnay/rust-toolchain` action instead of custom scripts
+2. WHEN caching is needed THEN workflows SHALL use `Swatinem/rust-cache` or `actions/cache` instead of custom caching logic
+3. WHEN standard operations are needed THEN workflows SHALL prefer well-maintained GitHub Actions over custom commands
+4. WHEN CI jobs execute THEN they SHALL use standard cargo commands that developers can run locally
+5. WHEN troubleshooting CI issues THEN the use of standard actions SHALL make debugging easier and more predictable
 
 ### Requirement 7
 
-**User Story:** As a project maintainer, I want deprecated workflow cleanup so that the CI infrastructure is streamlined and maintainable.
+**User Story:** As a project maintainer, I want simple workflow organization so that the CI infrastructure is easy to understand and maintain.
 
 #### Acceptance Criteria
 
-1. WHEN new CI workflows are implemented THEN existing rust.yml SHALL be removed
-2. WHEN security integration is complete THEN rust-clippy.yml SHALL be removed
-3. WHEN release workflow is enhanced THEN old release.yml SHALL be updated or replaced
-4. WHEN cleanup is complete THEN only necessary workflow files SHALL remain in .github/workflows
-5. WHEN documentation is updated THEN README SHALL reflect new CI capabilities and requirements
+1. WHEN new workflows are implemented THEN they SHALL be focused on single responsibilities (quality, testing, security, release)
+2. WHEN workflows are created THEN each SHALL be simple enough to understand and troubleshoot independently
+3. WHEN cleanup is complete THEN only necessary, focused workflow files SHALL remain in .github/workflows
+4. WHEN documentation is updated THEN README SHALL reflect the simple, focused CI approach
+5. WHEN troubleshooting is needed THEN each workflow SHALL be self-contained and easy to debug
 
 ### Requirement 8
 
-**User Story:** As a developer, I want proper error handling and exit codes so that CI failures are clearly communicated and actionable.
+**User Story:** As a developer, I want clear error reporting so that CI failures are easy to understand and fix.
 
 #### Acceptance Criteria
 
-1. WHEN CI jobs fail THEN they SHALL use proper exit codes instead of generic -1
-2. WHEN security scans fail THEN they SHALL provide actionable error messages
-3. WHEN quality gates fail THEN they SHALL specify exactly which standards were violated
-4. WHEN platform-specific failures occur THEN they SHALL be clearly attributed to the specific platform
-5. WHEN CI completes successfully THEN all jobs SHALL report clear success status
+1. WHEN CI jobs fail THEN they SHALL provide clear, actionable error messages using standard GitHub Actions output
+2. WHEN security scans fail THEN they SHALL use standard GitHub Security tab integration for clear reporting
+3. WHEN quality gates fail THEN they SHALL show exactly which files and lines need to be fixed
+4. WHEN platform-specific failures occur THEN the workflow name SHALL clearly indicate which platform failed
+5. WHEN troubleshooting failures THEN error messages SHALL be clear enough to understand without deep GitHub Actions knowledge
 
 ### Requirement 9
 
-**User Story:** As a project maintainer, I want automated changelog generation so that release notes are consistently formatted and comprehensive.
+**User Story:** As a project maintainer, I want simple changelog automation so that release notes are consistently formatted without complex tooling.
 
 #### Acceptance Criteria
 
-1. WHEN commits follow conventional commit format THEN git-cliff SHALL generate structured changelog entries
-2. WHEN a release is created THEN the changelog SHALL be automatically updated with new entries
-3. WHEN changelog is generated THEN it SHALL include commit types, scopes, and breaking changes
-4. WHEN release workflow runs THEN it SHALL use git-cliff for consistent changelog formatting
-5. WHEN changelog updates occur THEN they SHALL maintain chronological order and proper versioning
-6. WHEN git-cliff executes THEN it SHALL use the repository's cliff.toml configuration file for consistent formatting rules
-7. WHEN CI validates changelog THEN it SHALL include a check that fails if CHANGELOG.md is not updated or committed in the expected format
-8. WHEN release workflow updates changelog THEN it SHALL make atomic updates via pull requests or annotated tags so CI can validate and prevent unformatted/uncommitted changelog changes
+1. WHEN releases are created THEN changelog entries SHALL be generated using standard GitHub release notes
+2. WHEN a release is published THEN it SHALL include clear, readable release notes
+3. WHEN changelog automation is used THEN it SHALL use simple, standard GitHub Actions without custom scripts
+4. WHEN troubleshooting changelog issues THEN the process SHALL be simple enough to debug and fix manually if needed
+5. WHEN release notes are generated THEN they SHALL be clear and useful for users without requiring special formatting knowledge
+
+### Requirement 10
+
+**User Story:** As a developer, I want all CI workflows to use proven marketplace actions so that we avoid reinventing the wheel and benefit from community-maintained solutions.
+
+#### Acceptance Criteria
+
+1. WHEN any CI functionality is needed THEN the GitHub Actions Marketplace SHALL be checked first for popular, well-maintained actions
+2. WHEN multiple marketplace actions exist for the same purpose THEN preference SHALL be given to actions with high usage, recent updates, and good documentation
+3. WHEN custom scripts or actions are considered THEN they SHALL only be used if no suitable marketplace action exists
+4. WHEN marketplace actions are selected THEN they SHALL be from reputable authors or organizations with a track record of maintenance
+5. WHEN troubleshooting CI issues THEN using popular marketplace actions SHALL provide better community support and documentation

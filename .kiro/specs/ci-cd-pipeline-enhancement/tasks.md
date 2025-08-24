@@ -1,89 +1,102 @@
 # Implementation Plan
 
-## Core CI/CD Pipeline Implementation
+- [ ] 1. Create quality gates workflow using standard marketplace actions
 
-- [ ] 1. Implement comprehensive security workflow consolidation
+  - Create `.github/workflows/quality.yml` with single responsibility for code quality enforcement
+  - Use `dtolnay/rust-toolchain@stable` for reliable Rust toolchain setup
+  - Use `swatinem/rust-cache@v2` for automatic Rust-specific caching
+  - Implement `cargo fmt --check` for formatting enforcement with clear error messages
+  - Implement `cargo clippy -- -D warnings` for zero-tolerance linting policy
+  - Ensure all commands can be reproduced locally by developers
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 6.1, 6.2, 6.3, 6.4, 8.1, 8.3, 10.1, 10.2, 10.4_
 
-  - Integrate CodeQL analysis directly into security.yml workflow (init, autobuild, analyze sequence)
-  - Remove standalone `.github/workflows/codeql.yml` to eliminate duplicate CodeQL runs
-  - Ensure security.yml contains complete security scanning pipeline with proper triggers
-  - Verify all security scans run in single consolidated workflow for better coordination
-  - _Requirements: 3.1, 3.2, 3.3_
+- [ ] 2. Create separate cross-platform testing workflows for Ubuntu
 
-- [ ] 2. Enhance SBOM generation and grype integration with cargo-dist
+  - Create `.github/workflows/test-ubuntu-latest.yml` for ubuntu-latest testing
+  - Create `.github/workflows/test-ubuntu-22.yml` for ubuntu-22.04 testing
+  - Use `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2` in both workflows
+  - Implement standard `cargo test` command for test execution
+  - Ensure platform-specific failures are easy to identify and debug
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.4, 8.4, 10.1, 10.2, 10.4_
 
-  - Modify security.yml to use cargo-auditable and cargo-cyclonedx via cargo-dist for SBOM generation
-  - Replace current syft-based SBOM generation with Rust-native tooling
-  - Configure cargo-cyclonedx/cargo-dist with explicit output flags: `--format cyclonedx-json --output target/cyclonedx-bom.json`
-  - Ensure CycloneDX format SBOMs are generated at target/cyclonedx-bom.json for all components
-  - Configure grype to consume CycloneDX SBOMs as primary input using `grype sbom:target/cyclonedx-bom.json`
-  - Implement grype fallback behavior: attempt SBOM input first, then fall back to image/file/system scanning with logged reason
-  - Add logging for fallback scenarios with clear reason documentation (e.g., "SBOM file not found, falling back to system scan")
-  - Ensure proper failure handling and artifact retention for both SBOM and scan results on failure for debugging
-  - Integrate SBOM generation with existing release workflow for consistency
-  - _Requirements: 3.2, 3.3, 5.3, 5.4_
+- [ ] 3. Create separate cross-platform testing workflows for macOS
 
-- [ ] 3. Implement automated changelog generation with git-cliff
+  - Create `.github/workflows/test-macos-latest.yml` for macos-latest testing
+  - Create `.github/workflows/test-macos-13.yml` for macos-13 testing
+  - Use `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2` in both workflows
+  - Implement standard `cargo test` command for test execution
+  - Ensure platform-specific failures are easy to identify and debug
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.4, 8.4, 10.1, 10.2, 10.4_
 
-  - Add git-cliff integration to release workflow for conventional commit-based changelog generation
-  - Configure git-cliff to parse commit types, scopes, and breaking changes
-  - Ensure changelog maintains chronological order and proper versioning
-  - Integrate changelog automation with cargo-dist workflow
-  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+- [ ] 4. Create separate cross-platform testing workflows for Windows
 
-- [ ] 4. Add missing justfile recipes for CI parity
+  - Create `.github/workflows/test-windows-latest.yml` for windows-latest testing
+  - Create `.github/workflows/test-windows-2022.yml` for windows-2022 testing
+  - Use `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2` in both workflows
+  - Implement standard `cargo test` command for test execution
+  - Ensure platform-specific failures are easy to identify and debug
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.2, 6.4, 8.4, 10.1, 10.2, 10.4_
 
-  - Implement `just setup` recipe for consistent development environment preparation
-  - Add fallback logic in CI workflows when justfile commands are unavailable
-  - Ensure all CI operations have corresponding justfile recipes for local reproduction
-  - Verify CI commands produce same results as local development execution
-  - _Requirements: 6.1, 6.2, 6.3, 6.4_
+- [ ] 5. Create security scanning workflow using standard GitHub Actions
 
-- [ ] 5. Implement proper exit codes and error taxonomy
+  - Create `.github/workflows/security.yml` with dedicated security scanning responsibility
+  - Implement CodeQL analysis using standard `github/codeql-action/init@v3`, `github/codeql-action/autobuild@v3`, and `github/codeql-action/analyze@v3`
+  - Add `cargo audit` dependency scanning with standard GitHub Actions setup
+  - Ensure security results integrate with GitHub Security tab using standard integrations
+  - Implement clear error messages for vulnerability remediation with actionable guidance
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 6.1, 6.2, 6.4, 8.1, 8.2, 10.1, 10.2, 10.4_
 
-  - Replace generic exit(-1) with proper error codes in CI workflows
-  - Implement structured error taxonomy for different failure types
-  - Add platform-specific failure attribution in error messages
-  - Ensure security scan failures provide actionable error messages with specific remediation steps
-  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+- [ ] 6. Create coverage reporting workflow using proven marketplace actions
 
-## Release Automation Enhancement
+  - Create `.github/workflows/coverage.yml` with single responsibility for test coverage
+  - Use `dtolnay/rust-toolchain@stable` for consistent Rust setup
+  - Use `taiki-e/install-action@v2` for installing cargo-llvm-cov coverage tool
+  - Implement standard `cargo llvm-cov --lcov --output-path lcov.info` command
+  - Use `codecov/codecov-action@v4` for coverage upload to Codecov
+  - Ensure developers can reproduce coverage generation locally
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 6.1, 6.2, 6.4, 10.1, 10.2, 10.4_
 
-- [ ] 6. Enhance release workflow with Cosign keyless OIDC signing
+- [ ] 7. Configure cargo-dist for complete release automation
 
-  - Integrate Cosign keyless OIDC authentication for artifact signing
-  - Ensure GitHub OIDC authentication is used instead of personal access tokens
-  - Verify SHA256 checksums are generated and included with all release artifacts
-  - Implement Rust-native binary packaging with taiki-e/upload-rust-binary-action
-  - _Requirements: 5.2, 5.5, 5.6, 5.7_
+  - Create or update `cargo-dist.toml` configuration file for release automation
+  - Configure cross-platform targets: x86_64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin, x86_64-pc-windows-msvc
+  - Enable attestations and SBOM generation via cargo-dist configuration
+  - Configure installers: shell, powershell, homebrew, msi
+  - Set pr-run-mode to "plan" for release planning in pull requests
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.7, 10.1, 10.2, 10.4_
 
-- [ ] 7. Optimize cargo-dist configuration for cross-platform distribution
+- [ ] 8. Set up git-cliff for automated changelog generation
 
-  - Review and optimize cargo-dist.toml for all target platforms (Ubuntu 22.04, macOS 13, Windows 2022)
-  - Ensure consistent build features across release workflow and cargo-dist
-  - Verify installer generation (shell, powershell, homebrew, MSI) works correctly
-  - Test cross-platform artifact generation and signing integration
-  - _Requirements: 5.1, 5.2, 5.4_
+  - Install and configure git-cliff for conventional commit parsing
+  - Create `.cliff.toml` configuration file for changelog formatting
+  - Integrate git-cliff with cargo-dist release workflow for automatic changelog updates
+  - Configure support for commit types, scopes, and breaking changes
+  - Ensure chronological ordering and proper versioning in changelog entries
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.4_
 
-## Documentation and Cleanup
+- [ ] 9. Let cargo-dist generate the release workflow automatically
 
-- [ ] 8. Update documentation to reflect new CI capabilities
+  - Run `cargo dist init` to generate the release workflow automatically
+  - Verify that `.github/workflows/release.yml` is generated by cargo-dist with attestation support
+  - Ensure the generated workflow handles cross-platform builds, SBOM generation, and artifact signing
+  - Validate that cargo-dist manages checksums, signatures, and GitHub release publication
+  - Document that the release workflow should not be manually edited
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 10.1, 10.2, 10.4_
 
-  - Update README.md to document new CI/CD pipeline features and requirements
-  - Add documentation for local CI reproduction using justfile recipes
-  - Document security scanning integration and SBOM generation process
-  - Create migration guide for developers adapting to new pipeline standards
-  - _Requirements: 7.5_
+- [ ] 10. Clean up and organize workflow files for simplicity
 
-- [ ] 9. Validate and test complete CI/CD pipeline integration
+  - Remove any existing complex or deprecated workflow files
+  - Ensure final workflow structure has single-responsibility workflows: quality.yml, test-\*.yml, security.yml, coverage.yml, release.yml
+  - Verify each workflow is independent and can be debugged separately
+  - Ensure all workflows use well-maintained marketplace actions without custom scripts
+  - Validate that workflow organization follows simple, focused design principles
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 8.4, 10.1, 10.2, 10.3, 10.4_
 
-  - Test end-to-end pipeline from code push to release artifact generation
-  - Verify cross-platform testing matrix works correctly on all target platforms
-  - Test security scanning integration and failure scenarios
-  - Validate grype SBOM consumption (`grype sbom:target/cyclonedx-bom.json`) and fallback behavior
-  - Test CycloneDX SBOM generation via cargo-dist with explicit `--format cyclonedx-json --output target/cyclonedx-bom.json` flags
-  - Verify fallback logging when CycloneDX SBOM is unavailable or corrupted (e.g., "SBOM file not found, falling back to system scan")
-  - Test artifact retention for both successful and failed security scans (retain both SBOM and scan artifacts on failure for debugging)
-  - Validate coverage reporting and Codecov integration functionality
-  - Test local CI reproduction using act and justfile recipes
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 3.3, 4.1, 4.2, 4.3, 4.4, 4.5_
+- [ ] 11. Update documentation to reflect simple CI approach
+
+  - Update README.md to document the simple, focused CI/CD pipeline approach
+  - Document the use of standard marketplace actions and local reproduction steps
+  - Add troubleshooting guides for each workflow type (quality, testing, security, coverage, release)
+  - Document the cargo-dist release automation and git-cliff changelog generation
+  - Ensure documentation emphasizes simplicity and standard tooling approach
+  - _Requirements: 7.5, 8.1, 8.2, 8.3, 8.4, 8.5, 10.1, 10.2, 10.4_
