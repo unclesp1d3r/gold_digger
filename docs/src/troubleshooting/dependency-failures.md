@@ -22,7 +22,7 @@ This guide provides comprehensive solutions for dependency conflicts, version is
 error: failed to select a version for `some-crate`
     required by package `gold_digger v0.2.5`
     versions that meet the requirements `^1.0.0` are: 1.2.0, 1.1.0, 1.0.0
-    
+
     the package `other-crate` depends on `some-crate`, with features: `feature1` but `some-crate` does not have these features.
 ```
 
@@ -46,7 +46,7 @@ error: failed to select a version for `some-crate`
    ```toml
    # In Cargo.toml
    [dependencies]
-   some-crate = "=1.2.0"       # Exact version
+   some-crate = "~1.2"         # Compatible patch versions (use =1.2.0 only for security/compatibility exceptions)
    other-crate = ">=1.0, <2.0" # Version range
    ```
 
@@ -169,9 +169,16 @@ error: Package does not have feature `missing_feature`
 2. **Add Missing Features:**
 
    ```toml
-   # In Cargo.toml
+   # In Cargo.toml - native TLS configuration
    [dependencies]
-   mysql = { version = "24.0", features = ["native-tls", "rustls-tls"] }
+   mysql = { version = "24.0", features = ["native-tls"] }
+   serde = { version = "1.0", features = ["derive"] }
+   ```
+
+   ```toml
+   # In Cargo.toml - rustls configuration
+   [dependencies]
+   mysql = { version = "24.0", features = ["rustls-tls"] }
    serde = { version = "1.0", features = ["derive"] }
    ```
 
@@ -274,7 +281,13 @@ error: unable to get packages from source
 
 3. **Alternative Registry:**
 
+   Alternative registries must be declared in `.cargo/config.toml` before use:
+
    ```toml
+   # In .cargo/config.toml
+   [registries.alternative-registry]
+   index = "https://alternative-registry.example.com/git/index"
+
    # In Cargo.toml, use alternative registry
    [dependencies]
    some-crate = { version = "1.0", registry = "alternative-registry" }
@@ -519,6 +532,32 @@ serialization = ["serde"]
 
 ## Dependency Security and Maintenance
 
+### Prerequisites
+
+Before using the cargo-based tools in this section, install the required tools:
+
+```bash
+# Install required cargo tools
+cargo install cargo-audit
+cargo install cargo-outdated
+cargo install cargo-deny
+cargo install cargo-license
+cargo install cargo-machete
+
+# Optional tools for dependency analysis
+cargo install cargo-deps
+cargo install depgraph
+```
+
+**Initialize cargo-deny configuration:**
+
+```bash
+# Create and customize deny.toml configuration
+cargo deny init
+```
+
+Edit the generated `deny.toml` to customize license policies, vulnerability checks, and dependency restrictions for your project.
+
 ### Security Considerations
 
 1. **Audit Dependencies:**
@@ -534,7 +573,7 @@ serialization = ["serde"]
 2. **License Compliance:**
 
    ```bash
-   # Check licenses
+   # Check licenses (requires deny.toml configuration)
    cargo deny check licenses
 
    # Show all licenses
@@ -562,7 +601,7 @@ serialization = ["serde"]
    # Use minimal features
    cargo build --no-default-features --features "minimal,required"
 
-   # Check unused dependencies
+   # Check unused dependencies (optional tool)
    cargo machete
    ```
 
@@ -644,9 +683,9 @@ serialization = ["serde"]
 1. **Version Pinning:**
 
    ```toml
-   # Pin critical dependencies
+   # Use flexible version constraints for normal dependencies
    [dependencies]
-   mysql = "=24.0.0"  # Exact version for stability
+   mysql = "~24.0"    # Compatible patch versions (use =24.0.0 only for security/compatibility exceptions)
    serde = "~1.0.150" # Compatible patch versions
    ```
 

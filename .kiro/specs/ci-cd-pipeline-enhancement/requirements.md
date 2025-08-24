@@ -67,7 +67,8 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 4. WHEN artifacts are generated THEN they SHALL include CycloneDX SBOMs generated with cargo-auditable and cargo-cyclonedx via cargo-dist
 5. WHEN checksums are created THEN they SHALL use SHA256 and be included with release artifacts
 6. WHEN authentication is required THEN the pipeline SHALL use GitHub OIDC authentication instead of personal access tokens
-7. WHEN binaries are packaged THEN they SHALL use Rust-native tooling (taiki-e/upload-rust-binary-action)
+7. WHEN release workflows execute THEN they SHALL include a lightweight PAT guard step that runs before any network/publish actions, inspects environment variables and secrets for PAT-like tokens (e.g., presence of GITHUB_PAT or secrets matching common PAT prefixes like "ghp\_", "gho\_", "ghu\_" or the legacy 40-char PAT pattern), fails the job with a clear message if any are found, exits non-zero on detection, logs which variable failed the check (without printing the secret), and runs in all release jobs to enforce "no PAT" policy
+8. WHEN binaries are packaged THEN they SHALL use Rust-native tooling (taiki-e/upload-rust-binary-action)
 
 ### Requirement 6
 
@@ -115,3 +116,6 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 3. WHEN changelog is generated THEN it SHALL include commit types, scopes, and breaking changes
 4. WHEN release workflow runs THEN it SHALL use git-cliff for consistent changelog formatting
 5. WHEN changelog updates occur THEN they SHALL maintain chronological order and proper versioning
+6. WHEN git-cliff executes THEN it SHALL use the repository's cliff.toml configuration file for consistent formatting rules
+7. WHEN CI validates changelog THEN it SHALL include a check that fails if CHANGELOG.md is not updated or committed in the expected format
+8. WHEN release workflow updates changelog THEN it SHALL make atomic updates via pull requests or annotated tags so CI can validate and prevent unformatted/uncommitted changelog changes

@@ -467,6 +467,38 @@ just act-ci-dry
 just act-ci
 ```
 
+### Environment Configuration
+
+Create a `.env.local` file in the project root to store tokens and secrets for local testing:
+
+```bash
+# .env.local
+GITHUB_TOKEN=ghp_your_github_token_here
+CODECOV_TOKEN=your_codecov_token_here
+DATABASE_URL=mysql://user:pass@localhost:3306/testdb
+```
+
+**Important**: Never commit `.env.local` to version control. It's already added to `.gitignore`.
+
+### Running Workflows with Environment Files
+
+```bash
+# Test CI workflow with environment file
+act --env-file .env.local
+
+# Test specific job
+act -j validate --env-file .env.local
+
+# Test with secrets
+act --env-file .env.local -s GITHUB_TOKEN=ghp_xxx -s CODECOV_TOKEN=xxx
+
+# Dry run (simulation only)
+act --dryrun --env-file .env.local
+
+# Test release workflow
+act workflow_dispatch --env-file .env.local -s GITHUB_TOKEN=ghp_xxx --input tag=v0.test.1
+```
+
 ### Workflow Testing
 
 ```bash

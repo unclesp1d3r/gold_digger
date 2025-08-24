@@ -24,6 +24,7 @@
 
 - [Common Issues](troubleshooting/README.md)
 - [Connection Problems](troubleshooting/connection-issues.md)
+- [Type Safety](troubleshooting/type-safety.md)
 - [Type Errors](troubleshooting/type-errors.md)
 - [Performance](troubleshooting/performance.md)
 

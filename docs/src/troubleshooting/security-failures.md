@@ -35,6 +35,12 @@ error: 1 vulnerability found!
 
 1. **Update Dependencies:**
 
+   **Prerequisite:** Install cargo-outdated if not already installed:
+
+   ```bash
+   cargo install cargo-outdated
+   ```
+
    ```bash
    # Update all dependencies to latest patch versions
    cargo update
@@ -126,14 +132,24 @@ error: failed to fetch advisory database
    grype db update
    ```
 
+   **Security Note:** The above install command uses an unpinned script URL. For production environments and CI reproducibility, pin to a specific grype release and verify checksums/signatures where available:
+
+   ```bash
+   # Preferred: Pin to specific release (example: v0.78.0)
+   # curl -sSfL https://raw.githubusercontent.com/anchore/grype/v0.78.0/install.sh | sh -s -- -b /usr/local/bin
+
+   # Verify checksum if available (check grype releases for SHA256)
+   # echo "expected_checksum  grype" | sha256sum -c
+   ```
+
 2. **Run Grype Scan:**
 
    ```bash
    # Scan current directory
    grype .
 
-   # Fail on critical/high vulnerabilities
-   grype . --fail-on critical --fail-on high
+   # Fail on high vulnerabilities (includes critical)
+   grype . --fail-on high
 
    # Output SARIF format for GitHub
    grype . -o sarif > grype-results.sarif
@@ -189,7 +205,8 @@ error: license `AGPL-3.0` is not allowed by policy
    # Search for alternatives
    cargo search alternative-crate
 
-   # Check crate licenses
+   # Check crate licenses (requires cargo-license tool)
+   cargo install cargo-license
    cargo license
    ```
 

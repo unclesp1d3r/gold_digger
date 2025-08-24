@@ -37,6 +37,8 @@ gold_digger \
 | `--quiet`             | -     | -                    | Suppress non-error output                              |
 | `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
 | `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+| `--help`              | `-h`  | -                    | Print help information                                 |
+| `--version`           | `-V`  | -                    | Print version information                              |
 
 ### Subcommands
 
@@ -168,14 +170,23 @@ gold_digger --db-url "mysql://user:pass@host:3306/db" \
 
 # Example output:
 {
-  "database_url": "mysql://user:***@host:3306/db",
+  "database_url": "***REDACTED***",
   "query": "SELECT 1",
-  "output_file": "test.json",
+  "query_file": null,
+  "output": "test.json",
   "format": "json",
   "verbose": 0,
   "quiet": false,
   "pretty": false,
-  "allow_empty": false
+  "allow_empty": false,
+  "features": {
+    "ssl": true,
+    "ssl_rustls": false,
+    "json": true,
+    "csv": true,
+    "verbose": true,
+    "additional_mysql_types": true
+  }
 }
 ```
 

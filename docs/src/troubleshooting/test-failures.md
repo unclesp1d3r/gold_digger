@@ -78,14 +78,15 @@ Error: Database connection failed: Access denied for user 'test'@'localhost'
        use super::*;
 
        fn setup_test_db() -> String {
-           // Use SQLite in-memory for tests
-           "sqlite::memory:".to_string()
+           // Use testcontainers for real MySQL/MariaDB testing
+           // For unit tests, prefer mocks/stubs for fast execution
+           "mysql://test_user:test_pass@localhost:3306/test_db".to_string()
        }
 
        #[test]
        fn test_database_query() {
            let db_url = setup_test_db();
-           // Test with in-memory database
+           // Test with real MySQL/MariaDB container
        }
    }
    ```
@@ -322,7 +323,7 @@ predicates = "3.0"
    #[test]
    fn test_cli_with_env_vars() {
        let mut cmd = Command::cargo_bin("gold_digger").unwrap();
-       cmd.env("DATABASE_URL", "sqlite::memory:")
+       cmd.env("DATABASE_URL", "mysql://test:password@127.0.0.1:3306/test_db")
            .env("DATABASE_QUERY", "SELECT 1")
            .env("OUTPUT_FILE", "/tmp/test.json")
            .assert()
@@ -404,13 +405,30 @@ Error: Test timed out after 60 seconds
 
 **Solutions:**
 
-1. **Increase Test Timeout:**
+1. **Configure Test Timeout with Nextest:**
+
+   ```toml
+   # In nextest.toml
+   [profile.default]
+   global-defaults.timeout = "120s"
+   ```
+
+   ```bash
+   # Run tests with nextest
+   cargo nextest run
+   ```
+
+   **Alternative: Use tokio::time::timeout for async tests:**
 
    ```rust
-   #[test]
-   #[timeout(std::time::Duration::from_secs(120))]
-   fn long_running_test() {
-       // Test that might take longer
+   #[tokio::test]
+   async fn long_running_async_test() {
+       let result = tokio::time::timeout(
+           std::time::Duration::from_secs(120),
+           async_test_function()
+       ).await;
+
+       assert!(result.is_ok());
    }
    ```
 
@@ -500,12 +518,45 @@ Error: Stack overflow
    }
 
    #[test]
-   fn test_output_format() {
-       let output = generate_output();
-       let normalized = normalize_line_endings(&output);
-       assert_eq!(normalized, expected_output());
+   fn test_cli_output_with_assert_cmd() {
+       use assert_cmd::Command;
+       use predicates::prelude::*;
+
+       let mut cmd = Command::cargo_bin("gold_digger").unwrap();
+       let output = cmd.arg("--query").arg("SELECT 1 as test").output().unwrap();
+
+       let stdout = String::from_utf8_lossy(&output.stdout);
+       let normalized_stdout = normalize_line_endings(&stdout);
+
+       // Option 1: Compare against normalized expected string
+       let expected = "test\n1\n";
+       assert_eq!(normalized_stdout, expected);
+
+       // Option 2: Use predicates with normalized output
+       let predicate = predicates::str::contains("test");
+       assert!(predicate.eval(&normalized_stdout));
+   }
+
+   #[test]
+   fn test_cli_output_with_predicates() {
+       use assert_cmd::Command;
+       use predicates::prelude::*;
+
+       let mut cmd = Command::cargo_bin("gold_digger").unwrap();
+       cmd.arg("--query")
+           .arg("SELECT 'hello' as message")
+           .assert()
+           .success()
+           .stdout(predicates::str::contains("hello"));
+
+       // For exact matching, normalize both expected and actual
+       let expected = normalize_line_endings("message\nhello\n");
+       let actual = normalize_line_endings(&String::from_utf8_lossy(&cmd.output().unwrap().stdout));
+       assert_eq!(actual, expected);
    }
    ```
+
+   **Note:** When testing CLI output, always normalize line endings on both the expected and actual output strings, or use predicates that handle line ending differences. This ensures tests pass consistently across Windows (CRLF), Unix (LF), and macOS (historically CR) platforms.
 
 ### 2. macOS-Specific Issues
 

@@ -186,10 +186,10 @@ error: conflicting requirements for `dependency`
 1. **OpenSSL Issues:**
 
    ```bash
-   # Use rustls instead of native-tls
+   # Recommended: Use rustls for pure Rust solution (no OpenSSL dependency)
    cargo build --no-default-features --features "json csv ssl-rustls"
 
-   # Or install vcpkg and set environment
+   # Alternative: Install vcpkg and OpenSSL (requires additional setup)
    set VCPKG_ROOT=C:\vcpkg
    vcpkg install openssl:x64-windows-static
    ```
@@ -238,23 +238,30 @@ error: conflicting requirements for `dependency`
 2. **OpenSSL Linking:**
 
    ```bash
-   # Use Homebrew OpenSSL
-   brew install openssl
-   export OPENSSL_DIR=$(brew --prefix openssl)
+   # Use Homebrew OpenSSL (modern systems use openssl@3)
+   brew install openssl@3
+   export OPENSSL_DIR=$(brew --prefix openssl@3)
 
    # Or use rustls for pure Rust solution
    cargo build --no-default-features --features "json csv ssl-rustls"
    ```
 
+   **Note:** Modern Homebrew installations use `openssl@3` as the default formula. If `brew --prefix openssl` fails, use `openssl@3` instead.
+
 3. **Apple Silicon Issues:**
 
    ```bash
-   # Build universal binary
-   cargo build --target universal2-apple-darwin
-
-   # Or build for specific architecture
+   # Build for specific architecture
    cargo build --target aarch64-apple-darwin
    cargo build --target x86_64-apple-darwin
+
+   # Combine into universal binary using lipo
+   lipo -create -output gold_digger_universal \
+     target/aarch64-apple-darwin/release/gold_digger \
+     target/x86_64-apple-darwin/release/gold_digger
+
+   # Or use cargo-dist to produce universal packages automatically
+   cargo dist build
    ```
 
 ### Linux Build Problems
@@ -417,12 +424,14 @@ error: could not find native static library `library_name`
 2. **Use Parallel Compilation:**
 
    ```bash
-   # Set number of parallel jobs
-   export CARGO_BUILD_JOBS=4
-
-   # Or use all available cores
+   # Use all available cores
    cargo build -j $(nproc)
+
+   # Or specify a specific number of jobs
+   cargo build -j 4
    ```
+
+   You can persist this setting by adding `build.jobs = N` under the `[build]` table in `.cargo/config.toml`.
 
 3. **Enable Incremental Compilation:**
 

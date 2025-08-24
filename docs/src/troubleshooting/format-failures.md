@@ -162,11 +162,11 @@ error: import order violation
 2. **Remove Unused Imports:**
 
    ```bash
-   # Let rustfmt remove unused imports
-   cargo fmt
-
-   # Or use clippy to find unused imports
+   # Use clippy to detect unused imports
    cargo clippy -- -W unused-imports
+
+   # Or use rustc to see warnings
+   cargo check -D warnings
    ```
 
 3. **Configure Import Settings:**
@@ -691,7 +691,7 @@ set colorcolumn=100
     run: cargo fmt --check
 
   - name: Run clippy
-    run: cargo clippy -- -D warnings
+    run: cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery
 
   - name: Run pre-commit hooks
     run: pre-commit run --all-files
@@ -725,6 +725,10 @@ just format
 
 echo "🔍 Running clippy..."
 just lint
+
+# For comprehensive linting matching CI (optional)
+echo "🔍 Running comprehensive clippy..."
+cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery
 
 echo "🧪 Running tests..."
 just test
@@ -762,7 +766,31 @@ cp .github/rustfmt.toml rustfmt.toml
 
 # Verify configuration
 cargo fmt --check
-cargo clippy -- -D warnings
+cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery
+```
+
+### Clippy Lint Group Configuration
+
+**CI vs Local Differences:**
+
+- **Local (just lint):** `cargo clippy -- -D warnings` (standard warnings only)
+- **CI (recommended):** `cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery` (comprehensive)
+
+**Handling Noisy Pedantic/Nursery Lints:**
+
+If pedantic or nursery lints are too noisy, selectively allowlist them in a `.clippy.toml` file:
+
+```toml
+# .clippy.toml
+# Allow specific pedantic lints that are too noisy
+allow = [
+  "clippy::missing_docs_in_private_items", # Allow missing docs in private items
+  "clippy::too_many_arguments",            # Allow functions with many args
+  "clippy::cast_precision_loss",           # Allow precision loss in casts
+]
+
+# Or disable entire groups if needed
+# allow = ["clippy::pedantic", "clippy::nursery"]
 ```
 
 ### Performance Issues
@@ -777,6 +805,23 @@ git diff --name-only | grep '\.rs$' | xargs cargo fmt --
 
 # Use parallel clippy
 cargo clippy --all-targets --jobs $(nproc)
+```
+
+### Clippy Lint Group Issues
+
+**Problem:** CI fails with pedantic/nursery lints that don't fail locally
+
+**Solution:**
+
+```bash
+# Run the same clippy configuration locally as CI
+cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery
+
+# If specific lints are too noisy, add them to .clippy.toml
+echo 'allow = ["clippy::specific_lint_name"]' >> .clippy.toml
+
+# Or run with specific lint groups disabled
+cargo clippy -- -D warnings -W clippy::pedantic  # Only pedantic, no nursery
 ```
 
 ## Prevention Strategies
