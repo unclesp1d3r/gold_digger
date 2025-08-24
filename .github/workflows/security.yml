@@ -28,8 +28,12 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
+      - name: Install security tools
+        run: |
+          cargo binstall cargo-audit cargo-deny cargo-outdated --no-confirm
+
       - name: Run security checks
         run: |
           cargo audit
           cargo deny check
-          cargo binstall cargo-outdated --no-confirm && cargo outdated
+          cargo outdated
