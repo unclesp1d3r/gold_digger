@@ -55,6 +55,7 @@ mod tls_tests {
     /// Test basic TLS connection establishment with testcontainers MySQL
     /// This test requires Docker to be available and may be skipped in CI environments
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_basic_tls_connection_establishment() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -76,6 +77,7 @@ mod tls_tests {
     }
     /// Test TLS connection with valid certificate configuration
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_with_valid_certificate() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -103,6 +105,7 @@ mod tls_tests {
 
     /// Test TLS connection failure with invalid certificate
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_with_invalid_certificate() -> Result<()> {
         let (_temp_dir, cert_path) = create_temp_cert_file(INVALID_CERT_CONTENT)?;
 
@@ -123,6 +126,7 @@ mod tls_tests {
 
     /// Test TLS connection with nonexistent certificate file
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_with_nonexistent_certificate() -> Result<()> {
         let nonexistent_path = PathBuf::from("/nonexistent/path/to/cert.pem");
 
@@ -151,6 +155,7 @@ mod tls_tests {
 
     /// Test TLS connection with self-signed certificate acceptance
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_with_self_signed_certificate() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -174,6 +179,7 @@ mod tls_tests {
     }
     /// Test programmatic TLS configuration via SslOpts
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_programmatic_tls_configuration() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -247,6 +253,7 @@ mod tls_tests {
 
     /// Test TLS connection without TLS configuration (should use defaults)
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_without_config() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -298,6 +305,7 @@ mod tls_tests {
 
     /// Test custom CA certificate configuration
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_custom_ca_certificate_configuration() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -329,6 +337,7 @@ mod tls_tests {
 
     /// Test TLS connection with different MySQL authentication scenarios
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_with_authentication_scenarios() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -357,6 +366,7 @@ mod tls_tests {
 
     /// Test TLS connection behavior with different database names
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_with_different_databases() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -453,6 +463,7 @@ mod tls_validation_tests {
 
     /// Test TLS connection with MySQL container using SSL/TLS
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_mysql_container_with_tls() -> Result<()> {
         // Create MySQL container with default configuration
         let mysql_container = Mysql::default().start()?;
@@ -536,6 +547,7 @@ mod tls_performance_tests {
 
     /// Test multiple concurrent TLS connections
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_multiple_tls_connections() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -568,6 +580,7 @@ mod tls_performance_tests {
 
     /// Test TLS connection reuse and pooling
     #[test]
+    #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
     fn test_tls_connection_pooling() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
