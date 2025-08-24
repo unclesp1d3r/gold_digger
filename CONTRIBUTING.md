@@ -165,6 +165,14 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/uncles
 
 #### Development Environment Setup
 
+##### Prerequisites
+
+- Rust 1.70+ with `rustfmt` and `clippy` components
+- [just](https://github.com/casey/just) task runner
+- [pre-commit](https://pre-commit.com/) (optional but recommended)
+
+##### Setup
+
 1. **Clone the repository**:
 
    ```bash
@@ -211,6 +219,114 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/uncles
    # Run all quality checks
    just ci-check
    ```
+
+##### Available Development Commands
+
+Use `just` to run common development tasks:
+
+```bash
+# Code Quality
+just fmt-check      # Check code formatting
+just lint           # Run clippy with zero warnings tolerance
+just test-nextest   # Run tests with nextest
+just coverage-llvm  # Generate coverage report
+just cover          # Alias for coverage-llvm (CI naming consistency)
+just ci-check       # Run all CI checks locally
+
+# Security Scanning
+just audit          # Run cargo audit for security vulnerabilities
+just deny           # Check licenses and security policies
+just security       # Comprehensive security scan (audit + deny + grype)
+just sbom           # Generate Software Bill of Materials (SBOM)
+
+# Building
+just build-release  # Build optimized release binary
+just build-rustls   # Build with pure Rust TLS
+just build-all      # Build all feature combinations
+
+# Local Testing
+just release-dry    # Simulate release process locally
+just act-setup      # Set up act for GitHub Actions testing
+just act-ci-dry     # Test CI workflow locally (requires act)
+just act-release-dry v1.0.0  # Test release workflow locally
+
+# Development
+just setup          # Set up development environment
+just docs-serve     # Serve documentation locally
+just validate-deps  # Validate TLS dependency tree
+```
+
+See `just help` for a complete list of available commands, including GitHub Actions testing with `act`.
+
+##### Distribution Testing
+
+Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for cross-platform distribution:
+
+```bash
+# Install cargo-dist
+just install-tools
+
+# Test distribution configuration
+just dist-check
+
+# Plan a release (dry-run)
+just dist-plan
+
+# Build distribution artifacts locally
+just dist-build
+
+# Generate installers
+just dist-generate
+```
+
+##### Local Release Testing
+
+Before creating an actual release, you can simulate the entire release process locally:
+
+```bash
+# Test the complete release pipeline locally
+just release-dry
+
+# Test GitHub Actions workflows locally (requires act)
+just act-setup      # Set up act and pull Docker images
+just act-ci-dry     # Test CI workflow (dry-run)
+just act-release-dry v1.0.0  # Test release workflow (dry-run)
+
+# Test cargo-dist workflow
+just dist-plan  # Test automated versioning
+```
+
+The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.
+
+##### Testing Recommendations
+
+- Use [criterion](https://crates.io/crates/criterion) for benchmarking
+- Use [insta](https://crates.io/crates/insta) for snapshot testing
+- Run `cargo-llvm-cov` for coverage analysis
+
+##### Pre-commit Hooks
+
+Gold Digger uses pre-commit hooks to maintain code quality. The configuration includes:
+
+- **Code formatting**: Rust (`cargo fmt`), YAML (`prettier`), Markdown (`mdformat`)
+- **Linting**: Rust (`cargo clippy`), Shell scripts (`shellcheck`), GitHub Actions (`actionlint`)
+- **Security**: Dependency auditing (`cargo audit`), commit message validation (`commitizen`)
+
+Install and run pre-commit hooks:
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install hooks for this repository
+pre-commit install
+
+# Run hooks on all files (optional)
+pre-commit run --all-files
+
+# Run hooks automatically on commit
+git commit -m "your commit message"
+```
 
 #### Code Quality Standards
 
@@ -262,7 +378,7 @@ Gold Digger follows strict code style guidelines enforced through automated tool
 
 ### Commit Messages
 
-Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) format, enforced by pre-commit hooks:
+Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) format for automated versioning and release management, enforced by pre-commit hooks:
 
 ```bash
 <type>[optional scope]: <description>
@@ -274,22 +390,61 @@ Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) fo
 
 #### Types
 
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies
+- **ci**: Changes to CI configuration files and scripts
+- **chore**: Other changes that don't modify src or test files
 
 #### Examples
 
 ```bash
-feat(csv): add support for custom delimiters
-fix(json): handle null values in nested objects
-docs(api): update configuration examples
-test(integration): add TLS connection tests
-chore(deps): update mysql crate to v24.0
+# Feature
+git commit -m "feat: add new output format support"
+
+# Bug fix
+git commit -m "fix: resolve connection timeout issue"
+
+# Breaking change (note the !)
+git commit -m "feat!: migrate to new CLI interface"
+
+# With scope
+git commit -m "feat(cli): add --version flag"
+
+# With body
+git commit -m "feat: add TLS support
+
+This adds comprehensive TLS support for secure database connections.
+Includes both native-tls and rustls implementations."
+```
+
+#### Automated Releases
+
+cargo-dist automatically:
+
+- Analyzes conventional commits to determine version bumps
+- Creates release PRs with updated CHANGELOG.md
+- Generates semantic version tags (patch/minor/major)
+- Builds cross-platform artifacts and installers
+- Creates GitHub releases with signed artifacts
+- Integrates with the existing release workflow for artifact generation
+
+You can test the cargo-dist workflow locally using the justfile:
+
+```bash
+# Test cargo-dist workflow (dry-run)
+just dist-plan
+
+# Build cargo-dist artifacts locally
+just dist-build
+
+# Generate installers
+just dist-generate
 ```
 
 #### Pre-commit Validation

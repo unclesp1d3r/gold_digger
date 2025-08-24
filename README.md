@@ -9,7 +9,7 @@ Gold Digger is a Rust-based query tool that automates the routine collection of 
 [![GitHub](https://img.shields.io/github/license/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/issues)
 [![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)](https://github.com/unclesp1d3r/gold_digger/stargazers)
-[![Maintenance](https://img.shields.io/maintenance/yes/2025)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/maintenance/yes/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
 
 ## Description
 
@@ -50,6 +50,7 @@ brew install unclesp1d3r/tap/gold-digger
 
 # MSI installer (Windows)
 # Download from releases page: gold_digger-x86_64-pc-windows-msvc.msi
+# Note: The MSI installer does not include license dialogs. The MIT license is available in the LICENSE file and project documentation.
 ```
 
 ### Build from Source
@@ -69,7 +70,7 @@ Gold Digger supports secure database connections through two TLS implementations
 - **Default (native-tls)**: Uses platform-native TLS libraries without OpenSSL dependencies
   - **Windows**: SChannel (built-in Windows TLS)
   - **macOS**: SecureTransport (built-in macOS TLS)
-  - **Linux**: System TLS via native-tls (no OpenSSL dependency)
+  - **Linux**: System TLS via native-tls (may use OpenSSL on some distributions)
 - **Alternative (rustls)**: Pure Rust TLS implementation for environments requiring it
 
 ```bash
@@ -85,7 +86,7 @@ cargo build --release --no-default-features --features "json csv additional_mysq
 
 #### Breaking Change: Vendored OpenSSL Feature Removed
 
-**v0.2.7+**: The `vendored` feature flag has been removed. This change affects how TLS is handled:
+**v0.2.7 (to be released)**: The `vendored` feature flag has been removed. This change affects how TLS is handled:
 
 - **Before**: `cargo build --features vendored` (static OpenSSL linking)
 - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
@@ -94,187 +95,6 @@ cargo build --release --no-default-features --features "json csv additional_mysq
 > The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
 
 **Migration Required**: See [TLS.md](TLS.md) for detailed TLS configuration and migration guidance.
-
-## Development Setup
-
-For developers wanting to contribute to Gold Digger:
-
-### Prerequisites
-
-- Rust 1.70+ with `rustfmt` and `clippy` components
-- [just](https://github.com/casey/just) task runner
-- [pre-commit](https://pre-commit.com/) (optional but recommended)
-
-### Setup
-
-```bash
-# Clone and enter directory
-git clone git@github.com:unclesp1d3r/gold_digger.git
-cd gold_digger
-
-# Set up development environment
-just setup
-
-# Install pre-commit hooks (optional but recommended)
-pre-commit install
-
-# Run development checks
-just ci-check
-```
-
-### Distribution Testing
-
-Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for cross-platform distribution:
-
-```bash
-# Install cargo-dist
-just install-tools
-
-# Test distribution configuration
-just dist-check
-
-# Plan a release (dry-run)
-just dist-plan
-
-# Build distribution artifacts locally
-just dist-build
-
-# Generate installers
-just dist-generate
-```
-
-### Pre-commit Hooks
-
-Gold Digger uses pre-commit hooks to maintain code quality. The configuration includes:
-
-- **Code formatting**: Rust (`cargo fmt`), YAML (`prettier`), Markdown (`mdformat`)
-- **Linting**: Rust (`cargo clippy`), Shell scripts (`shellcheck`), GitHub Actions (`actionlint`)
-- **Security**: Dependency auditing (`cargo audit`), commit message validation (`commitizen`)
-
-### Conventional Commits
-
-Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and release management. All commit messages should follow this format:
-
-```text
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-#### Commit Types
-
-- **feat**: A new feature
-- **fix**: A bug fix
-- **docs**: Documentation only changes
-- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc)
-- **refactor**: A code change that neither fixes a bug nor adds a feature
-- **perf**: A code change that improves performance
-- **test**: Adding missing tests or correcting existing tests
-- **build**: Changes that affect the build system or external dependencies
-- **ci**: Changes to CI configuration files and scripts
-- **chore**: Other changes that don't modify src or test files
-
-#### Examples
-
-```bash
-# Feature
-git commit -m "feat: add new output format support"
-
-# Bug fix
-git commit -m "fix: resolve connection timeout issue"
-
-# Breaking change (note the !)
-git commit -m "feat!: migrate to new CLI interface"
-
-# With scope
-git commit -m "feat(cli): add --version flag"
-
-# With body
-git commit -m "feat: add TLS support
-
-This adds comprehensive TLS support for secure database connections.
-Includes both native-tls and rustls implementations."
-```
-
-#### Automated Releases
-
-cargo-dist automatically:
-
-- Analyzes conventional commits to determine version bumps
-- Creates release PRs with updated CHANGELOG.md
-- Generates semantic version tags (patch/minor/major)
-- Builds cross-platform artifacts and installers
-- Creates GitHub releases with signed artifacts
-- Integrates with the existing release workflow for artifact generation
-
-You can test the cargo-dist workflow locally using the justfile:
-
-```bash
-# Test cargo-dist workflow (dry-run)
-just dist-plan
-
-# Build cargo-dist artifacts locally
-just dist-build
-
-# Generate installers
-just dist-generate
-```
-
-Install and run pre-commit hooks:
-
-```bash
-# Install pre-commit (if not already installed)
-pip install pre-commit
-
-# Install hooks for this repository
-pre-commit install
-
-# Run hooks on all files (optional)
-pre-commit run --all-files
-
-# Run hooks automatically on commit
-git commit -m "your commit message"
-```
-
-### Available Commands
-
-Use `just` to run common development tasks:
-
-```bash
-# Code Quality
-just fmt-check      # Check code formatting
-just lint           # Run clippy with zero warnings tolerance
-just test-nextest   # Run tests with nextest
-just coverage-llvm  # Generate coverage report
-just cover          # Alias for coverage-llvm (CI naming consistency)
-just ci-check       # Run all CI checks locally
-
-# Security Scanning
-just audit          # Run cargo audit for security vulnerabilities
-just deny           # Check licenses and security policies
-just security       # Comprehensive security scan (audit + deny + grype)
-just sbom           # Generate Software Bill of Materials (SBOM)
-
-# Building
-just build-release  # Build optimized release binary
-just build-rustls   # Build with pure Rust TLS
-just build-all      # Build all feature combinations
-
-# Local Testing
-just release-dry    # Simulate release process locally
-just act-setup      # Set up act for GitHub Actions testing
-just act-ci-dry     # Test CI workflow locally (requires act)
-just act-release-dry v1.0.0  # Test release workflow locally
-
-# Development
-just setup          # Set up development environment
-just docs-serve     # Serve documentation locally
-just validate-deps  # Validate TLS dependency tree
-```
-
-See `just help` for a complete list of available commands, including GitHub Actions testing with `act`.
 
 ## Usage (CLI-first with env fallback)
 
@@ -347,55 +167,23 @@ gold_digger
 just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
 ```
 
-## CI/CD Policy
+## Security & Quality Assurance
 
-Gold Digger follows strict quality gates and security practices:
-
-### Quality Gates
-
-- **Formatting:** Code must pass `cargo fmt --check` (zero tolerance)
-- **Linting:** Code must pass `cargo clippy -- -D warnings` (zero tolerance)
-- **Testing:** All tests must pass on Ubuntu 22.04, macOS 13, and Windows 2022
-- **Coverage:** Code coverage tracked via Codecov
-
-### Security Scanning
-
-- **CodeQL:** Static analysis for security vulnerabilities
-- **SBOM Generation:** Software Bill of Materials for all releases
-- **Vulnerability Scanning:** Grype scanning of dependencies
-- **Supply Chain Security:** `cargo-audit` and `cargo-deny` checks
+Gold Digger maintains high security and quality standards for all releases:
 
 ### Release Security
 
-- **Keyless Signing:** All release artifacts signed with Cosign using OIDC
-- **SLSA Attestation:** Level 3 provenance for supply chain integrity
-- **Multi-Platform:** Automated builds for Linux, macOS, and Windows
-- **Comprehensive Artifacts:** Binaries, SBOMs, signatures, and attestations
+- **Signed Artifacts:** All release binaries are cryptographically signed with Cosign using keyless OIDC
+- **Supply Chain Security:** SLSA Level 3 provenance attestation for build integrity
+- **Vulnerability Scanning:** Automated security scanning of all dependencies
+- **Software Bill of Materials (SBOM):** Complete dependency information included with each release
 
-### Local Release Testing
+### Quality Standards
 
-Before creating an actual release, you can simulate the entire release process locally:
-
-```bash
-# Test the complete release pipeline locally
-just release-dry
-
-# Test GitHub Actions workflows locally (requires act)
-just act-setup      # Set up act and pull Docker images
-just act-ci-dry     # Test CI workflow (dry-run)
-just act-release-dry v1.0.0  # Test release workflow (dry-run)
-
-# Test cargo-dist workflow
-just dist-plan  # Test automated versioning
-```
-
-The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.
-
-### Testing Recommendations
-
-- Use [criterion](https://crates.io/crates/criterion) for benchmarking
-- Use [insta](https://crates.io/crates/insta) for snapshot testing
-- Run `cargo-llvm-cov` for coverage analysis
+- **Cross-Platform Testing:** All releases tested on Linux, macOS, and Windows
+- **Code Coverage:** Comprehensive test coverage tracked and maintained
+- **Static Analysis:** Automated security analysis with CodeQL
+- **Zero-Warning Policy:** All code passes strict linting standards
 
 ## Authors
 
