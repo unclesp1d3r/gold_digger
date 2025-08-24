@@ -53,14 +53,16 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install just
-        uses: extractions/setup-just@v3
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests (no SSL)
-        run: cargo test --no-default-features --features "json csv additional_mysql_types verbose"
+        run: cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose"
 
       - name: Build release (no SSL)
         run: cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
@@ -91,16 +93,21 @@ jobs:
         with:
           components: clippy
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests and build
         run: |
           if [ "${{ matrix.features }}" = "none" ]; then
-            cargo test --no-default-features --features "json csv additional_mysql_types verbose"
+            cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose"
             cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
           else
-            cargo test --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
+            cargo nextest run --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
             cargo build --release --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
           fi
 
