@@ -83,6 +83,12 @@ Cargo.lock
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,macos,visualstudiocode,rider
 
+# SBOM files - generated during CI/release, not committed to source
+sbom.json.xml
+*.cdx.xml
+cyclonedx*.xml
+target/sbom*
+
 # Coverage files
 lcov.info
 coverage/
