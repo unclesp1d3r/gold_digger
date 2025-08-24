@@ -222,26 +222,7 @@ gold_digger --query "SELECT id, name FROM users LIMIT 3" --output compact.json
 gold_digger --query "SELECT id, name FROM users LIMIT 3" --output pretty.json --pretty
 ```
 
-**Output comparison:**
-
-Compact:
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "name": "Alice"
-    },
-    {
-      "id": 2,
-      "name": "Bob"
-    }
-  ]
-}
-```
-
-Pretty:
+**Example:**
 
 ```json
 {

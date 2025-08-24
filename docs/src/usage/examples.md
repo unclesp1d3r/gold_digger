@@ -59,7 +59,7 @@ Create a query file:
 
 ```sql
 -- analytics_query.sql
-SELECT 
+SELECT
     p.category,
     COUNT(*) as product_count,
     AVG(p.price) as avg_price,
@@ -136,6 +136,8 @@ gold_digger --query "SELECT id, name FROM users LIMIT 5" --output users.tsv
 
 ```bash
 # Exit with code 0 even if no results (default exits with code 1)
+# The --allow-empty flag changes the command's behavior by permitting empty result sets
+# and creating an empty output file instead of exiting with error code 1
 gold_digger \
   --allow-empty \
   --db-url "mysql://user:pass@localhost:3306/mydb" \
@@ -196,7 +198,7 @@ gold_digger \
 # Handles NaN, Infinity, and other special values
 gold_digger \
   --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT id, name, 
+  --query "SELECT id, name,
            CASE WHEN price = 0 THEN 'NaN' ELSE price END as price
            FROM products" \
   --output products_special.json
@@ -278,8 +280,8 @@ gold_digger \
 # Use indexes and specific columns for better performance
 gold_digger \
   --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT id, name, email FROM users 
-           WHERE created_at >= '2023-01-01' 
+  --query "SELECT id, name, email FROM users
+           WHERE created_at >= '2023-01-01'
            AND status = 'active'
            ORDER BY id" \
   --output recent_active_users.json

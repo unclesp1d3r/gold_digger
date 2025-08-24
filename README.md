@@ -161,7 +161,7 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
 gold_digger -v --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT COUNT(*) as total FROM users" --output stats.json
 
-# Allow empty results (exit code 0 instead of 1)
+# Exit successfully on empty result sets
 gold_digger --allow-empty --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT * FROM users WHERE id = 999999" --output empty.json
 

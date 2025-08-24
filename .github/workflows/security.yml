@@ -1,10 +1,9 @@
 name: Security
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -28,13 +27,16 @@ jobs:
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-audit,cargo-deny,cargo-outdated
+          tool: cargo-audit,cargo-deny,cargo-outdated,cargo-dist
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+      - name: Run cargo audit
+        run: cargo audit
 
-      - name: Run security checks
-        run: |
-          cargo audit
-          cargo deny check
-          cargo outdated
+      - name: Run cargo deny check
+        run: cargo deny check
+
+      - name: Run cargo outdated
+        run: cargo outdated --depth=1 --exit-code=1
+
+      - name: Run cargo dist check
+        run: cargo dist check

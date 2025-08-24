@@ -67,20 +67,23 @@ Gold Digger provides comprehensive TLS error handling with actionable guidance:
 ### Certificate Validation Errors
 
 ```text
-Certificate validation failed: unable to get local issuer certificate. 
-Consider using --tls-skip-verify for testing (not recommended for production)
+Certificate validation failed: unable to get local issuer certificate.
 ```
 
 **Solutions:**
 
-- Ensure CA certificates are properly installed
+- Ensure CA certificates are properly installed in your system trust store
 - Verify certificate chain completeness
 - Check certificate expiration dates
+- For testing only: use a local proxy or trusted self-signed CA in development environments
+- Verify your system's CA certificate installation and trust store configuration
+
+**Note**: Gold Digger automatically handles TLS configuration based on your build features. For current configuration capabilities and limitations, see the [Current Limitations](#current-limitations) section below.
 
 ### TLS Handshake Failures
 
 ```text
-TLS handshake failed: protocol version mismatch. 
+TLS handshake failed: protocol version mismatch.
 Check server TLS configuration and certificate validity
 ```
 

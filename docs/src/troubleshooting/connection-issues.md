@@ -128,8 +128,8 @@ cargo build --release --features ssl
 **Error Message:**
 
 ```text
-Certificate validation failed: unable to get local issuer certificate. 
-Consider using --tls-skip-verify for testing (not recommended for production)
+Certificate validation failed: unable to get local issuer certificate.
+Check certificate chain, expiration, and CA configuration
 ```
 
 **Causes & Solutions:**
@@ -138,13 +138,14 @@ Consider using --tls-skip-verify for testing (not recommended for production)
 - **Self-signed certificates**: Add CA to system trust store
 - **Expired certificates**: Renew server certificates
 - **Certificate chain issues**: Verify complete certificate chain
+- **Testing environments**: Use `ssl-mode=preferred` or `ssl-mode=disabled` in connection URL (not recommended for production)
 
 ### TLS Handshake Failed (Exit Code 3)
 
 **Error Message:**
 
 ```text
-TLS handshake failed: protocol version mismatch. 
+TLS handshake failed: protocol version mismatch.
 Check server TLS configuration and certificate validity
 ```
 
