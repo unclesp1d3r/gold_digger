@@ -33,6 +33,9 @@ jobs:
       - name: Install SARIF tools
         run: cargo +stable install clippy-sarif sarif-fmt
 
+      - name: Add cargo bin to PATH
+        run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
       - name: Clippy to SARIF (no warnings tolerated)
         uses: ./.github/actions/run-clippy
         with:
@@ -41,14 +44,14 @@ jobs:
           sarif-prefix: "clippy"
 
       - name: Upload clippy SARIF (ssl-rustls)
-        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+        if: (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository) && hashFiles('clippy-ssl-rustls.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: clippy-ssl-rustls.sarif
           category: clippy-ssl-rustls
 
       - name: Upload clippy SARIF (no-TLS)
-        if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+        if: (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository) && hashFiles('clippy-notls.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: clippy-notls.sarif

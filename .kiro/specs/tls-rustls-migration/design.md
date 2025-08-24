@@ -32,12 +32,12 @@ graph TD
     B -->|--insecure-skip-hostname-verify| D[Skip Hostname Validation]
     B -->|--allow-invalid-certificate| E[Skip All Validation]
     B -->|No flags| F[Platform Certificate Store]
-    
+
     C --> G[rustls + Custom CA]
     D --> H[rustls + Skip Hostname]
     E --> I[rustls + Accept Invalid]
     F --> J[rustls + Native Certs]
-    
+
     G --> K[MySQL Connection]
     H --> K
     I --> K
@@ -52,11 +52,11 @@ sequenceDiagram
     participant TLS as TLS Config
     participant Rustls as Rustls Builder
     participant MySQL as MySQL Pool
-    
+
     CLI->>TLS: Parse TLS flags
     TLS->>TLS: Validate mutual exclusion
     TLS->>Rustls: Configure certificate validation
-    
+
     alt Custom CA File
         Rustls->>Rustls: Load custom CA certificates
         Rustls->>Rustls: Enable hostname + time validation
@@ -69,7 +69,7 @@ sequenceDiagram
         Rustls->>Rustls: Use platform CA store
         Rustls->>Rustls: Enable all validation
     end
-    
+
     Rustls->>MySQL: Create TLS connector
     MySQL->>MySQL: Establish connection
 ```
@@ -266,19 +266,24 @@ impl TlsConfig {
 ```rust
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use std::sync::Arc;
+use webpki::{EndEntityCert, Time, TrustAnchor};
 
 struct SkipHostnameVerifier {
-    inner: Arc<dyn ServerCertVerifier>,
+    roots: Vec<TrustAnchor<'static>>,
 }
 
 impl SkipHostnameVerifier {
-    fn new() -> Self {
-        Self {
-            inner: rustls::crypto::ring::default_provider()
-                .signature_verification_algorithms
-                .supported_schemes()[0]
-                .verifier(),
+    fn new() -> Result<Self, rustls::Error> {
+        // Load system root certificates
+        let mut roots = Vec::new();
+        for cert in rustls_native_certs::load_native_certs()? {
+            if let Ok(ta) = TrustAnchor::from_der(&cert.0) {
+                roots.push(ta);
+            }
         }
+
+        Ok(Self { roots })
     }
 }
 
@@ -287,18 +292,45 @@ impl ServerCertVerifier for SkipHostnameVerifier {
         &self,
         end_entity: &CertificateDer<'_>,
         intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>, // Ignore server name
+        _server_name: &ServerName<'_>, // Ignore server name for hostname verification
         ocsp_response: &[u8],
         now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        // Verify certificate chain and validity, but skip hostname verification
-        self.inner.verify_server_cert(
-            end_entity,
-            intermediates,
-            &ServerName::try_from("ignored.example.com")?, // Use dummy hostname
-            ocsp_response,
-            now,
+        // Convert rustls time to webpki time
+        let time = Time::from_secs_since_unix_epoch(now.as_secs());
+
+        // Parse end entity certificate
+        let cert = EndEntityCert::try_from(end_entity.as_ref())
+            .map_err(|e| rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding))?;
+
+        // Build certificate chain
+        let mut chain = Vec::new();
+        for intermediate in intermediates {
+            let intermediate_cert = webpki::Cert::from_der(intermediate.as_ref())
+                .map_err(|e| rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding))?;
+            chain.push(intermediate_cert);
+        }
+
+        // Verify certificate chain and validity period using webpki
+        // This performs signature verification, chain validation, and time validation
+        // but explicitly skips DNS-ID/name validation
+        cert.verify_for_usage(
+            &[&self.roots],
+            &chain,
+            time,
+            webpki::KeyUsage::server_auth(),
+            None, // No DNS names to verify against
+            None, // No IP addresses to verify against
         )
+        .map_err(|e| rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding))?;
+
+        // Handle OCSP response if present
+        if !ocsp_response.is_empty() {
+            // OCSP validation would go here if needed
+            // For now, we just accept the response as-is
+        }
+
+        Ok(ServerCertVerified::assertion())
     }
 }
 ```
@@ -642,7 +674,7 @@ fn test_backward_compatibility() {
 
 ### Certificate Issues
 - If you encounter hostname verification errors, use `--insecure-skip-hostname-verify`
-- If you have self-signed certificates, use `--allow-invalid-certificate` 
+- If you have self-signed certificates, use `--allow-invalid-certificate`
 - For internal CAs, use `--tls-ca-file /path/to/ca.pem`
 
 ### Build Changes

@@ -137,7 +137,7 @@ match mysql_value {
 cargo nextest run                    # Preferred parallel testing
 cargo test                          # Standard test runner
 
-# Coverage analysis  
+# Coverage analysis
 cargo llvm-cov --workspace --lcov    # CI-compatible LCOV format
 cargo llvm-cov --html               # Local HTML reports
 ```
@@ -154,7 +154,7 @@ rustup component add llvm-tools-preview rust-src
 
 - Non-standard exit codes (`exit(-1)` becomes 255)
 - Pattern matching bug: `Some(&_)` should be `Some(_)`
-- HashMap vs BTreeMap inconsistency in JSON output
+- BTreeMap chosen for JSON output to ensure deterministic key ordering in serialized output
 
 ### Architecture Limitations
 

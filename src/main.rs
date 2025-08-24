@@ -95,7 +95,7 @@ fn main() {
         Ok(result) => result,
         Err(e) => {
             // Structured error matching on mysql::Error variants
-            let (context, should_show_details) = match &e {
+            let (context, _should_show_details) = match &e {
                 mysql::Error::MySqlError(mysql_err) => {
                     // Map known MySQL error codes to contextual messages
                     let context = match mysql_err.code {
@@ -125,7 +125,7 @@ fn main() {
             let error_message = {
                 #[cfg(feature = "verbose")]
                 {
-                    if cli.verbose > 0 && should_show_details {
+                    if cli.verbose > 0 && _should_show_details {
                         format!("{}: {}", context, redact_sql_error(&e.to_string()))
                     } else {
                         context.to_string()

@@ -1,6 +1,9 @@
 # Gold Digger Justfile
 # Task runner for the MySQL/MariaDB query tool
 
+# Use PowerShell for Windows targets
+set windows-shell := ["powershell.exe", "-c"]
+
 # Default recipe (runs linting)
 default: lint
 
@@ -260,7 +263,7 @@ docs:
 
 # Run with example environment variables
 run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
-    cargo run --release
+    OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
 
 # Run with safe example (casting to avoid panics)
 run-safe:
@@ -533,18 +536,18 @@ release-dry:
 [windows]
 release-dry:
     just build-rustls
-    BINARY_PATH="target/release/gold_digger.exe"
-    if not exist "%BINARY_PATH%" (
-    echo "Binary not found at %BINARY_PATH%"
-    exit 1
-    )
-    if command -v syft >/dev/null 2>&1; then
-    syft packages . -o cyclonedx-json=sbom-test.json
-    else
-    echo {"bomFormat":"CycloneDX","specVersion":"1.5","components":[]} > sbom-test.json
-    fi
-    certutil -hashfile "%BINARY_PATH%" SHA256 > checksums-test.txt
-    certutil -hashfile sbom-test.json SHA256 >> checksums-test.txt
+    $BINARY_PATH = "target\release\gold_digger.exe"
+    if (-not (Test-Path $BINARY_PATH)) {
+        Write-Error "Binary not found at $BINARY_PATH"
+        exit 1
+    }
+    if (Get-Command syft -ErrorAction SilentlyContinue) {
+        syft packages . -o cyclonedx-json=sbom-test.json
+    } else {
+        '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' | Out-File -FilePath sbom-test.json -Encoding UTF8
+    }
+    (Get-FileHash -Path $BINARY_PATH -Algorithm SHA256).Hash | Out-File -FilePath checksums-test.txt
+    (Get-FileHash -Path sbom-test.json -Algorithm SHA256).Hash | Add-Content -Path checksums-test.txt
 
 # =============================================================================
 # HELP & DOCUMENTATION

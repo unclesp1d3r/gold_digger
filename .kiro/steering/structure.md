@@ -14,7 +14,7 @@ src/
 ├── lib.rs      # Public API, shared utilities (rows_to_strings, extensions)
 ├── cli.rs      # Clap CLI definitions and argument parsing
 ├── csv.rs      # CSV output format implementation
-├── json.rs     # JSON output format implementation  
+├── json.rs     # JSON output format implementation
 └── tab.rs      # TSV output format implementation
 ```
 
@@ -137,7 +137,7 @@ let data_row: Vec<String> = row.columns_ref()
     .map(|col| from_value::<String>(row[col.name_str().as_ref()]))
     .collect();
 
-// PREFER - safe iteration with explicit NULL handling  
+// PREFER - safe iteration with explicit NULL handling
 let data_row: Vec<String> = row.as_ref()
     .iter()
     .map(|value| match value {

@@ -32,11 +32,8 @@ alwaysApply: true
 from_value::<String>(row[column.name_str().as_ref()])
 
 // ✅ ALWAYS - safe NULL handling
-match mysql_value {
-    mysql::Value::NULL => match output_format {
-        OutputFormat::Json => serde_json::Value::Null,
-        _ => "".to_string()
-    },
+match &row[column.name_str().as_ref()] {
+    mysql::Value::NULL => "".to_string(),
     val => from_value_opt::<String>(val)
         .unwrap_or_else(|_| format!("{:?}", val))
 }

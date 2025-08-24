@@ -55,17 +55,31 @@ pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>
 
 ```rust
 // ❌ NEVER - causes panics on NULL/non-string types
-from_value::<String>(row[column.name_str().as_ref()])
+// from_value::<String>(row[column.name_str().as_ref()])
+// Use mysql_value_to_string() for CSV/TSV or mysql_value_to_json() for JSON instead
 
-// ✅ ALWAYS - safe NULL handling
-match mysql_value {
-    mysql::Value::NULL => match output_format {
-        OutputFormat::Json => serde_json::Value::Null,
-        _ => "".to_string()
-    },
-    val => from_value_opt::<String>(val)
-        .unwrap_or_else(|_| format!("{:?}", val))
+// ✅ ALWAYS - safe NULL handling with dedicated helpers
+
+/// Converts MySQL value to String for CSV/TSV output
+fn mysql_value_to_string(mysql_value: &mysql::Value) -> String {
+    match mysql_value {
+        mysql::Value::NULL => "".to_string(),
+        val => from_value_opt::<String>(val.clone()).unwrap_or_else(|_| format!("{:?}", val)),
+    }
 }
+
+/// Converts MySQL value to serde_json::Value for JSON output
+fn mysql_value_to_json(mysql_value: &mysql::Value) -> serde_json::Value {
+    match mysql_value {
+        mysql::Value::NULL => serde_json::Value::Null,
+        val => from_value_opt::<serde_json::Value>(val.clone())
+            .unwrap_or_else(|_| serde_json::Value::String(format!("{:?}", val))),
+    }
+}
+
+// Usage per output format:
+// - CSV/TSV: mysql_value_to_string(&mysql_value)
+// - JSON: mysql_value_to_json(&mysql_value)
 ```
 
 ### Security (NEVER VIOLATE)
