@@ -43,6 +43,38 @@ runs:
         echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo ""
 
+        # Capture and display the actual error from the previous step
+        echo -e "${YELLOW}🔍 ACTUAL ERROR OUTPUT:${NC}"
+        echo ""
+
+        # Try to capture error output from various sources
+        if [[ -f "/tmp/clippy_error.log" ]]; then
+          echo -e "${RED}Clippy error output:${NC}"
+          cat /tmp/clippy_error.log
+          echo ""
+        elif [[ -f "/tmp/ci_error.log" ]]; then
+          echo -e "${RED}Error captured from previous step:${NC}"
+          cat /tmp/ci_error.log
+          echo ""
+        fi
+
+        # Look for recent error output in the build logs
+        if [[ -d "target" ]]; then
+          echo -e "${RED}Recent build errors:${NC}"
+          find target -name "*.log" -mtime -1 2>/dev/null | head -3 | while read -r logfile; do
+            echo "--- Errors in $logfile ---"
+            grep -i "error\|warning\|fail" "$logfile" 2>/dev/null | tail -10 || true
+            echo ""
+          done
+        fi
+
+        # Show the last few lines of stderr if available
+        if [[ -f "/tmp/stderr.log" ]]; then
+          echo -e "${RED}Recent stderr output:${NC}"
+          tail -20 /tmp/stderr.log 2>/dev/null || true
+          echo ""
+        fi
+
         # Get failure category details
         case "$CATEGORY" in
           "build")
