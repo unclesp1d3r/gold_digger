@@ -34,6 +34,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests and build
+        shell: bash
         run: |
           if [ "${{ matrix.features }}" = "none" ]; then
             cargo test --no-default-features --features "json csv additional_mysql_types verbose"
