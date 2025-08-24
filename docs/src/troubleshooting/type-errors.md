@@ -10,7 +10,7 @@ Solutions for data type conversion and NULL handling issues.
 
 **Error Message**:
 
-```rust
+```console
 thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value'
 ```
 
