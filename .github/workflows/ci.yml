@@ -18,7 +18,7 @@ jobs:
         features: [ssl, ssl-rustls, none]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -28,11 +28,10 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v3
 
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install cargo-dist
-        run: cargo binstall cargo-dist --no-confirm
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny,cargo-outdated,cargo-dist
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2

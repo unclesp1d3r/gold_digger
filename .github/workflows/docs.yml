@@ -37,10 +37,10 @@ jobs:
           use-toc: true
           use-admonish: true
 
-      - name: Install cargo-binstall and plugins
+      - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@main
 
-      - name: Install additional plugins
+      - name: Install mdbook plugins
         run: cargo binstall mdbook-tabs mdbook-i18n-helpers mdbook-alerts mdbook-yml-header --no-confirm
 
       - name: Build rustdoc
