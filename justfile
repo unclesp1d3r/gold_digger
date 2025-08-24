@@ -103,22 +103,14 @@ build-release:
 build-rustls:
     cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
-# Build for musl targets (requires ssl-rustls for compatibility)
-[unix]
-build-musl:
-    rustup target add x86_64-unknown-linux-musl
-    cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
-[windows]
-build-musl:
-    @echo "musl builds not supported on Windows"
 
 # Build minimal version (no default features)
 build-minimal:
     cargo build --release --no-default-features --features "csv,json"
 
 # Build all feature combinations
-build-all: build build-release build-rustls build-musl build-minimal
+build-all: build build-release build-rustls build-minimal
 
 # Install locally from workspace
 install:
