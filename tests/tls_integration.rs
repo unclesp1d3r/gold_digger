@@ -12,9 +12,9 @@ use std::path::PathBuf;
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use tempfile::TempDir;
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
-use testcontainers::runners::SyncRunner;
-#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use testcontainers_modules::mysql::Mysql;
+#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
+use testcontainers_modules::testcontainers::runners::SyncRunner;
 
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 /// Helper function to create a temporary certificate file for testing
@@ -55,7 +55,6 @@ mod tls_tests {
     /// Test basic TLS connection establishment with testcontainers MySQL
     /// This test requires Docker to be available and may be skipped in CI environments
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_basic_tls_connection_establishment() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -77,7 +76,6 @@ mod tls_tests {
     }
     /// Test TLS connection with valid certificate configuration
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_connection_with_valid_certificate() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -153,7 +151,6 @@ mod tls_tests {
 
     /// Test TLS connection with self-signed certificate acceptance
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_connection_with_self_signed_certificate() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -177,7 +174,6 @@ mod tls_tests {
     }
     /// Test programmatic TLS configuration via SslOpts
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_programmatic_tls_configuration() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -251,7 +247,6 @@ mod tls_tests {
 
     /// Test TLS connection without TLS configuration (should use defaults)
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_connection_without_config() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -303,7 +298,6 @@ mod tls_tests {
 
     /// Test custom CA certificate configuration
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_custom_ca_certificate_configuration() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -335,7 +329,6 @@ mod tls_tests {
 
     /// Test TLS connection with different MySQL authentication scenarios
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_with_authentication_scenarios() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -364,7 +357,6 @@ mod tls_tests {
 
     /// Test TLS connection behavior with different database names
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_with_different_databases() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -461,7 +453,6 @@ mod tls_validation_tests {
 
     /// Test TLS connection with MySQL container using SSL/TLS
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_mysql_container_with_tls() -> Result<()> {
         // Create MySQL container with default configuration
         let mysql_container = Mysql::default().start()?;
@@ -545,7 +536,6 @@ mod tls_performance_tests {
 
     /// Test multiple concurrent TLS connections
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_multiple_tls_connections() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
@@ -578,7 +568,6 @@ mod tls_performance_tests {
 
     /// Test TLS connection reuse and pooling
     #[test]
-    #[ignore = "requires Docker and MySQL image"]
     fn test_tls_connection_pooling() -> Result<()> {
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;

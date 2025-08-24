@@ -2,6 +2,7 @@
 name = "gold_digger"
 version = "0.2.6"
 edition = "2024"
+rust-version = "1.85.0"
 build = "build.rs"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
@@ -45,7 +46,7 @@ thiserror = "2.0.16"
 url = "2.5.7"
 
 [dev-dependencies]
-testcontainers-modules = { version = "0.12.1", features = ["mysql"] }
+testcontainers-modules = { version = "0.12.1", features = ["mysql","blocking"] }
 tempfile = "3.21.0"
 
 [profile.release]

@@ -1,14 +1,12 @@
 use gold_digger::rows_to_strings;
 use mysql::prelude::Queryable;
 use std::time::Instant;
-use testcontainers::runners::SyncRunner;
-use testcontainers_modules::mysql::Mysql;
+use testcontainers_modules::{mysql::Mysql, testcontainers::runners::SyncRunner};
 
 /// Test type conversion safety with real MySQL data types
 /// This test verifies that the rows_to_strings function handles all MySQL data types safely
 /// without panicking on NULL values or non-string types
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_type_conversion_safety_with_real_database() {
     // Start a MySQL container for testing
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
@@ -125,7 +123,6 @@ fn test_type_conversion_safety_with_real_database() {
 
 /// Test edge cases with special characters and unicode
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_special_characters_and_unicode() {
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
@@ -190,7 +187,6 @@ fn test_special_characters_and_unicode() {
 
 /// Test large numbers and precision
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_large_numbers_and_precision() {
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
