@@ -772,4 +772,44 @@ mod tls_unit_tests {
 
         Ok(())
     }
+
+    /// Test musl target compatibility - ensures ssl-rustls is used for musl targets
+    #[test]
+    fn test_musl_target_compatibility() {
+        // This test verifies that the build script correctly handles musl targets
+        // It should be compiled with ssl-rustls features when targeting musl
+
+        #[cfg(target_os = "linux")]
+        {
+            // Check if we're on a musl target
+            if cfg!(target_env = "musl") {
+                // On musl targets, ssl-rustls should be available
+                #[cfg(feature = "ssl-rustls")]
+                {
+                    // This should compile successfully
+                    assert!(true, "ssl-rustls feature is correctly enabled for musl target");
+                }
+
+                #[cfg(not(feature = "ssl-rustls"))]
+                {
+                    panic!("ssl-rustls feature must be enabled for musl targets");
+                }
+
+                // On musl targets, native-tls should NOT be used
+                #[cfg(feature = "ssl")]
+                {
+                    if !cfg!(feature = "ssl-rustls") {
+                        panic!("musl targets must use ssl-rustls, not native-tls");
+                    }
+                }
+            }
+        }
+
+        // For non-musl targets, either feature should work
+        #[cfg(not(target_env = "musl"))]
+        {
+            // This test passes for non-musl targets
+            // No assertion needed - the test passes by reaching this point
+        }
+    }
 }

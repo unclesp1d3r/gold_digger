@@ -40,7 +40,21 @@ impl<W: Write> FormatWriter for JsonWriter<W> {
         // Create ordered map for deterministic output
         let mut obj = BTreeMap::new();
         for (col, val) in self.columns.iter().zip(row.iter()) {
-            obj.insert(col.clone(), val.clone());
+            // Convert string values to appropriate JSON types when possible
+            let json_value = if val.is_empty() {
+                serde_json::Value::Null
+            } else if let Ok(num) = val.parse::<i64>() {
+                serde_json::Value::Number(num.into())
+            } else if let Ok(num) = val.parse::<f64>() {
+                serde_json::Number::from_f64(num)
+                    .map(serde_json::Value::Number)
+                    .unwrap_or_else(|| serde_json::Value::String(val.clone()))
+            } else if val == "true" || val == "false" {
+                serde_json::Value::Bool(val == "true")
+            } else {
+                serde_json::Value::String(val.clone())
+            };
+            obj.insert(col.clone(), json_value);
         }
 
         if self.pretty {

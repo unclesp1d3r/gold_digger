@@ -64,9 +64,24 @@ fn main() {
         println!("Connecting to database...");
     }
 
-    let result: Vec<mysql::Row> = match conn.query(database_query) {
+    let result: Vec<mysql::Row> = match conn.query(&database_query) {
         Ok(result) => result,
-        Err(e) => exit_with_error(anyhow::anyhow!("Query execution failed: {}", e), None),
+        Err(e) => {
+            // Provide more specific error context based on error type
+            let error_msg = e.to_string().to_lowercase();
+            let context = if error_msg.contains("syntax") {
+                "SQL syntax error in query"
+            } else if error_msg.contains("table") && error_msg.contains("exist") {
+                "Table does not exist"
+            } else if error_msg.contains("column") {
+                "Column does not exist or is ambiguous"
+            } else if error_msg.contains("access denied") {
+                "Insufficient privileges for query execution"
+            } else {
+                "Query execution failed"
+            };
+            exit_with_error(anyhow::anyhow!("{}: {}", context, e), Some("Database query failed"));
+        },
     };
 
     if cli.verbose > 0 && !cli.quiet {
@@ -219,24 +234,44 @@ fn generate_completion(shell: Shell) {
     }
 }
 
-/// Dumps current configuration as JSON
+/// Dumps current configuration as JSON with proper credential redaction
 fn dump_configuration(cli: &Cli) -> Result<()> {
     use serde_json::json;
 
+    // Safely redact query content that might contain sensitive data
+    let query_from_env = env::var("DATABASE_QUERY").ok();
+    let redacted_query = cli
+        .query
+        .as_ref()
+        .or(query_from_env.as_ref())
+        .map(|q| {
+            // Redact potential passwords in SQL queries
+            if q.to_lowercase().contains("password") || q.to_lowercase().contains("identified by") {
+                "***QUERY_WITH_CREDENTIALS_REDACTED***".to_string()
+            } else {
+                q.clone()
+            }
+        })
+        .unwrap_or_default();
+
     let config = json!({
-        "database_url": if cli.db_url.is_some() {
-            "***REDACTED***".to_string()
-        } else {
-            env::var("DATABASE_URL").map(|_| "***REDACTED***".to_string()).unwrap_or("null".to_string())
-        },
-        "query": cli.query.as_ref().unwrap_or(&env::var("DATABASE_QUERY").unwrap_or_default()),
+        "database_url": "***REDACTED***", // Always redact database URLs
+        "query": redacted_query,
         "query_file": cli.query_file.as_ref().map(|p| p.display().to_string()),
         "output": cli.output.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| env::var("OUTPUT_FILE").unwrap_or_default()),
         "format": cli.format.as_ref().map(|f| f.as_str()),
         "verbose": cli.verbose,
         "quiet": cli.quiet,
         "pretty": cli.pretty,
-        "allow_empty": cli.allow_empty
+        "allow_empty": cli.allow_empty,
+        "features": {
+            "ssl": cfg!(feature = "ssl"),
+            "ssl_rustls": cfg!(feature = "ssl-rustls"),
+            "json": cfg!(feature = "json"),
+            "csv": cfg!(feature = "csv"),
+            "verbose": cfg!(feature = "verbose"),
+            "additional_mysql_types": cfg!(feature = "additional_mysql_types")
+        }
     });
 
     println!("{}", serde_json::to_string_pretty(&config)?);

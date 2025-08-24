@@ -97,3 +97,6 @@ node_modules/
 
 # Generated documentation
 docs/book/
+
+# Environment files for local development
+.env.local

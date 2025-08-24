@@ -20,12 +20,14 @@ where
 {
     let mut wtr = WriterBuilder::new()
         .quote_style(QuoteStyle::Necessary)
+        .buffer_capacity(8 * 1024) // 8KB buffer for better performance
         .from_writer(output);
 
     for row in rows {
         wtr.write_record(row)?;
     }
 
+    wtr.flush()?; // Ensure all data is written
     Ok(())
 }
 
