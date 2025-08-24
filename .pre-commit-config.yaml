@@ -15,7 +15,6 @@ repos:
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-xml
-        exclude: ^legacy/
       - id: mixed-line-ending
         args: [--fix=auto]
       - id: check-vcs-permalinks
@@ -49,6 +48,7 @@ repos:
       - id: prettier
         types: [yaml]
         args: [--prose-wrap=never]
+        exclude: ^.github/workflows/release.yml$
 
   # 🧪 GitHub Actions validation
   - repo: https://github.com/rhysd/actionlint
@@ -56,13 +56,14 @@ repos:
     hooks:
       - id: actionlint
         files: ".github/workflows/"
+        exclude: ^.github/workflows/release.yml$
 
   # 🐚 Shell script validation
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:
       - id: shellcheck
-        exclude: ^legacy/
+        exclude: ^.github/workflows/release.yml$
 
   # 📝 Commit message linting (commit-msg only, not blocking push)
   - repo: https://github.com/commitizen-tools/commitizen
