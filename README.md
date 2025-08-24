@@ -1,6 +1,6 @@
 # Gold Digger
 
-Gold Digger is a Rust-based query tool that automates the routine collection of database queries for MySQL and MariaDB systems. This tool is designed to run headless, making it ideal for use in scheduled or routine tasks.
+Gold Digger is a Rust-based MySQL/MariaDB query tool that exports results to structured data files (CSV, JSON, TSV). Designed for headless operation and automation workflows, it provides CLI-first configuration with environment variable fallbacks.
 
 [![CI](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml)
@@ -11,11 +11,16 @@ Gold Digger is a Rust-based query tool that automates the routine collection of 
 [![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)](https://github.com/unclesp1d3r/gold_digger/stargazers)
 [![Maintenance](https://img.shields.io/maintenance/yes/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
 
-## Description
+## Features
 
-This tool is configurable using environmental variables, allowing you to set up your database connection details and other parameters without modifying the source code. It accepts parameters such as output file path, database connection URL, and SQL query string, making it easy to use in a variety of settings and on different systems.
-
-Overall, Gold Digger is a practical solution for managing and analyzing data in MySQL and MariaDB environments. With its headless design and configurable options, it's well-suited for regular use in any database administration workflow.
+- **CLI-first design** with environment variable fallbacks
+- **Multiple output formats**: CSV (RFC 4180), JSON, TSV
+- **Safe type handling**: Graceful NULL and type conversion without panics
+- **Secure TLS support**: Platform-native or pure Rust TLS implementations
+- **Comprehensive error handling**: Structured exit codes and actionable error messages
+- **Shell completion**: Support for Bash, Zsh, Fish, and PowerShell
+- **Configuration debugging**: JSON config dump with credential redaction
+- **Cross-platform**: Linux, macOS, and Windows support
 
 ### Why "Gold Digger"?
 
@@ -63,40 +68,65 @@ cd gold_digger
 cargo install --path .
 ```
 
+### Build Options
+
+Gold Digger supports multiple build configurations for different environments:
+
+```bash
+# Default build with native TLS (recommended)
+cargo build --release
+
+# Pure Rust TLS implementation (for containerized/static deployments)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+
+# Minimal build (no TLS, basic features only)
+cargo build --release --no-default-features --features "json csv"
+
+# Build for musl targets (requires ssl-rustls for compatibility)
+cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+```
+
 ### TLS Support
 
 Gold Digger supports secure database connections through two TLS implementations:
 
-- **Default (native-tls)**: Uses platform-native TLS libraries without OpenSSL dependencies
+- **Default (`ssl` feature)**: Platform-native TLS libraries
   - **Windows**: SChannel (built-in Windows TLS)
   - **macOS**: SecureTransport (built-in macOS TLS)
-  - **Linux**: System TLS via native-tls (may use OpenSSL on some distributions)
-- **Alternative (rustls)**: Pure Rust TLS implementation for environments requiring it
+  - **Linux**: System TLS via native-tls (commonly OpenSSL)
+- **Alternative (`ssl-rustls` feature)**: Pure Rust TLS implementation
 
-```bash
-# Build with default native TLS (recommended)
-cargo build --release
+#### TLS Configuration
 
-# Build with pure Rust TLS implementation
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+TLS must be configured programmatically via the mysql crate's `SslOpts` - URL-based SSL parameters are not supported:
 
-# Build without TLS support
-cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
+```rust
+use mysql::{OptsBuilder, SslOpts};
+
+let ssl_opts = SslOpts::default()
+    .with_root_cert_path("/path/to/ca.pem")
+    .with_client_cert_path("/path/to/client-cert.pem")
+    .with_client_key_path("/path/to/client-key.pem");
+
+let opts = OptsBuilder::new()
+    .ip_or_hostname(Some("localhost"))
+    .tcp_port(3306)
+    .user(Some("username"))
+    .pass(Some("password"))
+    .db_name(Some("database"))
+    .ssl_opts(ssl_opts);
 ```
 
 #### Breaking Change: Vendored OpenSSL Feature Removed
 
-**v0.2.7 (to be released)**: The `vendored` feature flag has been removed. This change affects how TLS is handled:
+**v0.2.7+**: The `vendored` feature flag has been removed to eliminate OpenSSL dependencies:
 
 - **Before**: `cargo build --features vendored` (static OpenSSL linking)
 - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
 
-> [!NOTE]
-> The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
+**Migration**: Remove `vendored` from build scripts and use appropriate TLS feature.
 
-**Migration Required**: See [TLS.md](TLS.md) for detailed TLS configuration and migration guidance.
-
-## Usage (CLI-first with env fallback)
+## Usage
 
 Gold Digger supports CLI-first configuration with environment variable fallbacks. CLI flags take precedence over environment variables.
 
@@ -105,12 +135,12 @@ Gold Digger supports CLI-first configuration with environment variable fallbacks
 ```bash
 # Basic usage with CLI flags
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results.json
 
 # Pretty-print JSON output
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results.json --pretty
 
 # Use query file instead of inline query
@@ -119,8 +149,16 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
 
 # Force output format regardless of file extension
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results --format csv
+
+# Verbose logging
+gold_digger -v --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT COUNT(*) as total FROM users" --output stats.json
+
+# Allow empty results (exit code 0 instead of 1)
+gold_digger --allow-empty --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT * FROM users WHERE id = 999999" --output empty.json
 
 # Generate shell completions
 gold_digger completion bash > ~/.bash_completion.d/gold_digger
@@ -130,23 +168,31 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT 1" --output test.json --dump-config
 ```
 
+### CLI Options
+
+| Flag                  | Short | Environment Variable | Description                                            |
+| --------------------- | ----- | -------------------- | ------------------------------------------------------ |
+| `--db-url <URL>`      | -     | `DATABASE_URL`       | Database connection string                             |
+| `--query <SQL>`       | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
+| `--query-file <FILE>` | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
+| `--output <FILE>`     | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
+| `--format <FORMAT>`   | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
+| `--pretty`            | -     | -                    | Pretty-print JSON output                               |
+| `--verbose`           | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
+| `--quiet`             | -     | -                    | Suppress non-error output                              |
+| `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
+| `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+
 ### Environment Variables (Fallback)
 
-When CLI flags are not provided, Gold Digger falls back to environment variables (no dotenv support). You must export these variables or set them when running the command:
-
-- `OUTPUT_FILE`: Path to output file. Extension determines format:
-
-  - `.csv` → CSV output with RFC 4180-ish formatting
-  - `.json` → JSON output with `{"data": [...]}` structure
-  - `.txt` or any other extension → TSV (tab-separated values)
+When CLI flags are not provided, Gold Digger falls back to environment variables:
 
 - `DATABASE_URL`: MySQL/MariaDB connection URL in standard format: `mysql://username:password@host:port/database`
-
-- `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
-
-  ```sql
-  SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users;
-  ```
+- `DATABASE_QUERY`: SQL query to execute
+- `OUTPUT_FILE`: Path to output file. Extension determines format:
+  - `.csv` → CSV output with RFC 4180 formatting
+  - `.json` → JSON output with `{"data": [...]}` structure
+  - `.txt` or any other extension → TSV (tab-separated values)
 
 ### Example Usage
 
@@ -154,18 +200,29 @@ When CLI flags are not provided, Gold Digger falls back to environment variables
 # Linux/macOS
 OUTPUT_FILE=/tmp/results.json \
 DATABASE_URL="mysql://user:pass@localhost:3306/mydb" \
-DATABASE_QUERY="SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users LIMIT 10" \
+DATABASE_QUERY="SELECT id, name FROM users LIMIT 10" \
 gold_digger
 
 # Windows PowerShell
 $env:OUTPUT_FILE="C:\temp\results.json"
 $env:DATABASE_URL="mysql://user:pass@localhost:3306/mydb"
-$env:DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 10"
+$env:DATABASE_QUERY="SELECT id, name FROM users LIMIT 10"
 gold_digger
 
 # Using justfile for development
 just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
 ```
+
+### Exit Codes
+
+Gold Digger uses structured exit codes for better automation:
+
+- **0**: Success with results (or empty with `--allow-empty`)
+- **1**: Success but no rows returned
+- **2**: Configuration error (missing/invalid params, mutually exclusive flags)
+- **3**: Database connection/authentication failure
+- **4**: Query execution failure (including type conversion errors)
+- **5**: File I/O operation failure
 
 ## Security & Quality Assurance
 

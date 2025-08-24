@@ -129,6 +129,17 @@ jobs:
 
       - name: Build artifacts
         run: |
+          # Detect musl targets and configure features accordingly
+          if echo "${{ join(matrix.targets, ' ') }}" | grep -q "musl"; then
+            echo "Detected musl target(s): ${{ join(matrix.targets, ' ') }}"
+            echo "Using ssl-rustls features for musl compatibility"
+            # Set environment variable to force rustls for musl targets
+            export CARGO_FEATURE_SSL_RUSTLS=1
+            export CARGO_FEATURE_SSL=0
+          else
+            echo "Using default features for non-musl targets: ${{ join(matrix.targets, ' ') }}"
+          fi
+
           # Actually do the build
           cargo dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage
 

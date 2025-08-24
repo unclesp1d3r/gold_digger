@@ -26,15 +26,15 @@ runs:
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
       with:
-        # Cache key includes OS and feature combinations for better hit rates
-        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-        # Shared cache across jobs but separate by OS
-        shared-key: ${{ runner.os }}-shared
+        # Cache key includes OS, architecture, and TLS features for better hit rates and portability
+        key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.tls || 'default' }}
+        # Shared cache across jobs but separate by OS and architecture
+        shared-key: ${{ runner.os }}-${{ runner.arch }}-shared
         # Cache build artifacts and registry
         cache-targets: true
         cache-on-failure: true
-        # Optimize cache size
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        # Allow cache writes on main branch and non-PR pushes for better cache utilization
+        save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'push' }}
 
     - name: Install nextest
       if: inputs.install-nextest == 'true'

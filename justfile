@@ -10,6 +10,7 @@ export CARGO_TERM_COLOR := "always"
 
 # Development setup
 setup:
+    cd {{justfile_dir()}}
     @echo "🔧 Setting up development environment..."
     rustup component add rustfmt clippy
     cargo install cargo-nextest --locked || echo "cargo-nextest already installed"
@@ -25,20 +26,23 @@ install-tools:
     @echo "✅ Tools installed!"
 
 # Format code
-format:
+fmt:
+    cd {{justfile_dir()}}
     @echo "📝 Formatting code..."
     pre-commit run -a || true
     cargo fmt
-    # Format YAML and JavaScript files with prettier
-    prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" || echo "prettier not installed - run 'npm install -g prettier'"
+    # Format YAML and JavaScript files with prettier (cross-platform)
+    prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" 2>/dev/null || echo "prettier not installed - run 'npm install -g prettier'"
 
 # Check formatting
 fmt-check:
+    cd {{justfile_dir()}}
     @echo "🔍 Checking code formatting..."
     cargo fmt --check
 
 # Run clippy linting
 lint:
+    cd {{justfile_dir()}}
     @echo "🔍 Running clippy linting..."
     @echo "Testing native-tls features..."
     cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
@@ -54,6 +58,7 @@ fix:
 
 # Build debug version
 build:
+    cd {{justfile_dir()}}
     @echo "🔨 Building debug version..."
     cargo build
 
@@ -67,11 +72,10 @@ build-rustls:
     @echo "🔨 Building with pure Rust TLS..."
     cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
-# Build with vendored dependencies (legacy compatibility - now uses rustls)
-build-vendored:
-    @echo "🔨 Building with vendored dependencies (using rustls)..."
-    @echo "⚠️  Note: Vendored feature is deprecated, using rustls instead"
-    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+# Build for musl targets (requires ssl-rustls for compatibility)
+build-musl:
+    @echo "🔨 Building for musl targets with ssl-rustls..."
+    cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
 # Build minimal version (no default features)
 build-minimal:
@@ -79,7 +83,7 @@ build-minimal:
     cargo build --release --no-default-features --features "csv,json"
 
 # Build all feature combinations
-build-all: build build-release build-rustls build-minimal
+build-all: build build-release build-rustls build-musl build-minimal
     @echo "✅ All builds completed!"
 
 # Install locally from workspace
@@ -89,21 +93,25 @@ install:
 
 # Run tests
 test:
+    cd {{justfile_dir()}}
     @echo "🧪 Running tests..."
     cargo test
 
 # Run tests with nextest (if available)
 test-nextest:
+    cd {{justfile_dir()}}
     @echo "🧪 Running tests with nextest..."
     cargo nextest run || cargo test
 
 # Run tests with coverage (tarpaulin)
 coverage:
+    cd {{justfile_dir()}}
     @echo "📊 Running tests with coverage..."
     cargo tarpaulin --out Html --output-dir target/tarpaulin
 
 # Run tests with coverage (llvm-cov for CI)
 coverage-llvm:
+    cd {{justfile_dir()}}
     @echo "📊 Running tests with llvm-cov..."
     cargo llvm-cov --workspace --lcov --output-path lcov.info
 
@@ -129,7 +137,7 @@ security:
     @echo "Step 3: Vulnerability scanning with grype..."
     @if command -v grype >/dev/null 2>&1; then \
     echo "Running grype vulnerability scan..."; \
-    grype . --fail-on critical --fail-on high || echo "❌ Critical or high vulnerabilities found"; \
+    grype . --fail-on high || echo "❌ High or critical vulnerabilities found"; \
     else \
     echo "⚠️  grype not installed - install with:"; \
     echo "   curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"; \
@@ -276,7 +284,12 @@ validate-deps:
     @echo "🎉 All dependency validations passed!"
 
 # Quality gates (CI equivalent)
-ci-check: fmt-check lint test-nextest validate-deps
+ci-check:
+    cd {{justfile_dir()}}
+    just fmt-check
+    just lint
+    just test-nextest
+    just validate-deps
     @echo "✅ All CI checks passed!"
 
 # Quick development check
@@ -351,10 +364,34 @@ docs-check:
     # Check formatting of markdown files
     find src -name "*.md" -exec mdformat --check {} \;
 
-# Generate rustdoc only
+# Generate and serve documentation (cross-platform with fallbacks)
 docs:
-    @echo "📚 Generating rustdoc documentation..."
-    cargo doc --open --no-deps
+    cd {{justfile_dir()}}
+    @echo "📚 Generating and serving documentation..."
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Try mdBook first, fallback to cargo doc
+    if command -v mdbook >/dev/null 2>&1; then
+    echo "Using mdBook for documentation..."
+    cd docs && mdbook serve --open
+    else
+    echo "mdBook not found, using cargo doc..."
+    cargo doc --no-deps
+    echo "Documentation generated in target/doc/"
+    echo "To view: open target/doc/gold_digger/index.html"
+    # Cross-platform open command
+    if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open target/doc/gold_digger/index.html
+    elif command -v open >/dev/null 2>&1; then
+    open target/doc/gold_digger/index.html
+    elif command -v start >/dev/null 2>&1; then
+    start target/doc/gold_digger/index.html
+    else
+    echo "Please open target/doc/gold_digger/index.html manually"
+    fi
+    fi
+
+
 
 # Check for outdated dependencies
 outdated:

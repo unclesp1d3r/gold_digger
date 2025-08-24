@@ -460,7 +460,7 @@ docs-build:     # Build documentation for verification
 #### GitHub Actions Workflows
 
 - **ci.yml**: PR and push checks (lint, test, security, coverage)
-- **cargo-dist.toml**: Automated version management, changelog, and distribution
+- **cargo-dist.toml**: Configuration file for cargo-dist (artifact/distribution settings, workspace level)
 - **release.yml**: Release artifact construction and publishing
 
 #### Quality Gates

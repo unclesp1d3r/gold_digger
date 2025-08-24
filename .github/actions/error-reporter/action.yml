@@ -213,7 +213,7 @@ runs:
         echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
     - name: Collect Debug Artifacts
-      if: inputs.collect-artifacts == 'true'
+      if: ${{ inputs.collect-artifacts == 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -397,7 +397,7 @@ runs:
         echo "✅ Debug artifacts collected in debug-artifacts/"
 
     - name: Upload Debug Artifacts
-      if: inputs.collect-artifacts == 'true'
+      if: ${{ inputs.collect-artifacts == 'true' }}
       uses: actions/upload-artifact@v4
       with:
         name: debug-artifacts-${{ github.job }}-${{ github.run_number }}

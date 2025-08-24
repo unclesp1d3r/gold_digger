@@ -13,32 +13,61 @@ runs:
     - name: Build Dependencies
       shell: bash
       run: |
+        # Enable bash strict mode for robust error handling
+        set -euo pipefail
+        IFS=$'\n\t'
+
+        # Validate inputs.features is set and non-empty
+        if [[ -z "${INPUTS_FEATURES:-}" ]]; then
+          echo "❌ Error: inputs.features is not set or empty"
+          exit 1
+        fi
+
         # Parse features input - handle single feature or comma-separated list
-        if [[ "${{ inputs.features }}" == *","* ]]; then
-          IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        # Trim whitespace and filter out empty tokens
+        FEATURES=()
+        if [[ "$INPUTS_FEATURES" == *","* ]]; then
+          IFS=',' read -ra TEMP_FEATURES <<< "$INPUTS_FEATURES"
+          for feature in "${TEMP_FEATURES[@]}"; do
+            trimmed_feature=$(echo "$feature" | xargs)
+            if [[ -n "$trimmed_feature" ]]; then
+              FEATURES+=("$trimmed_feature")
+            fi
+          done
         else
-          FEATURES=("${{ inputs.features }}")
+          trimmed_feature=$(echo "$INPUTS_FEATURES" | xargs)
+          if [[ -n "$trimmed_feature" ]]; then
+            FEATURES=("$trimmed_feature")
+          fi
+        fi
+
+        # Validate we have at least one feature
+        if [[ ${#FEATURES[@]} -eq 0 ]]; then
+          echo "❌ Error: No valid features found after parsing"
+          exit 1
         fi
 
         # Build dependencies for each feature combination
         # Use parallel builds when possible
         export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-$(nproc 2>/dev/null || echo 2)}
+        N_JOBS="$CARGO_BUILD_JOBS"
+
+        echo "🔨 Building dependencies with $N_JOBS parallel jobs..."
 
         for feature in "${FEATURES[@]}"; do
-          feature=$(echo "$feature" | xargs)  # Trim whitespace
           case "$feature" in
             "native-tls")
               echo "🔨 Building dependencies with native-tls (ssl feature)..."
               # Use cargo check for faster dependency resolution
-              cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short
+              cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short -j "$N_JOBS" --locked
               ;;
             "rustls")
               echo "🔨 Building dependencies with rustls (ssl-rustls feature)..."
-              cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short
+              cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short -j "$N_JOBS" --locked
               ;;
             "none")
               echo "🔨 Building dependencies without TLS features..."
-              cargo check --all-targets --no-default-features --features "json csv additional_mysql_types verbose" --message-format=short
+              cargo check --all-targets --no-default-features --features "json csv additional_mysql_types verbose" --message-format=short -j "$N_JOBS" --locked
               ;;
             *)
               echo "⚠️ Unknown feature: $feature, skipping..."

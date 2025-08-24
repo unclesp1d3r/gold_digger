@@ -57,6 +57,9 @@ scenarios:
     events:
       - workflow_dispatch
       - push
+    inputs:
+      required:
+        - tag
     test_cases:
       - name: "Manual release"
         event: workflow_dispatch
@@ -117,18 +120,17 @@ test_config:
 
   # Environment variables for testing
   environment:
-    GITHUB_TOKEN: "fake-token-for-testing"
     CARGO_TERM_COLOR: "always"
     RUST_BACKTRACE: "1"
 
-  # Secrets for testing (fake values)
+  # Secrets for testing (use environment variables or .env.local file)
   secrets:
-    CODECOV_TOKEN: "fake-codecov-token"
+    # These should be set via environment variables or .env.local file
+    # GITHUB_TOKEN: Set via environment or .env.local
+    # CODECOV_TOKEN: Set via environment or .env.local
 
   # Input validation
   inputs:
-    required:
-      - tag
     optional:
       - environment
       - dry_run

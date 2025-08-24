@@ -21,18 +21,50 @@ runs:
     - name: Run Clippy Linting
       shell: bash
       run: |
-        set -o pipefail
+        set -euo pipefail
 
-        # Parse features input - handle single feature or comma-separated list
-        if [[ "${{ inputs.features }}" == *","* ]]; then
-          IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
-        else
-          FEATURES=("${{ inputs.features }}")
+        # Check for SARIF tools if sarif-output is enabled
+        if [[ "${{ inputs.sarif-output }}" == "true" ]]; then
+          missing_tools=()
+
+          if ! command -v clippy-sarif >/dev/null 2>&1; then
+            missing_tools+=("clippy-sarif")
+          fi
+
+          if ! command -v sarif-fmt >/dev/null 2>&1; then
+            missing_tools+=("sarif-fmt")
+          fi
+
+          if [[ ${#missing_tools[@]} -gt 0 ]]; then
+            echo "❌ Error: Required SARIF tools are missing: ${missing_tools[*]}"
+            echo "Please ensure clippy-sarif and sarif-fmt are installed and available in PATH"
+            exit 1
+          fi
+        fi
+
+        # Parse features input defensively - handle empty, comma-only, or comma-separated list
+        FEATURES=()
+        if [[ -n "${{ inputs.features }}" ]]; then
+          # Trim the input string
+          features_input=$(echo "${{ inputs.features }}" | xargs)
+          if [[ -n "$features_input" ]]; then
+            # Split by comma and build array with only non-empty trimmed entries
+            IFS=',' read -ra raw_features <<< "$features_input"
+            for raw_feature in "${raw_features[@]}"; do
+              trimmed_feature=$(echo "$raw_feature" | xargs)
+              if [[ -n "$trimmed_feature" ]]; then
+                FEATURES+=("$trimmed_feature")
+              fi
+            done
+          fi
         fi
 
         # Lint each feature combination
         for feature in "${FEATURES[@]}"; do
-          feature=$(echo "$feature" | xargs)  # Trim whitespace
+          # Skip empty entries explicitly
+          if [[ -z "$feature" ]]; then
+            continue
+          fi
           case "$feature" in
             "native-tls")
               echo "🔍 Running clippy with native-tls (ssl feature)..."
