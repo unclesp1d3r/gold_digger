@@ -30,6 +30,9 @@ path-guid = "7641C7C8-5EB9-4BCF-8317-8A21B53B2997"
 license = false
 eula = false
 
+[package.metadata.cargo-machete]
+ignored = ["mysql_common"]
+
 [dependencies]
 mysql = { version = "26.0.1", features = ["minimal"], default-features = false }
 anyhow = "1.0.99"
@@ -40,8 +43,6 @@ clap_complete = "4.5"
 mysql_common = { version = "0.35.5", optional = true }
 thiserror = "2.0.16"
 url = "2.5.7"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 testcontainers = { version = "0.24.0", features = ["blocking"] }
