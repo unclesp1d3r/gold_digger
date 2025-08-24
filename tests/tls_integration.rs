@@ -796,11 +796,9 @@ mod tls_unit_tests {
                 }
 
                 // On musl targets, native-tls should NOT be used
-                #[cfg(feature = "ssl")]
+                #[cfg(all(feature = "ssl", not(feature = "ssl-rustls")))]
                 {
-                    if !cfg!(feature = "ssl-rustls") {
-                        panic!("musl targets must use ssl-rustls, not native-tls");
-                    }
+                    panic!("musl targets must use ssl-rustls, not native-tls");
                 }
             }
         }
