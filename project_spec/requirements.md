@@ -460,7 +460,7 @@ docs-build:     # Build documentation for verification
 #### GitHub Actions Workflows
 
 - **ci.yml**: PR and push checks (lint, test, security, coverage)
-- **cargo-dist.toml**: Configuration file for cargo-dist (artifact/distribution settings, workspace level)
+- **dist-workspace.toml** or **Cargo.toml [workspace.metadata.dist]**: Configuration for cargo-dist (artifact/distribution settings, workspace level). This repository uses one of these locations for cargo-dist configuration.
 - **release.yml**: Release artifact construction and publishing
 
 #### Quality Gates

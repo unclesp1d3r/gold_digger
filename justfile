@@ -75,6 +75,19 @@ build-rustls:
 # Build for musl targets (requires ssl-rustls for compatibility)
 build-musl:
     @echo "🔨 Building for musl targets with ssl-rustls..."
+    @if ! command -v rustup >/dev/null 2>&1; then \
+    echo "❌ Error: rustup is not installed or not in PATH"; \
+    echo "   Please install rustup first:"; \
+    echo "   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"; \
+    echo "   or visit: https://rustup.rs/"; \
+    exit 1; \
+    fi
+    @if ! rustup target list --installed | grep -q "x86_64-unknown-linux-musl"; then \
+    echo "📦 Installing musl target..."; \
+    rustup target add x86_64-unknown-linux-musl; \
+    else \
+    echo "✅ musl target already installed"; \
+    fi
     cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
 # Build minimal version (no default features)
@@ -150,7 +163,19 @@ cover: coverage-llvm
 # Generate Software Bill of Materials (SBOM) for local inspection
 sbom:
     @echo "📋 Generating Software Bill of Materials (SBOM)..."
-    @if command -v syft >/dev/null 2>&1; then \
+    @if command -v cargo-cyclonedx >/dev/null 2>&1 || cargo cyclonedx --help >/dev/null 2>&1; then \
+    echo "Generating SBOM with cargo-cyclonedx..."; \
+    cargo cyclonedx --override-filename sbom.json; \
+    echo ""; \
+    echo "✅ SBOM generated:"; \
+    echo "  📄 sbom.json (CycloneDX format)"; \
+    echo "  📊 Table output: Use 'cargo tree' for dependency view"; \
+    cargo tree --format "{p} {f}" | head -20; \
+    echo ""; \
+    echo "To inspect SBOM:"; \
+    echo "  cat sbom.json | jq ."; \
+    echo "  cargo tree --format '{p} {f}'"; \
+    elif command -v syft >/dev/null 2>&1; then \
     echo "Generating SBOM with syft..."; \
     syft packages . -o cyclonedx-json=sbom.json; \
     syft packages . -o table; \
@@ -163,7 +188,12 @@ sbom:
     echo "  cat sbom.json | jq ."; \
     echo "  syft packages . -o json | jq '.artifacts[] | .name'"; \
     else \
-    echo "⚠️  syft not installed - install with:"; \
+    echo "⚠️  Neither cargo-cyclonedx nor syft installed"; \
+    echo ""; \
+    echo "Install cargo-cyclonedx (preferred):"; \
+    echo "   cargo install cargo-cyclonedx"; \
+    echo ""; \
+    echo "Or install syft:"; \
     echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
     echo ""; \
     echo "Alternative: Use cargo tree for dependency inspection:"; \
@@ -495,7 +525,7 @@ act-ci:
 act-release-dry TAG:
     @echo "🚀 Running release workflow dry-run for tag: {{TAG}}"
     @echo "This simulates the full release pipeline without actually creating releases"
-    act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+    act push --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
 
 # Test cargo-dist workflow locally
 act-cargo-dist-dry:

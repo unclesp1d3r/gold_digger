@@ -14,11 +14,12 @@
 
   - Modify security.yml to use cargo-auditable and cargo-cyclonedx via cargo-dist for SBOM generation
   - Replace current syft-based SBOM generation with Rust-native tooling
+  - Configure cargo-cyclonedx/cargo-dist with explicit output flags: `--format cyclonedx-json --output target/cyclonedx-bom.json`
   - Ensure CycloneDX format SBOMs are generated at target/cyclonedx-bom.json for all components
   - Configure grype to consume CycloneDX SBOMs as primary input using `grype sbom:target/cyclonedx-bom.json`
-  - Implement grype fallback to image/file/system scan mode when CycloneDX SBOM is unavailable
-  - Add logging for fallback scenarios with clear reason documentation
-  - Ensure proper failure handling and artifact retention for both SBOM and scan results
+  - Implement grype fallback behavior: attempt SBOM input first, then fall back to image/file/system scanning with logged reason
+  - Add logging for fallback scenarios with clear reason documentation (e.g., "SBOM file not found, falling back to system scan")
+  - Ensure proper failure handling and artifact retention for both SBOM and scan results on failure for debugging
   - Integrate SBOM generation with existing release workflow for consistency
   - _Requirements: 3.2, 3.3, 5.3, 5.4_
 
@@ -79,10 +80,10 @@
   - Test end-to-end pipeline from code push to release artifact generation
   - Verify cross-platform testing matrix works correctly on all target platforms
   - Test security scanning integration and failure scenarios
-  - Validate grype SBOM consumption (grype sbom:target/cyclonedx-bom.json) and fallback behavior
-  - Test CycloneDX SBOM generation via cargo-dist and proper file path creation
-  - Verify fallback logging when CycloneDX SBOM is unavailable or corrupted
-  - Test artifact retention for both successful and failed security scans
+  - Validate grype SBOM consumption (`grype sbom:target/cyclonedx-bom.json`) and fallback behavior
+  - Test CycloneDX SBOM generation via cargo-dist with explicit `--format cyclonedx-json --output target/cyclonedx-bom.json` flags
+  - Verify fallback logging when CycloneDX SBOM is unavailable or corrupted (e.g., "SBOM file not found, falling back to system scan")
+  - Test artifact retention for both successful and failed security scans (retain both SBOM and scan artifacts on failure for debugging)
   - Validate coverage reporting and Codecov integration functionality
   - Test local CI reproduction using act and justfile recipes
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 3.3, 4.1, 4.2, 4.3, 4.4, 4.5_
