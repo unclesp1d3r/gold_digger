@@ -89,11 +89,27 @@ cargo run --release
 
 **Entry Point (`src/main.rs`):**
 
-- Reads 3 required env vars: `OUTPUT_FILE`, `DATABASE_URL`, `DATABASE_QUERY`
+- Uses CLI-first configuration with environment variable fallbacks
+- Configuration resolution pattern: CLI flags override environment variables
+- Reads required config: `--db-url`/`DATABASE_URL`, `--query`/`DATABASE_QUERY`, `--output`/`OUTPUT_FILE`
 - Exits with code 255 (due to `exit(-1)`) if any are missing
 - Creates MySQL connection pool and fetches ALL rows into memory (`Vec<Row>`)
 - Exits with code 1 if result set is empty
 - Dispatches to writer based on output file extension
+
+**Configuration Resolution Pattern:**
+
+```rust
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone()) // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value) // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration") // Error if neither
+    }
+}
+```
 
 **Core Library (`src/lib.rs`):**
 
@@ -150,6 +166,31 @@ match get_extension_from_filename(&output_file) {
 - **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}`
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
+## 🚨 Critical Safety Rules
+
+### Database Value Conversion (PANIC RISK)
+
+```rust
+// ❌ NEVER - causes panics on NULL/non-string types
+from_value::<String>(row[column.name_str().as_ref()])
+
+// ✅ ALWAYS - safe NULL handling
+match mysql_value {
+    mysql::Value::NULL => match output_format {
+        OutputFormat::Json => serde_json::Value::Null,
+        _ => "".to_string()
+    },
+    val => from_value_opt::<String>(val)
+        .unwrap_or_else(|_| format!("{:?}", val))
+}
+```
+
+### Security (NEVER VIOLATE)
+
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
+
 ## Critical Gotchas and Invariants
 
 ### Memory and Performance
@@ -194,50 +235,42 @@ Based on `project_spec/requirements.md`, major missing features:
 
 ## Development Workflow and Conventions
 
-### Quality Gates (Required Before Commits)
+### Project File Organization
 
-```bash
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit (advisory)
-```
+**Configuration Files:**
 
-All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
 
-### Commit Standards
+**Development Automation:**
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** cargo-dist handles versioning and distribution; git-cliff handles changelog generation
-- **CI Parity:** All CI operations executable locally via `just` recipes
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
 
-### Code Quality Requirements
+**Documentation Standards:**
+All public functions require doc comments with examples:
 
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
-- **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
-
-### Essential Just Recipes
-
-Key `justfile` targets for development workflow:
-
-```bash
-just setup        # Install development dependencies
-just fmt          # Auto-format code
-just fmt-check    # Verify formatting (CI-compatible)
-just lint         # Run clippy with -D warnings
-just test         # Run tests (cargo nextest preferred)
-just security     # Comprehensive security scanning
-just ci-check     # Full CI validation locally
-just build        # Build release artifacts
-just docs         # Serve documentation locally
-```
-
-All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
+````rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
+````
 
 ### Recommended Justfile
 
