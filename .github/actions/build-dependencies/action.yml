@@ -18,7 +18,7 @@ runs:
         IFS=$'\n\t'
 
         # Validate inputs.features is set and non-empty
-        if [[ -z "${INPUTS_FEATURES:-}" ]]; then
+        if [[ -z "${INPUT_FEATURES:-}" ]]; then
           echo "❌ Error: inputs.features is not set or empty"
           exit 1
         fi
@@ -26,8 +26,8 @@ runs:
         # Parse features input - handle single feature or comma-separated list
         # Trim whitespace and filter out empty tokens
         FEATURES=()
-        if [[ "$INPUTS_FEATURES" == *","* ]]; then
-          IFS=',' read -ra TEMP_FEATURES <<< "$INPUTS_FEATURES"
+        if [[ "$INPUT_FEATURES" == *","* ]]; then
+          IFS=',' read -ra TEMP_FEATURES <<< "$INPUT_FEATURES"
           for feature in "${TEMP_FEATURES[@]}"; do
             trimmed_feature=$(echo "$feature" | xargs)
             if [[ -n "$trimmed_feature" ]]; then
@@ -35,7 +35,7 @@ runs:
             fi
           done
         else
-          trimmed_feature=$(echo "$INPUTS_FEATURES" | xargs)
+          trimmed_feature=$(echo "$INPUT_FEATURES" | xargs)
           if [[ -n "$trimmed_feature" ]]; then
             FEATURES=("$trimmed_feature")
           fi
