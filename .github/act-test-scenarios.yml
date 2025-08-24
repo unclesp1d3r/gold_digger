@@ -1,0 +1,265 @@
+# Act Test Scenarios Configuration
+# Defines comprehensive test scenarios for local GitHub Actions testing
+
+# Test Scenarios
+scenarios:
+  # Basic CI Testing
+  basic_ci:
+    name: "Basic CI Pipeline"
+    description: "Test the main CI workflow with standard triggers"
+    workflows:
+      - ci.yml
+    events:
+      - push
+      - pull_request
+    test_cases:
+      - name: "Push to main"
+        event: push
+        payload:
+          ref: "refs/heads/main"
+          repository:
+            full_name: "UncleSp1d3r/gold_digger"
+      - name: "Pull request"
+        event: pull_request
+        payload:
+          action: "opened"
+          pull_request:
+            head:
+              repo:
+                full_name: "UncleSp1d3r/gold_digger"
+
+  # Security Workflow Testing
+  security_testing:
+    name: "Security Workflow"
+    description: "Test security scanning and vulnerability detection"
+    workflows:
+      - security.yml
+    events:
+      - push
+      - schedule
+      - workflow_dispatch
+    test_cases:
+      - name: "Scheduled security scan"
+        event: schedule
+        payload:
+          schedule: "0 6 * * *"
+      - name: "Manual security scan"
+        event: workflow_dispatch
+        payload: {}
+
+  # Release Testing
+  release_testing:
+    name: "Release Pipeline"
+    description: "Test release workflow and artifact generation"
+    workflows:
+      - release.yml
+      - release-please.yml
+    events:
+      - workflow_dispatch
+      - push
+    test_cases:
+      - name: "Manual release"
+        event: workflow_dispatch
+        payload:
+          inputs:
+            tag: "v0.test.1"
+      - name: "Tag push"
+        event: push
+        payload:
+          ref: "refs/tags/v0.test.1"
+
+  # Fork PR Testing
+  fork_pr_testing:
+    name: "Fork Pull Request"
+    description: "Test CI behavior with pull requests from forks"
+    workflows:
+      - ci.yml
+      - security.yml
+    events:
+      - pull_request
+    test_cases:
+      - name: "Fork PR"
+        event: pull_request
+        payload:
+          action: "opened"
+          pull_request:
+            head:
+              repo:
+                full_name: "fork-user/gold_digger"
+            base:
+              repo:
+                full_name: "UncleSp1d3r/gold_digger"
+
+  # Error Scenario Testing
+  error_scenarios:
+    name: "Error Handling"
+    description: "Test error reporting and failure scenarios"
+    workflows:
+      - ci.yml
+    events:
+      - push
+    test_cases:
+      - name: "Simulated build failure"
+        event: push
+        environment:
+          SIMULATE_BUILD_FAILURE: "true"
+      - name: "Simulated test failure"
+        event: push
+        environment:
+          SIMULATE_TEST_FAILURE: "true"
+
+# Test Configuration
+test_config:
+  # Docker settings
+  docker:
+    platform: "ubuntu-22.04=catthehacker/ubuntu:act-22.04"
+    pull_policy: "if-not-present"
+
+  # Environment variables for testing
+  environment:
+    GITHUB_TOKEN: "fake-token-for-testing"
+    CARGO_TERM_COLOR: "always"
+    RUST_BACKTRACE: "1"
+
+  # Secrets for testing (fake values)
+  secrets:
+    CODECOV_TOKEN: "fake-codecov-token"
+
+  # Input validation
+  inputs:
+    required:
+      - tag
+    optional:
+      - environment
+      - dry_run
+
+# Validation Rules
+validation:
+  # Workflow validation
+  workflows:
+    - name: "Syntax validation"
+      check: "actionlint"
+      required: true
+    - name: "Security validation"
+      check: "workflow_security"
+      required: true
+    - name: "Performance validation"
+      check: "workflow_performance"
+      required: false
+
+  # Job validation
+  jobs:
+    - name: "Job dependencies"
+      check: "dependency_graph"
+      required: true
+    - name: "Resource limits"
+      check: "resource_usage"
+      required: false
+
+# Performance Testing
+performance:
+  # Timing thresholds for act tests (in seconds)
+  thresholds:
+    workflow_startup: 30
+    job_startup: 15
+    step_execution: 300
+
+  # Resource monitoring
+  monitoring:
+    memory_usage: true
+    cpu_usage: true
+    disk_usage: true
+
+  # Benchmarking
+  benchmarks:
+    - name: "CI workflow execution time"
+      workflow: "ci.yml"
+      target_time: 600 # 10 minutes
+    - name: "Security workflow execution time"
+      workflow: "security.yml"
+      target_time: 300 # 5 minutes
+
+# Test Matrix
+matrix:
+  # Operating systems to test
+  os:
+    - ubuntu-22.04
+    - macos-13
+    - windows-2022
+
+  # Feature combinations
+  features:
+    - name: "native-tls"
+      flags: "--no-default-features --features json,csv,ssl,additional_mysql_types,verbose"
+    - name: "rustls"
+      flags: "--no-default-features --features json,csv,ssl-rustls,additional_mysql_types,verbose"
+    - name: "minimal"
+      flags: "--no-default-features --features json,csv,additional_mysql_types,verbose"
+
+# Reporting
+reporting:
+  # Output formats
+  formats:
+    - console
+    - json
+    - junit
+
+  # Report sections
+  sections:
+    - summary
+    - detailed_results
+    - performance_metrics
+    - recommendations
+
+  # Artifacts
+  artifacts:
+    - test_results
+    - performance_data
+    - error_logs
+
+# Integration Testing
+integration:
+  # End-to-end scenarios
+  e2e_scenarios:
+    - name: "Complete CI pipeline"
+      description: "Test entire CI pipeline from trigger to completion"
+      steps:
+        - trigger_workflow
+        - validate_jobs
+        - check_artifacts
+        - verify_notifications
+
+    - name: "Release pipeline"
+      description: "Test complete release process"
+      steps:
+        - trigger_release
+        - validate_builds
+        - check_signatures
+        - verify_sbom
+
+  # Cross-workflow testing
+  cross_workflow:
+    - name: "CI to Release"
+      description: "Test transition from CI to release workflow"
+      trigger: "tag_push"
+      workflows:
+        - ci.yml
+        - release.yml
+
+# Cleanup Configuration
+cleanup:
+  # Automatic cleanup after tests
+  auto_cleanup: true
+
+  # Items to clean up
+  cleanup_items:
+    - docker_containers
+    - docker_images
+    - temporary_files
+    - test_artifacts
+
+  # Retention policy
+  retention:
+    test_logs: 7 # days
+    performance_data: 30 # days
+    error_reports: 90 # days

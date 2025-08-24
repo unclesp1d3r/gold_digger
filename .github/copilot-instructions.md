@@ -84,12 +84,14 @@ just security     # cargo audit (advisory)
 
 All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+
 ### Commit Standards
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
+- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **CI Parity:** All CI operations executable locally via `just` recipes
 
 ### Code Quality Requirements
 
