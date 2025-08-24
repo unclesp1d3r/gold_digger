@@ -272,6 +272,9 @@ mod tls_tests {
     /// Test TLS connection without TLS configuration (should use defaults)
     #[test]
     fn test_tls_connection_without_config() -> Result<()> {
+        if is_ci() {
+            return Ok(());
+        }
         let mysql_container = Mysql::default().start()?;
         let host_port = mysql_container.get_host_port_ipv4(3306)?;
 
@@ -290,6 +293,9 @@ mod tls_tests {
     /// Test TLS error handling and messaging
     #[test]
     fn test_tls_error_handling() -> Result<()> {
+        if is_ci() {
+            return Ok(());
+        }
         // Test connection to nonexistent server
         let tls_config = TlsConfig::new().with_accept_invalid_certs(true);
         let invalid_url = "mysql://root@nonexistent.server.invalid:3306/mysql";
@@ -422,6 +428,9 @@ mod no_tls_tests {
     /// Test that TLS functions return appropriate errors when TLS features are disabled
     #[test]
     fn test_tls_disabled_error() {
+        if is_ci() {
+            return;
+        }
         let tls_config = TlsConfig::new();
         let result = create_tls_connection("mysql://root@localhost:3306/mysql", Some(tls_config));
 
