@@ -2,218 +2,464 @@
 
 ## Overview
 
-This design migrates Gold Digger's TLS implementation from OpenSSL/native-tls to rustls, a pure-Rust TLS library. The migration eliminates native OpenSSL dependencies while maintaining full TLS functionality and backward compatibility. The design preserves the existing programmatic TLS configuration interface via `mysql::SslOpts` and ensures seamless operation across all supported platforms.
+This design outlines the migration from Gold Digger's current dual TLS implementation (native-tls and rustls-tls as mutually exclusive features) to a simplified rustls-only approach with enhanced certificate validation controls. The migration eliminates platform-specific TLS dependencies while adding granular security options for different deployment scenarios.
+
+The key architectural change is replacing the current `ssl` and `ssl-rustls` feature flags with a single `ssl` feature that uses rustls with native certificate store integration, plus three new CLI flags for certificate validation overrides.
 
 ## Architecture
 
 ### Current TLS Architecture
 
-```text
-Gold Digger Application
-    ↓
-mysql crate (native-tls feature)
-    ↓
-native-tls crate
-    ↓
-Platform-specific TLS:
-- Windows: SChannel
-- macOS: SecureTransport
-- Linux: OpenSSL
+```mermaid
+graph TD
+    A[CLI Input] --> B{Feature Check}
+    B -->|ssl feature| C[native-tls]
+    B -->|ssl-rustls feature| D[rustls-tls]
+    B -->|no ssl features| E[No TLS Support]
+    C --> F[Platform TLS Libraries]
+    D --> G[Pure Rust TLS]
+    F --> H[MySQL Connection]
+    G --> H
+    E --> I[Plain Connection Only]
 ```
 
-**Dependencies:**
+### New TLS Architecture
 
-- `openssl-sys` (explicit dependency)
-- `mysql/native-tls` feature
-- Platform-specific TLS libraries
-
-### Target TLS Architecture
-
-```text
-Gold Digger Application
-    ↓
-mysql crate (rustls-tls feature)
-    ↓
-rustls crate
-    ↓
-Pure Rust TLS implementation
-- aws-lc-rs crypto provider (default)
-- Cross-platform compatibility
-- No native dependencies
+```mermaid
+graph TD
+    A[CLI Input] --> B{TLS Flags}
+    B -->|--tls-ca-file| C[Custom CA Trust]
+    B -->|--insecure-skip-hostname-verify| D[Skip Hostname Validation]
+    B -->|--allow-invalid-certificate| E[Skip All Validation]
+    B -->|No flags| F[Platform Certificate Store]
+    
+    C --> G[rustls + Custom CA]
+    D --> H[rustls + Skip Hostname]
+    E --> I[rustls + Accept Invalid]
+    F --> J[rustls + Native Certs]
+    
+    G --> K[MySQL Connection]
+    H --> K
+    I --> K
+    J --> K
 ```
 
-**Dependencies:**
+### TLS Configuration Flow
 
-- `mysql/rustls-tls` feature
-- No explicit openssl-sys dependency
-- Pure Rust dependency chain
+```mermaid
+sequenceDiagram
+    participant CLI as CLI Parser
+    participant TLS as TLS Config
+    participant Rustls as Rustls Builder
+    participant MySQL as MySQL Pool
+    
+    CLI->>TLS: Parse TLS flags
+    TLS->>TLS: Validate mutual exclusion
+    TLS->>Rustls: Configure certificate validation
+    
+    alt Custom CA File
+        Rustls->>Rustls: Load custom CA certificates
+        Rustls->>Rustls: Enable hostname + time validation
+    else Skip Hostname Verify
+        Rustls->>Rustls: Use platform CA store
+        Rustls->>Rustls: Disable hostname validation
+    else Allow Invalid Certificates
+        Rustls->>Rustls: Disable all validation
+    else Default (Platform Trust)
+        Rustls->>Rustls: Use platform CA store
+        Rustls->>Rustls: Enable all validation
+    end
+    
+    Rustls->>MySQL: Create TLS connector
+    MySQL->>MySQL: Establish connection
+```
 
 ## Components and Interfaces
 
-### Feature Flag Migration
+### CLI Interface Changes
 
-**Current Cargo.toml:**
-
-```toml
-[features]
-ssl = ["openssl-sys", "mysql/native-tls"]
-vendored = ["openssl-sys?/vendored"]
-```
-
-**Target Cargo.toml:**
-
-```toml
-[features]
-ssl = ["mysql/native-tls"]                       # Platform native TLS (no OpenSSL dependency)
-ssl-rustls = ["mysql/rustls-tls"]                # Pure Rust TLS implementation
-tls-native = ["mysql/native-tls", "openssl-sys"] # Optional fallback
-```
-
-### TLS Configuration Interface
-
-The existing programmatic TLS configuration via `mysql::SslOpts` remains unchanged:
+#### New TLS Flags (Mutually Exclusive using clap groups)
 
 ```rust
-use mysql::{OptsBuilder, SslOpts};
+#[derive(Parser)]
+pub struct Cli {
+    // ... existing fields ...
+    #[command(flatten)]
+    pub tls_options: TlsOptions,
+}
 
-// Existing pattern - continues to work with rustls
-let ssl_opts = SslOpts::default()
-    .with_root_cert_path(Some("/path/to/ca.pem"))
-    .with_client_cert_path(Some("/path/to/client.pem"))
-    .with_client_key_path(Some("/path/to/client.key"));
+#[derive(Args)]
+#[group(required = false, multiple = false)]
+pub struct TlsOptions {
+    /// Path to CA certificate file for trust anchor pinning
+    #[arg(long)]
+    pub tls_ca_file: Option<PathBuf>,
 
-let opts = OptsBuilder::new()
-    .ip_or_hostname(Some("localhost"))
-    .tcp_port(3306)
-    .ssl_opts(Some(ssl_opts));
+    /// Skip hostname verification (keeps chain and time validation)
+    #[arg(long)]
+    pub insecure_skip_hostname_verify: bool,
+
+    /// Disable certificate validation entirely (DANGEROUS)
+    #[arg(long)]
+    pub allow_invalid_certificate: bool,
+}
 ```
 
-### Crypto Provider Selection
-
-The mysql crate's `rustls-tls` feature uses aws-lc-rs as the default crypto provider. This provides:
-
-- FIPS compliance capabilities
-- High performance cryptographic operations
-- Cross-platform compatibility
-- No OpenSSL dependencies
-
-Alternative: Use the `native-tls` feature if aws-lc-rs compatibility issues arise, or consider using the `rustls-tls` feature with a different crypto provider configuration.
-
-## Data Models
-
-### TLS Configuration Model
+#### Alternative Approach using ValueEnum
 
 ```rust
+#[derive(Parser)]
+pub struct Cli {
+    // ... existing fields ...
+    /// TLS security mode
+    #[arg(long, value_enum)]
+    pub tls_mode: Option<TlsSecurityMode>,
+
+    /// Path to CA certificate file (only used with --tls-mode=custom-ca)
+    #[arg(long, requires = "tls_mode")]
+    pub tls_ca_file: Option<PathBuf>,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum TlsSecurityMode {
+    /// Use platform certificate store (default)
+    Platform,
+    /// Use custom CA certificate file
+    CustomCa,
+    /// Skip hostname verification only
+    SkipHostname,
+    /// Accept invalid certificates (DANGEROUS)
+    AcceptInvalid,
+}
+```
+
+### TLS Configuration Module
+
+#### Enhanced TlsConfig Structure
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub enum TlsValidationMode {
+    /// Use platform certificate store with full validation
+    Platform,
+    /// Use custom CA file with full validation
+    CustomCa { ca_file_path: PathBuf },
+    /// Use platform store but skip hostname verification
+    SkipHostnameVerification,
+    /// Accept any certificate (no validation)
+    AcceptInvalid,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TlsConfig {
     pub enabled: bool,
-    pub ca_cert_path: Option<PathBuf>,
-    pub client_cert_path: Option<PathBuf>,
-    pub client_key_path: Option<PathBuf>,
-    pub verify_peer: bool,
-    pub verify_hostname: bool,
+    pub validation_mode: TlsValidationMode,
 }
 
 impl TlsConfig {
-    pub fn to_ssl_opts(&self) -> Option<SslOpts> {
-        if !self.enabled {
-            return None;
-        }
+    pub fn from_cli(cli: &Cli) -> Result<Self, TlsError> {
+        // Using the Args group approach
+        let validation_mode = if let Some(ca_file) = &cli.tls_options.tls_ca_file {
+            TlsValidationMode::CustomCa {
+                ca_file_path: ca_file.clone(),
+            }
+        } else if cli.tls_options.insecure_skip_hostname_verify {
+            TlsValidationMode::SkipHostnameVerification
+        } else if cli.tls_options.allow_invalid_certificate {
+            TlsValidationMode::AcceptInvalid
+        } else {
+            TlsValidationMode::Platform
+        };
 
-        let mut ssl_opts = SslOpts::default();
-        if let Some(ca_path) = &self.ca_cert_path {
-            ssl_opts = ssl_opts.with_root_cert_path(Some(ca_path.clone()));
-        }
-        if let Some(cert_path) = &self.client_cert_path {
-            ssl_opts = ssl_opts.with_client_cert_path(Some(cert_path.clone()));
-        }
-        if let Some(key_path) = &self.client_key_path {
-            ssl_opts = ssl_opts.with_client_key_path(Some(key_path.clone()));
-        }
-        // Apply verification flags if supported by SslOpts API
-        ssl_opts = ssl_opts.with_danger_accept_invalid_certs(!self.verify_peer);
-        ssl_opts = ssl_opts.with_danger_skip_domain_validation(!self.verify_hostname);
-        Some(ssl_opts)
+        Ok(Self {
+            enabled: true,
+            validation_mode,
+        })
+    }
+
+    // Alternative implementation for ValueEnum approach
+    pub fn from_cli_enum(cli: &Cli) -> Result<Self, TlsError> {
+        let validation_mode = match cli.tls_mode {
+            Some(TlsSecurityMode::CustomCa) => {
+                let ca_file = cli.tls_ca_file.as_ref().ok_or_else(|| TlsError::CaFileNotFound {
+                    path: "CA file path required for custom-ca mode".to_string(),
+                })?;
+                TlsValidationMode::CustomCa {
+                    ca_file_path: ca_file.clone(),
+                }
+            },
+            Some(TlsSecurityMode::SkipHostname) => TlsValidationMode::SkipHostnameVerification,
+            Some(TlsSecurityMode::AcceptInvalid) => TlsValidationMode::AcceptInvalid,
+            Some(TlsSecurityMode::Platform) | None => TlsValidationMode::Platform,
+        };
+
+        Ok(Self {
+            enabled: true,
+            validation_mode,
+        })
     }
 }
 ```
 
-### Migration Compatibility Layer
+#### Rustls Integration
 
 ```rust
-#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
-pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) -> anyhow::Result<Pool> {
-    let opts = OptsBuilder::from_url(database_url)?;
+use mysql::SslOpts;
+use rustls::{ClientConfig, RootCertStore};
+use rustls_native_certs;
 
-    let opts = if let Some(tls_config) = tls_config {
-        if let Some(ssl_opts) = tls_config.to_ssl_opts() {
-            opts.ssl_opts(Some(ssl_opts))
-        } else {
-            opts
+impl TlsConfig {
+    pub fn to_ssl_opts(&self) -> Result<Option<SslOpts>, TlsError> {
+        if !self.enabled {
+            return Ok(None);
         }
-    } else {
-        opts
-    };
 
-    Ok(Pool::new(opts)?)
+        let mut root_store = RootCertStore::empty();
+        let mut client_config_builder = ClientConfig::builder();
+
+        match &self.validation_mode {
+            TlsValidationMode::Platform => {
+                // Load platform certificate store
+                for cert in rustls_native_certs::load_native_certs()? {
+                    root_store.add(&cert)?;
+                }
+                client_config_builder = client_config_builder.with_root_certificates(root_store);
+            },
+            TlsValidationMode::CustomCa { ca_file_path } => {
+                // Load custom CA file
+                let ca_certs = self.load_ca_certificates(ca_file_path)?;
+                for cert in ca_certs {
+                    root_store.add(&cert)?;
+                }
+                client_config_builder = client_config_builder.with_root_certificates(root_store);
+            },
+            TlsValidationMode::SkipHostnameVerification => {
+                // Use platform store but create custom verifier that skips hostname
+                for cert in rustls_native_certs::load_native_certs()? {
+                    root_store.add(&cert)?;
+                }
+                client_config_builder = client_config_builder
+                    .with_root_certificates(root_store)
+                    .with_custom_certificate_verifier(Arc::new(SkipHostnameVerifier::new()));
+            },
+            TlsValidationMode::AcceptInvalid => {
+                // Create verifier that accepts any certificate
+                client_config_builder =
+                    client_config_builder.with_custom_certificate_verifier(Arc::new(AcceptAllVerifier::new()));
+            },
+        }
+
+        let client_config = client_config_builder.with_no_client_auth();
+
+        // Convert rustls ClientConfig to mysql::SslOpts
+        let ssl_opts = SslOpts::default().with_rustls_client_config(client_config);
+
+        Ok(Some(ssl_opts))
+    }
+}
+```
+
+### Custom Certificate Verifiers
+
+#### Hostname Skip Verifier
+
+```rust
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+
+struct SkipHostnameVerifier {
+    inner: Arc<dyn ServerCertVerifier>,
+}
+
+impl SkipHostnameVerifier {
+    fn new() -> Self {
+        Self {
+            inner: rustls::crypto::ring::default_provider()
+                .signature_verification_algorithms
+                .supported_schemes()[0]
+                .verifier(),
+        }
+    }
+}
+
+impl ServerCertVerifier for SkipHostnameVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>, // Ignore server name
+        ocsp_response: &[u8],
+        now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        // Verify certificate chain and validity, but skip hostname verification
+        self.inner.verify_server_cert(
+            end_entity,
+            intermediates,
+            &ServerName::try_from("ignored.example.com")?, // Use dummy hostname
+            ocsp_response,
+            now,
+        )
+    }
+}
+```
+
+#### Accept All Verifier
+
+```rust
+struct AcceptAllVerifier;
+
+impl AcceptAllVerifier {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl ServerCertVerifier for AcceptAllVerifier {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        // Accept any certificate without validation
+        Ok(ServerCertVerified::assertion())
+    }
+}
+```
+
+## Data Models
+
+### Feature Flag Changes
+
+#### Cargo.toml Updates
+
+```toml
+[features]
+default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
+json = []
+csv = []
+ssl = ["mysql/rustls-tls", "rustls-native-certs"] # Simplified to rustls-only
+additional_mysql_types = [
+  "mysql_common",
+  "mysql_common?/bigdecimal",
+  "mysql_common?/rust_decimal",
+  "mysql_common?/time",
+  "mysql_common?/frunk",
+]
+verbose = []
+
+# Remove ssl-rustls feature (no longer needed)
+```
+
+#### Dependency Updates
+
+```toml
+[dependencies]
+mysql = { version = "26.0.1", features = ["minimal"], default-features = false }
+rustls-native-certs = { version = "0.7", optional = true }
+# Remove native-tls related dependencies
+```
+
+### Error Handling Updates
+
+#### Enhanced TLS Error Types
+
+```rust
+#[derive(Error, Debug)]
+pub enum TlsError {
+    #[error("Certificate validation failed: {message}. Try --insecure-skip-hostname-verify for hostname issues or --allow-invalid-certificate for testing")]
+    CertificateValidationFailed { message: String },
+
+    #[error("CA certificate file not found: {path}. Ensure the file exists and is readable")]
+    CaFileNotFound { path: String },
+
+    #[error("Invalid CA certificate format in {path}: {message}. Ensure the file contains valid PEM certificates")]
+    InvalidCaFormat { path: String, message: String },
+
+    #[error("TLS handshake failed: {message}. Check server TLS configuration")]
+    HandshakeFailed { message: String },
+
+    #[error("Hostname verification failed for {hostname}: {message}. Use --insecure-skip-hostname-verify to bypass")]
+    HostnameVerificationFailed { hostname: String, message: String },
+
+    #[error("Certificate expired or not yet valid: {message}. Use --allow-invalid-certificate to bypass")]
+    CertificateTimeInvalid { message: String },
+
+    #[error("Mutually exclusive TLS flags provided: {flags}. Use only one TLS security option")]
+    MutuallyExclusiveFlags { flags: String },
 }
 ```
 
 ## Error Handling
 
-### TLS-Specific Error Types
+### TLS Error Classification and User Guidance
+
+#### Error Detection and Suggestion Logic
 
 ```rust
-#[derive(Debug, thiserror::Error)]
-pub enum TlsError {
-    #[error("TLS connection failed: {0}")]
-    ConnectionFailed(String),
-
-    #[error("Certificate validation failed: {0}")]
-    CertificateValidation(String),
-
-    #[error("Unsupported TLS version: {version}. Rustls supports TLS 1.2 and 1.3 only")]
-    UnsupportedTlsVersion { version: String },
-
-    #[error("Certificate file not found: {path}")]
-    CertificateFileNotFound { path: PathBuf },
-
-    #[error("Invalid certificate format: {0}")]
-    InvalidCertificateFormat(String),
+impl TlsError {
+    pub fn from_rustls_error(error: rustls::Error, hostname: Option<&str>) -> Self {
+        match error {
+            rustls::Error::InvalidCertificate(cert_error) => match cert_error {
+                rustls::CertificateError::BadSignature => Self::CertificateValidationFailed {
+                    message: "Certificate has invalid signature. Use --allow-invalid-certificate for testing"
+                        .to_string(),
+                },
+                rustls::CertificateError::CertExpired => Self::CertificateTimeInvalid {
+                    message: "Certificate has expired".to_string(),
+                },
+                rustls::CertificateError::CertNotYetValid => Self::CertificateTimeInvalid {
+                    message: "Certificate is not yet valid".to_string(),
+                },
+                rustls::CertificateError::InvalidPurpose => Self::CertificateValidationFailed {
+                    message: "Certificate not valid for server authentication".to_string(),
+                },
+                _ => Self::CertificateValidationFailed {
+                    message: format!("Certificate validation failed: {:?}", cert_error),
+                },
+            },
+            rustls::Error::InvalidDnsName(_) => Self::HostnameVerificationFailed {
+                hostname: hostname.unwrap_or("unknown").to_string(),
+                message: "Hostname does not match certificate".to_string(),
+            },
+            _ => Self::HandshakeFailed {
+                message: error.to_string(),
+            },
+        }
+    }
 }
 ```
 
-### Error Context Enhancement
+### Warning System
+
+#### Security Warning Display
 
 ```rust
-#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
-pub fn connect_with_tls(database_url: &str) -> anyhow::Result<Pool> {
-    let pool = create_tls_connection(database_url, None)
-        .with_context(|| format!("Failed to establish TLS connection to {}", redact_url(database_url)))?;
-
-    Ok(pool)
-}
-
-fn redact_url(url: &str) -> String {
-    // Parse URL and redact only userinfo (username/password) while preserving host/port
-    match url::Url::parse(url) {
-        Ok(parsed_url) => {
-            let mut redacted_url = parsed_url.clone();
-
-            // Clear username and password if present
-            if parsed_url.username() != "" || parsed_url.password().is_some() {
-                redacted_url.set_username("").ok();
-                redacted_url.set_password(None).ok();
-            }
-
-            redacted_url.to_string()
+pub fn display_security_warnings(tls_config: &TlsConfig) {
+    match &tls_config.validation_mode {
+        TlsValidationMode::SkipHostnameVerification => {
+            eprintln!(
+                "WARNING: Hostname verification disabled. Connection is vulnerable to man-in-the-middle attacks."
+            );
         },
-        Err(_) => {
-            // Fallback: conservative redaction - strip everything before '@' if present
-            if let Some(at_pos) = url.find('@') {
-                format!("***@{}", &url[at_pos + 1..])
-            } else {
-                // If no '@' found, return original to avoid breaking non-URL strings
-                url.to_string()
+        TlsValidationMode::AcceptInvalid => {
+            eprintln!("WARNING: Certificate validation disabled. Connection is NOT secure.");
+            eprintln!("This should ONLY be used for testing. Never use in production.");
+        },
+        TlsValidationMode::CustomCa { ca_file_path } =>
+        {
+            #[cfg(feature = "verbose")]
+            if verbose_enabled() {
+                eprintln!("Using custom CA file: {}", ca_file_path.display());
+            }
+        },
+        TlsValidationMode::Platform =>
+        {
+            #[cfg(feature = "verbose")]
+            if verbose_enabled() {
+                eprintln!("Using platform certificate store for TLS validation");
             }
         },
     }
@@ -224,244 +470,182 @@ fn redact_url(url: &str) -> String {
 
 ### Unit Tests
 
+#### TLS Configuration Tests
+
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::NamedTempFile;
 
     #[test]
-    fn test_tls_config_creation() {
-        let config = TlsConfig {
-            enabled: true,
-            ca_cert_path: Some(PathBuf::from("/tmp/ca.pem")),
-            client_cert_path: None,
-            client_key_path: None,
-            verify_peer: true,
-            verify_hostname: true,
-        };
+    fn test_mutually_exclusive_flags() {
+        // Test that clap rejects mutually exclusive flags
+        use clap::Parser;
 
-        let ssl_opts = config.to_ssl_opts().unwrap();
-        // Verify ssl_opts configuration
+        let result = Cli::try_parse_from([
+            "gold_digger",
+            "--tls-ca-file",
+            "/path/to/ca.pem",
+            "--insecure-skip-hostname-verify",
+        ]);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("cannot be used with"));
     }
 
     #[test]
-    fn test_feature_flag_compatibility() {
-        // Ensure ssl feature enables native-tls
-        #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
-        {
-            // Test that TLS functionality is available via native-tls or rustls
-        }
+    fn test_custom_ca_config() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let cli = Cli::try_parse_from([
+            "gold_digger",
+            "--tls-ca-file",
+            temp_file.path().to_str().unwrap(),
+            "--db-url",
+            "mysql://test",
+            "--query",
+            "SELECT 1",
+            "--output",
+            "test.json",
+        ])
+        .unwrap();
 
-        #[cfg(feature = "ssl")]
-        {
-            // Test that TLS functionality is available via native-tls
-        }
-
-        #[cfg(feature = "ssl-rustls")]
-        {
-            // Test that TLS functionality is available via rustls
-        }
-
-        #[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
-        {
-            // Test that TLS is properly disabled
-        }
+        let config = TlsConfig::from_cli(&cli).unwrap();
+        assert!(matches!(config.validation_mode, TlsValidationMode::CustomCa { .. }));
     }
 
     #[test]
-    fn test_redact_url() {
-        // Test URL with username and password
-        assert_eq!(redact_url("mysql://user:pass@localhost:3306/db"), "mysql://localhost:3306/db");
+    fn test_platform_default_config() {
+        let cli = Cli::try_parse_from([
+            "gold_digger",
+            "--db-url",
+            "mysql://test",
+            "--query",
+            "SELECT 1",
+            "--output",
+            "test.json",
+        ])
+        .unwrap();
 
-        // Test URL with username only
-        assert_eq!(redact_url("mysql://user@localhost:3306/db"), "mysql://localhost:3306/db");
-
-        // Test URL without credentials
-        assert_eq!(redact_url("mysql://localhost:3306/db"), "mysql://localhost:3306/db");
-
-        // Test URL with special characters in password
-        assert_eq!(redact_url("mysql://user:pass@word@localhost:3306/db"), "mysql://localhost:3306/db");
-
-        // Test fallback for malformed URL
-        assert_eq!(redact_url("not-a-url@localhost:3306"), "***@localhost:3306");
-
-        // Test fallback for string without @
-        assert_eq!(redact_url("just-a-string"), "just-a-string");
+        let config = TlsConfig::from_cli(&cli).unwrap();
+        assert!(matches!(config.validation_mode, TlsValidationMode::Platform));
     }
 }
 ```
 
-### Integration Tests with Testcontainers
+### Integration Tests
+
+#### TLS Connection Tests
 
 ```rust
-#[cfg(all(test, any(feature = "ssl", feature = "ssl-rustls")))]
+#[cfg(test)]
 mod integration_tests {
-    use testcontainers::{clients::Cli, images::mysql::Mysql, Container};
+    use super::*;
+    use testcontainers::*;
 
     #[test]
-    fn test_rustls_tls_connection() {
-        let docker = Cli::default();
-        let mysql_container = docker.run(Mysql::default());
-
-        let connection_url = format!("mysql://root@127.0.0.1:{}/test", mysql_container.get_host_port_ipv4(3306));
-
-        // Test connection with rustls
-        let pool = create_tls_connection(&connection_url, None).unwrap();
-        let mut conn = pool.get_conn().unwrap();
-
-        // Verify connection works
-        let result: Vec<mysql::Row> = conn.query("SELECT 1 as test").unwrap();
-        assert_eq!(result.len(), 1);
+    fn test_tls_connection_with_valid_cert() {
+        // Test connection to MySQL with valid certificate
+        // This would use testcontainers with TLS-enabled MySQL
     }
 
     #[test]
-    fn test_tls_certificate_validation() {
-        // Test with self-signed certificates
-        // Test with invalid certificates
-        // Test with custom CA certificates
+    fn test_tls_connection_with_self_signed_cert() {
+        // Test that connection fails with self-signed cert by default
+        // Test that --allow-invalid-certificate allows connection
+    }
+
+    #[test]
+    fn test_hostname_mismatch_handling() {
+        // Test connection to server with hostname mismatch
+        // Test that --insecure-skip-hostname-verify allows connection
     }
 }
 ```
 
-### CI Validation Tests
+### Compatibility Tests
+
+#### Migration Validation
 
 ```rust
 #[test]
-fn test_no_openssl_dependencies() {
-    // Verify openssl-sys is not in dependency tree
-    let output = std::process::Command::new("cargo")
-        .args(&["tree", "-f", "{p} {f}"])
-        .output()
-        .expect("Failed to run cargo tree");
+fn test_backward_compatibility() {
+    // Ensure existing DATABASE_URL formats still work
+    let database_urls = vec![
+        "mysql://user:pass@localhost:3306/db",
+        "mysql://user:pass@localhost:3306/db?ssl-mode=required",
+        "mysql://user:pass@localhost:3306/db?ssl-mode=disabled",
+    ];
 
-    let tree_output = String::from_utf8(output.stdout).unwrap();
-    assert!(!tree_output.contains("openssl-sys"), "OpenSSL dependency found in tree");
-}
-
-#[test]
-fn test_ssl_rustls_no_native_tls() {
-    // Verify ssl-rustls feature doesn't include native-tls
-    let output = std::process::Command::new("cargo")
-        .args(&["tree", "-f", "{p} {f}"])
-        .output()
-        .expect("Failed to run cargo tree");
-
-    let tree_output = String::from_utf8(output.stdout).unwrap();
-    assert!(!tree_output.contains("native-tls"), "native-tls dependency found with ssl-rustls feature");
+    for url in database_urls {
+        // Test that URL parsing and connection creation works
+        // with new rustls implementation
+    }
 }
 ```
 
-### Cross-Platform Validation
+## Migration Strategy
 
-```yaml
-# CI matrix test for TLS functionality
-strategy:
-  matrix:
-    os: [ubuntu-latest, windows-latest, macos-latest]
-    rust: [stable, beta]
-    features: [ssl, ssl-rustls]
+### Phase 1: Feature Flag Simplification
 
-jobs:
-  validate:
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+1. Update `Cargo.toml` to remove `ssl-rustls` feature
+2. Change `ssl` feature to use `mysql/rustls-tls` + `rustls-native-certs`
+3. Update conditional compilation directives
 
-      - name: Setup Rust ${{ matrix.rust }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rust }}
+### Phase 2: CLI Interface Addition
 
-      - name: Validate feature exclusivity
-        run: |
-          # Fail if both ssl and ssl-rustls features are enabled
-          if [[ "${{ matrix.features }}" == *"ssl"* && "${{ matrix.features }}" == *"ssl-rustls"* ]]; then
-            echo "Error: Cannot enable both 'ssl' and 'ssl-rustls' features simultaneously"
-            echo "Matrix features: ${{ matrix.features }}"
-            exit 1
-          fi
-          echo "Feature validation passed: ${{ matrix.features }}"
+1. Add new TLS flags to `Cli` struct
+2. Implement mutual exclusion validation
+3. Add flag parsing and validation logic
 
-      - name: Build with features
-        run: cargo build --features "${{ matrix.features }}"
+### Phase 3: TLS Configuration Refactor
+
+1. Update `TlsConfig` to use new validation modes
+2. Implement rustls-specific configuration logic
+3. Add custom certificate verifiers
+
+### Phase 4: Error Handling Enhancement
+
+1. Update error types for better user guidance
+2. Add specific error detection for common certificate issues
+3. Implement security warning system
+
+### Phase 5: Documentation and Testing
+
+1. Update all documentation files
+2. Add comprehensive test coverage
+3. Update CI workflows to test new flags
+
+## Backward Compatibility
+
+### Existing Behavior Preservation
+
+- All existing `DATABASE_URL` formats continue to work
+- Default TLS behavior (when no flags specified) uses platform certificate store
+- Feature-gated compilation still works (ssl feature can be disabled)
+- Exit codes and error handling patterns remain consistent
+
+### Breaking Changes
+
+- Remove `ssl-rustls` feature flag (users should use `ssl` instead)
+- TLS implementation changes from native-tls to rustls (may affect certificate validation behavior)
+- Some certificate validation errors may have different messages
+
+### Migration Guide
+
+```markdown
+## Migrating from native-tls to rustls
+
+### Feature Flags
+- Replace `--features ssl-rustls` with `--features ssl`
+- Remove `--no-default-features --features ssl-rustls` (use default features)
+
+### Certificate Issues
+- If you encounter hostname verification errors, use `--insecure-skip-hostname-verify`
+- If you have self-signed certificates, use `--allow-invalid-certificate` 
+- For internal CAs, use `--tls-ca-file /path/to/ca.pem`
+
+### Build Changes
+- No changes needed for most users (ssl feature enabled by default)
+- Minimal builds: use `--no-default-features --features "csv json"`
 ```
-
-## Migration Implementation Plan
-
-### Phase 1: Dependency Migration
-
-1. Update Cargo.toml feature flags
-2. Remove explicit openssl-sys dependency
-3. Add mysql/native-tls feature to ssl flag
-4. Add mysql/rustls-tls feature to ssl-rustls flag
-5. Remove vendored feature entirely
-
-### Phase 2: CI Pipeline Updates
-
-1. Remove Windows OpenSSL/vcpkg setup steps
-2. Add dependency tree validation
-3. Update build matrix to test rustls across platforms
-4. Add performance benchmarks comparing build times
-
-### Phase 3: Documentation Updates
-
-1. Update WARP.md and AGENTS.md TLS sections
-2. Document rustls migration in CHANGELOG.md
-3. Update F006 requirement references
-4. Add troubleshooting guide for TLS issues
-
-### Phase 4: Testing and Validation
-
-1. Implement testcontainers-based TLS integration tests
-2. Add cross-platform CI validation
-3. Performance testing for build times and runtime
-4. Security validation for certificate handling
-
-### Phase 5: Fallback Feature (Optional)
-
-1. Implement tls-native feature for legacy support
-2. Document when to use fallback feature
-3. Add feature selection guidance
-
-## Backward Compatibility Considerations
-
-### API Compatibility
-
-- `mysql::SslOpts` interface remains unchanged
-- Programmatic TLS configuration patterns preserved
-- Feature flag names maintained (ssl, ssl-rustls)
-- Environment variable handling unchanged
-
-### Behavioral Changes
-
-- TLS 1.0/1.1 no longer supported (rustls limitation)
-- Certificate validation may have slightly different error messages
-- Performance characteristics may differ (generally improved)
-
-### Migration Path
-
-1. Users upgrade Gold Digger version
-2. Existing configurations continue to work
-3. Build processes become simpler (no OpenSSL setup needed)
-4. Optional fallback available if needed
-
-## Performance Considerations
-
-### Build Performance
-
-- Elimination of OpenSSL compilation reduces build times
-- Pure Rust dependency chain enables better caching
-- Cross-compilation becomes simpler and faster
-
-### Runtime Performance
-
-- rustls generally provides comparable or better TLS performance
-- Lower memory footprint compared to OpenSSL
-- Better integration with Rust async ecosystems
-
-### Binary Size
-
-- rustls may result in slightly larger binaries
-- No runtime OpenSSL library dependencies
-- Static linking becomes more predictable
