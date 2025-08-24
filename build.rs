@@ -1,11 +1,18 @@
 use std::env;
 
 fn main() {
-    // Get the target triple
+    // Check for enabled features using Cargo-provided environment variables
+    let ssl_enabled = env::var_os("CARGO_FEATURE_SSL").is_some();
+    let ssl_rustls_enabled = env::var_os("CARGO_FEATURE_SSL_RUSTLS").is_some();
+
+    // Detect musl target using CARGO_CFG_TARGET_ENV
+    let is_musl = env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("musl");
+
+    // Get the target triple for error messages
     let target = env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
     // Check if this is a musl target
-    if target.contains("musl") {
+    if is_musl {
         // For musl targets, we need to ensure ssl-rustls is used instead of native-tls
         // This prevents OpenSSL dependency issues on musl systems
         println!("cargo:warning=Detected musl target: {}. Forcing ssl-rustls feature for compatibility.", target);
@@ -16,7 +23,7 @@ fn main() {
 
         // If native-tls is being used, this will cause a build error
         // The build will fail with a clear error message
-        if cfg!(feature = "ssl") && !cfg!(feature = "ssl-rustls") {
+        if ssl_enabled && !ssl_rustls_enabled {
             panic!(
                 "ERROR: musl target '{}' detected but native-tls (ssl feature) is enabled.\n\
                 musl targets require ssl-rustls feature for compatibility.\n\
@@ -30,7 +37,7 @@ fn main() {
     }
 
     // Validate feature combinations
-    if cfg!(feature = "ssl") && cfg!(feature = "ssl-rustls") {
+    if ssl_enabled && ssl_rustls_enabled {
         panic!(
             "ERROR: Both 'ssl' and 'ssl-rustls' features are enabled.\n\
             These features are mutually exclusive. Please enable only one:\n\
@@ -41,4 +48,7 @@ fn main() {
 
     // Re-run if target changes
     println!("cargo:rerun-if-env-changed=TARGET");
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ENV");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SSL");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SSL_RUSTLS");
 }
