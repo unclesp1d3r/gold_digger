@@ -1,14 +1,14 @@
+/// Check if running in CI environment
+#[allow(dead_code)]
+fn is_ci() -> bool {
+    std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok()
+}
+
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use anyhow::Result;
 
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use gold_digger::tls::{TlsConfig, create_tls_connection};
-
-#[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
-/// Check if running in CI environment
-fn is_ci() -> bool {
-    std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok()
-}
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
 use mysql::prelude::Queryable;
 #[cfg(any(feature = "ssl", feature = "ssl-rustls"))]
@@ -424,6 +424,11 @@ mod tls_tests {
 #[cfg(not(any(feature = "ssl", feature = "ssl-rustls")))]
 mod no_tls_tests {
     use gold_digger::tls::{TlsConfig, create_tls_connection};
+
+    /// Check if running in CI environment
+    fn is_ci() -> bool {
+        std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok()
+    }
 
     /// Test that TLS functions return appropriate errors when TLS features are disabled
     #[test]
