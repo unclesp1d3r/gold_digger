@@ -65,14 +65,14 @@ fix:
 check:
     pre-commit run -a
     just lint
-    just test
+    just test-no-docker
 
 # Quality gates (CI equivalent)
 ci-check:
     cd {{justfile_dir()}}
     just fmt-check
     just lint
-    just test-nextest
+    just test
     just validate-deps
 
 # Comprehensive full checks (all non-destructive validation)
@@ -80,7 +80,7 @@ full-checks:
     cd {{justfile_dir()}}
     just fmt-check
     just lint
-    just test-nextest
+    just test
     just validate-deps
     just audit
     just deny
@@ -123,13 +123,13 @@ install:
 # TESTING
 # =============================================================================
 
-# Run tests
+# Run tests (prefer nextest, fallback to cargo test)
 test:
     cd {{justfile_dir()}}
-    cargo test
+    cargo nextest run --run-ignored all || cargo test -- --include-ignored
 
-# Run tests with nextest (if available)
-test-nextest:
+# Run tests without Docker tests (non-ignored only)
+test-no-docker:
     cd {{justfile_dir()}}
     cargo nextest run || cargo test
 
@@ -582,8 +582,8 @@ help:
     @echo "  full-checks   Comprehensive validation (all non-destructive checks)"
     @echo ""
     @echo "Testing:"
-    @echo "  test          Run tests"
-    @echo "  test-nextest  Run tests with nextest"
+    @echo "  test          Run tests with nextest (including ignored Docker tests)"
+    @echo "  test-no-docker Run tests with nextest (excluding Docker tests)"
     @echo "  coverage      Run tests with coverage report"
     @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
     @echo "  cover         Alias for coverage-llvm (CI naming consistency)"
