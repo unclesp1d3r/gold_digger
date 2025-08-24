@@ -28,7 +28,7 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 3. WHEN clippy warnings are present THEN the CI pipeline SHALL fail with `just lint` using zero-tolerance policy
 4. WHEN code quality checks pass THEN the CI pipeline SHALL proceed to testing phases
 5. IF quality gates fail THEN the pipeline SHALL NOT use continue-on-error and SHALL block progression
-6. Pre-commit caches SHALL include runner-specific keys (e.g., `${{ runner.os }}`) to prevent cross-platform cache pollution
+6. WHEN pre-commit caches are used THEN they SHALL include runner-specific keys (e.g., `${{ runner.os }}`) to prevent cross-platform cache pollution
 
 ### Requirement 3
 
@@ -37,7 +37,7 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 #### Acceptance Criteria
 
 1. WHEN code is analyzed THEN the CI pipeline SHALL run CodeQL security analysis for Rust
-2. WHEN dependencies are processed THEN the CI pipeline SHALL generate SBOM using syft
+2. WHEN dependencies are processed THEN the CI pipeline SHALL generate SBOM using cargo-auditable and cargo-cyclonedx via cargo-dist
 3. WHEN vulnerabilities are scanned THEN the CI pipeline SHALL use grype to identify security issues
 4. WHEN security issues are found THEN the CI pipeline SHALL report them as failing checks
 5. WHEN SBOM is generated THEN it SHALL be uploaded as a CI artifact for transparency
@@ -64,9 +64,9 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 1. WHEN a version tag is pushed THEN the release pipeline SHALL build artifacts for Ubuntu 22.04, macOS 13, and Windows 2022
 2. WHEN release artifacts are created THEN they SHALL be signed using Cosign keyless OIDC authentication
 3. WHEN releases are published THEN they SHALL include comprehensive SBOMs for all components
-4. WHEN artifacts are generated THEN they SHALL include CycloneDX SBOMs generated with syft
+4. WHEN artifacts are generated THEN they SHALL include CycloneDX SBOMs generated with cargo-auditable and cargo-cyclonedx via cargo-dist
 5. WHEN checksums are created THEN they SHALL use SHA256 and be included with release artifacts
-6. IF personal access tokens are used THEN they SHALL be replaced with GitHub OIDC authentication
+6. WHEN authentication is required THEN the pipeline SHALL use GitHub OIDC authentication instead of personal access tokens
 7. WHEN binaries are packaged THEN they SHALL use Rust-native tooling (taiki-e/upload-rust-binary-action)
 
 ### Requirement 6
@@ -103,3 +103,15 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 3. WHEN quality gates fail THEN they SHALL specify exactly which standards were violated
 4. WHEN platform-specific failures occur THEN they SHALL be clearly attributed to the specific platform
 5. WHEN CI completes successfully THEN all jobs SHALL report clear success status
+
+### Requirement 9
+
+**User Story:** As a project maintainer, I want automated changelog generation so that release notes are consistently formatted and comprehensive.
+
+#### Acceptance Criteria
+
+1. WHEN commits follow conventional commit format THEN git-cliff SHALL generate structured changelog entries
+2. WHEN a release is created THEN the changelog SHALL be automatically updated with new entries
+3. WHEN changelog is generated THEN it SHALL include commit types, scopes, and breaking changes
+4. WHEN release workflow runs THEN it SHALL use git-cliff for consistent changelog formatting
+5. WHEN changelog updates occur THEN they SHALL maintain chronological order and proper versioning
