@@ -4,185 +4,91 @@ inclusion: always
 
 # Gold Digger Product Requirements
 
-Gold Digger is a Rust MySQL/MariaDB query tool that exports structured data (CSV/JSON/TSV). Focus on type safety, security, and CLI-first design.
+Gold Digger is a MySQL/MariaDB query tool that exports structured data to CSV/JSON/TSV formats. Core principles: type safety, security, and CLI-first design for automation workflows.
 
-## Critical Architecture Rules
+## Product Identity
 
-### Configuration Precedence
+**Purpose**: Headless database query automation for CI/CD pipelines and data export workflows\
+**Design Philosophy**: Offline-first, environment-driven, structured output\
+**Target Users**: DevOps engineers, data analysts, automation scripts
 
-1. CLI flags (highest priority)
-2. Environment variables (fallback)
-3. No configuration files supported
+## 🚨 Critical Safety Requirements
 
-### Output Format Requirements
+### Database Safety (PANIC PREVENTION)
 
-- **CSV**: RFC4180-compliant, `QuoteStyle::Necessary`, NULL values rendered as empty strings
-- **JSON**: `{"data": [...]}` structure, deterministic ordering (BTreeMap not HashMap), NULL values rendered as `null`
-- **TSV**: Tab-separated (byte value b'\\t'), `QuoteStyle::Necessary` (fallback format), NULL values rendered as empty strings
-- Format detection by file extension (.csv/.json) or `--format` override
+- **NEVER** use unsafe MySQL value conversion - causes runtime panics on NULL/mixed types
+- **ALWAYS** handle NULL values explicitly in all database operations
+- **ALWAYS** recommend SQL type casting for safety: `CAST(column AS CHAR)`
 
-### Database Safety (CRITICAL)
+### Security (NON-NEGOTIABLE)
 
-- **NEVER** use `from_value::<String>()` without NULL checking - causes panics
-- Always recommend SQL `CAST(column AS CHAR)` for type safety
-- Handle `mysql::Value::NULL` explicitly in all conversions
-- Use `mysql::Pool` for connections, `mysql::SslOpts` for TLS configuration
+- **NEVER** log credentials or connection strings - implement automatic redaction
+- **NEVER** make external network calls at runtime (offline-first design)
+- **ALWAYS** validate and sanitize all user inputs
 
-### Security Requirements
+## Product Architecture
 
-- **NEVER** log `DATABASE_URL` or credentials - implement automatic redaction
-- Use structured logging with `tracing` crate for credential protection
-- Support TLS/SSL via `mysql/native-tls` features only
-- No external service calls at runtime (offline-first)
+### Configuration Model
 
-## CLI Interface Specification
+- **CLI-first**: Flags override environment variables
+- **Environment fallback**: Support automation workflows
+- **No config files**: Simplifies deployment and security
 
-### CLI Flags (required unless corresponding env var is set)
+### Output Format Strategy
 
-- `--db-url <URL>`: Database connection (overrides `DATABASE_URL`)
-- `--query <SQL>`: Inline SQL (mutually exclusive with `--query-file`)
-- `--query-file <FILE>`: SQL from file (mutually exclusive with `--query`)
-- `--output <FILE>`: Output path (overrides `OUTPUT_FILE`)
-- `--format <FORMAT>`: Force format (csv|json|tsv)
-- `--pretty`: Pretty-print JSON
-- `--verbose`: Structured logging (repeatable)
-- `--quiet`: Suppress non-error output
-- `--allow-empty`: Exit 0 on empty results
+- **CSV**: Standard business format (RFC4180 compliant)
+- **JSON**: API integration format with deterministic field ordering
+- **TSV**: Fallback format for simple parsing
+- **Auto-detection**: File extension determines format (.csv/.json/fallback to TSV)
+- **Format override**: `--format` flag for explicit control
 
-Flags take precedence over environment variables; provide either the flag or the corresponding env var.
+### NULL Value Handling Policy
 
-### Environment Variables (Fallback)
+- **CSV/TSV**: NULL → empty string (standard business practice)
+- **JSON**: NULL → `null` (JSON standard compliance)
 
-- `DATABASE_URL`: MySQL connection string
-- `DATABASE_QUERY`: SQL statement
-- `OUTPUT_FILE`: Output file path
+## User Interface Design
 
-### Mutually Exclusive Options
+### Required Inputs (CLI flag OR environment variable)
 
-- `--query` and `--query-file` cannot be used together
-- `--verbose` and `--quiet` cannot be used together
+- **Database connection**: `--db-url` / `DATABASE_URL`
+- **SQL query**: `--query` OR `--query-file` / `DATABASE_QUERY`
+- **Output destination**: `--output` / `OUTPUT_FILE`
 
-## Exit Code Standards
+### User Experience Rules
 
-- **0**: Success with results (or empty with `--allow-empty`)
-- **1**: Success but no rows returned
-- **2**: Configuration error (missing/invalid params, mutually exclusive flags)
-- **3**: Database connection/authentication failure
-- **4**: Query execution failure (including type conversion errors)
-- **5**: File I/O operation failure
+- **Mutually exclusive options**: Prevent conflicting configurations
+  - Query source: `--query` vs `--query-file`
+  - Output verbosity: `--verbose` vs `--quiet`
+- **Clear error messages**: Specific exit codes for different failure types
+- **Automation-friendly**: Predictable behavior for scripting
 
-## Required Dependencies & Features
+### Exit Code Contract
 
-- **clap**: CLI parsing with `derive` and `env` features
-- **mysql**: MySQL connectivity with `native-tls` feature
-- **csv**: RFC4180-compliant output
-- **serde_json**: JSON with deterministic ordering (BTreeMap)
-- **anyhow**: Error handling and propagation
-- **tracing**: Structured logging with credential protection
+- **0**: Successful execution with data (or empty results with `--allow-empty`)
+- **1**: Successful execution but no data returned
+- **2**: User configuration error (missing params, conflicts)
+- **3**: Database connectivity/authentication failure
+- **4**: Query execution failure (SQL errors, type conversion)
+- **5**: File system operation failure
 
-## Code Quality Standards
+## Quality Standards
 
-### Quality Gates (Required Before Commits)
+### Reliability Requirements
 
-```bash
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit (advisory)
-```
+- **Zero tolerance for runtime panics** - all database operations must be safe
+- **Deterministic output** - same query produces identical results across runs
+- **Cross-platform compatibility** - consistent behavior on Windows/macOS/Linux
 
-All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+### Performance Expectations
 
-### Commit Standards
+- **Memory usage**: Currently O(row_count × row_width) - loads all results into memory
+- **Startup time**: Target under 250ms for CLI responsiveness
+- **Connection model**: Single database connection per execution (simple and reliable)
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** cargo-dist handles versioning and distribution; git-cliff handles changelog generation
-- **CI Parity:** All CI operations executable locally via `just` recipes
-- **Important:** `.github/workflows/release.yml` is automatically generated by cargo-dist and should not be manually edited
+### Feature Completeness
 
-### Code Quality Requirements
-
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
-- **Feature-gated compilation** for optional functionality
-- Use `anyhow::Result<T>` for all fallible operations
-
-## Essential Just Recipes
-
-Key `justfile` targets for development workflow:
-
-```bash
-just setup        # Install development dependencies
-just fmt          # Auto-format code
-just fmt-check    # Verify formatting (CI-compatible)
-just lint         # Run clippy with -D warnings
-just test         # Run tests (cargo nextest preferred)
-just ci-check     # Full CI validation locally
-just build        # Build release artifacts
-just docs         # Serve documentation locally
-```
-
-All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
-
-## Safe Database Value Conversion Pattern
-
-```rust
-// NEVER use this - causes panics on NULL
-from_value::<String>(row[column.name_str().as_ref()])
-
-// ALWAYS use this pattern - format-aware conversion
-match database_value {
-    mysql::Value::NULL => {
-        match output_format {
-            OutputFormat::Json => serde_json::Value::Null,
-            _ => "".to_string() // CSV/TSV use empty string
-        }
-    },
-    val => {
-        match output_format {
-            OutputFormat::Json => {
-                // Convert mysql::Value to serde_json::Value safely
-                json_from_mysql_value(val)
-            },
-            _ => from_value_opt::<String>(val)
-                .unwrap_or_else(|_| format!("{:?}", val))
-        }
-    }
-}
-
-// Helper function for safe mysql::Value to serde_json::Value conversion
-fn json_from_mysql_value(val: mysql::Value) -> serde_json::Value {
-    match val {
-        mysql::Value::NULL => serde_json::Value::Null,
-        mysql::Value::Bytes(bytes) => {
-            String::from_utf8(bytes)
-                .map(serde_json::Value::String)
-                .unwrap_or_else(|_| serde_json::Value::String(format!("{:?}", val)))
-        },
-        mysql::Value::Int(i) => serde_json::Value::Number(i.into()),
-        mysql::Value::UInt(u) => serde_json::Value::Number(u.into()),
-        mysql::Value::Float(f) => {
-            serde_json::Number::from_f64(f as f64)
-                .map(serde_json::Value::Number)
-                .unwrap_or_else(|| serde_json::Value::String(format!("{:?}", f)))
-        },
-        mysql::Value::Double(d) => {
-            serde_json::Number::from_f64(d)
-                .map(serde_json::Value::Number)
-                .unwrap_or_else(|| serde_json::Value::String(format!("{:?}", d)))
-        },
-        _ => serde_json::Value::String(format!("{:?}", val))
-    }
-}
-```
-
-## Memory & Performance Constraints
-
-- **Current**: All results loaded into memory (O(row_count × row_width))
-- **Target**: Streaming support for O(row_width) memory usage
-- Single database connection per execution
-- CLI startup under 250ms
+- **Core formats**: CSV, JSON, TSV support with proper standards compliance
+- **Configuration flexibility**: CLI flags with environment variable fallbacks
+- **Error handling**: Comprehensive exit codes for automation integration
+- **Security**: Credential protection and offline-first operation
