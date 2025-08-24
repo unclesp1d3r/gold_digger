@@ -170,7 +170,7 @@ jobs:
 
 - **CodeQL Analysis**: Rust-specific static analysis for security vulnerabilities
 - **SBOM Generation**: `cargo-auditable` and `cargo-cyclonedx` via `cargo-dist` for complete dependency tracking
-- **Vulnerability Scanning**: `grype` with failure thresholds for critical/high severity issues
+- **Vulnerability Scanning**: `grype` consuming CycloneDX SBOMs as primary input (`grype sbom:target/cyclonedx-bom.json`) with fallback to image/file/system scan mode, including failure handling and artifact retention
 - **Dependency Auditing**: `cargo-audit` and `cargo-deny` for advisory checking
 - **Artifact Management**: Security scan results uploaded as CI artifacts
 
@@ -185,7 +185,8 @@ jobs:
     # Integration with security reporting
   dependency-security:
     # cargo-auditable and cargo-cyclonedx SBOM generation via cargo-dist
-    # grype vulnerability scanning with fail-on critical/high
+    # grype vulnerability scanning consuming CycloneDX SBOMs (grype sbom:target/cyclonedx-bom.json)
+    # fallback to grype image/file/system scan mode if CycloneDX unavailable with logging
     # cargo-audit advisory checking
     # cargo-deny license and security policy enforcement
   security-reporting:
@@ -434,8 +435,12 @@ quality_gates:
   security:
     vulnerability_scan:
       tool: grype
+      primary_input: sbom:target/cyclonedx-bom.json
+      fallback_mode: image/file/system
+      fallback_logging: required
       fail_on: [critical, high]
       blocking: true
+      artifact_retention: true
 
     dependency_audit:
       tool: cargo-audit
@@ -520,14 +525,16 @@ Blocking: Pipeline progression blocked
 **Vulnerability Detection**:
 
 ```bash
-# Grype vulnerability scanning with actionable guidance
+# Grype vulnerability scanning consuming CycloneDX SBOMs with fallback
 Error: Critical/High vulnerabilities detected (Exit Code: 2)
-Tool: grype
+Tool: grype sbom:target/cyclonedx-bom.json
 Policy: Fail on critical/high severity
 Affected: openssl-sys 0.9.87 (CVE-2023-XXXX)
 Severity: Critical
 Remediation: Update to openssl-sys >= 0.9.90
-SBOM: Uploaded as CI artifact for transparency
+SBOM Source: CycloneDX format from cargo-cyclonedx
+Fallback: Would use grype image/file/system scan if SBOM unavailable
+Artifact Retention: SBOM and scan results uploaded as CI artifacts
 Blocking: Release and merge blocked
 ```
 
@@ -628,7 +635,9 @@ Action: Check test execution and coverage tool configuration
 
 - Test CodeQL analysis for Rust-specific security vulnerabilities
 - Validate cargo-auditable and cargo-cyclonedx SBOM generation via cargo-dist
-- Test grype vulnerability scanning with critical/high failure thresholds
+- Test grype vulnerability scanning consuming CycloneDX SBOMs (grype sbom:target/cyclonedx-bom.json)
+- Validate grype fallback to image/file/system scan mode when CycloneDX unavailable
+- Test fallback logging and proper failure handling with artifact retention
 - Verify cargo-audit and cargo-deny integration for dependency security
 
 **SBOM and Artifact Security**:
@@ -702,14 +711,15 @@ Action: Check test execution and coverage tool configuration
 
 1. Integrate CodeQL analysis for Rust security vulnerabilities
 2. Implement cargo-auditable and cargo-cyclonedx SBOM generation via cargo-dist for all components
-3. Add grype vulnerability scanning with critical/high failure thresholds
+3. Add grype vulnerability scanning consuming CycloneDX SBOMs (grype sbom:target/cyclonedx-bom.json) with fallback to image/file/system scan mode and proper logging
 4. Configure cargo-audit and cargo-deny for dependency security
 5. Upload SBOM as CI artifact for transparency
 
 **Success Criteria**:
 
 - CodeQL analysis integrated with GitHub Security tab
-- CycloneDX SBOM generated via cargo-dist for all release artifacts
+- CycloneDX SBOM generated via cargo-dist for all release artifacts at target/cyclonedx-bom.json
+- Grype vulnerability scanning consumes CycloneDX SBOMs as primary input with fallback capability
 - Vulnerability scanning blocks pipeline on critical/high severity issues
 - Security scan results provide remediation guidance
 - SBOM artifacts available for transparency and compliance

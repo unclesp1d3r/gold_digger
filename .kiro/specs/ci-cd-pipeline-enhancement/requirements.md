@@ -38,7 +38,7 @@ This feature implements comprehensive CI/CD pipeline improvements for the Gold D
 
 1. WHEN code is analyzed THEN the CI pipeline SHALL run CodeQL security analysis for Rust
 2. WHEN dependencies are processed THEN the CI pipeline SHALL generate SBOM using cargo-auditable and cargo-cyclonedx via cargo-dist
-3. WHEN vulnerabilities are scanned THEN the CI pipeline SHALL use grype to identify security issues
+3. WHEN vulnerabilities are scanned THEN the CI pipeline SHALL use grype to consume CycloneDX SBOMs as primary input (grype sbom:target/cyclonedx-bom.json) with fallback to image/file/system scan mode if CycloneDX is unavailable, logging the fallback reason and ensuring proper failure handling and artifact retention
 4. WHEN security issues are found THEN the CI pipeline SHALL report them as failing checks
 5. WHEN SBOM is generated THEN it SHALL be uploaded as a CI artifact for transparency
 6. WHEN release artifacts are created THEN they SHALL be signed with Cosign keyless OIDC authentication

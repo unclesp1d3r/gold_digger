@@ -10,13 +10,17 @@
   - Verify all security scans run in single consolidated workflow for better coordination
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 2. Enhance SBOM generation with cargo-dist integration
+- [ ] 2. Enhance SBOM generation and grype integration with cargo-dist
 
   - Modify security.yml to use cargo-auditable and cargo-cyclonedx via cargo-dist for SBOM generation
   - Replace current syft-based SBOM generation with Rust-native tooling
-  - Ensure CycloneDX format SBOMs are generated for all components as specified in requirements
+  - Ensure CycloneDX format SBOMs are generated at target/cyclonedx-bom.json for all components
+  - Configure grype to consume CycloneDX SBOMs as primary input using `grype sbom:target/cyclonedx-bom.json`
+  - Implement grype fallback to image/file/system scan mode when CycloneDX SBOM is unavailable
+  - Add logging for fallback scenarios with clear reason documentation
+  - Ensure proper failure handling and artifact retention for both SBOM and scan results
   - Integrate SBOM generation with existing release workflow for consistency
-  - _Requirements: 3.2, 5.3, 5.4_
+  - _Requirements: 3.2, 3.3, 5.3, 5.4_
 
 - [ ] 3. Implement automated changelog generation with git-cliff
 
@@ -75,6 +79,10 @@
   - Test end-to-end pipeline from code push to release artifact generation
   - Verify cross-platform testing matrix works correctly on all target platforms
   - Test security scanning integration and failure scenarios
+  - Validate grype SBOM consumption (grype sbom:target/cyclonedx-bom.json) and fallback behavior
+  - Test CycloneDX SBOM generation via cargo-dist and proper file path creation
+  - Verify fallback logging when CycloneDX SBOM is unavailable or corrupted
+  - Test artifact retention for both successful and failed security scans
   - Validate coverage reporting and Codecov integration functionality
   - Test local CI reproduction using act and justfile recipes
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 4.1, 4.2, 4.3, 4.4, 4.5_
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 3.3, 4.1, 4.2, 4.3, 4.4, 4.5_
