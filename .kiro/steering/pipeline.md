@@ -18,7 +18,7 @@ just security     # cargo audit (advisory)
 ### Commit Standards
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **Automation:** cargo-dist handles versioning and distribution; git-cliff handles changelog generation
 - **CI Parity:** All CI operations executable locally via `just` recipes
 
 ### Code Quality Requirements
@@ -51,8 +51,8 @@ All recipes must use `cd {{justfile_dir()}}` and support cross-platform executio
 ### GitHub Actions Workflows
 
 - **ci.yml:** PR/push validation (formatting, linting, testing, security)
-- **cargo-dist.toml:** Automated release PRs with semantic versioning and distribution
-- **release.yml:** Cross-platform artifact generation via `cargo-dist`
+- **cargo-dist.toml:** Configuration file for cargo-dist (artifact/distribution settings, workspace level)
+- **release.yml:** Cross-platform artifact generation via `cargo-dist` (automatically generated, do not edit manually)
 
 ### CI Matrix Requirements
 

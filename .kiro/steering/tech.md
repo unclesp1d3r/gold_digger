@@ -139,6 +139,8 @@ just test         # cargo nextest run (preferred) or cargo test
 just security     # cargo audit (advisory)
 ```
 
+**Convenience Target**: Use `just ci-check` to run all four quality gate commands in sequence. See the repository `justfile` for the complete definition.
+
 All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### CI-Aligned Commands
@@ -192,12 +194,16 @@ just coverage       # Local HTML coverage report
 ### Build Variations
 
 ```bash
-cargo build --release                                    # Standard build (system OpenSSL)
+cargo build --release                                    # Standard build (platform-native TLS)
 cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS (opt-in)
 cargo build --no-default-features --features "csv json" # Minimal build
 ```
 
-**Note**: If rustls becomes the default TLS implementation, update the "Standard build" comment to reflect this change (e.g., "Standard build (rustls)").
+**TLS Implementation Notes:**
+
+- Default build uses platform-native TLS via `ssl` feature
+- Pure Rust TLS available via `ssl-rustls` feature (mutually exclusive)
+- The deprecated `vendored` feature has been removed
 
 ### Deployment Considerations
 

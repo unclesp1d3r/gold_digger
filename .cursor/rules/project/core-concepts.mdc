@@ -75,7 +75,7 @@ additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decima
 verbose = []                               # Conditional println!/eprintln!
 ```
 
-**Note**: `ssl` and `ssl-rustls` are mutually exclusive. The `vendored` feature has been **REMOVED** in v0.2.7+ as OpenSSL dependencies have been eliminated.
+**Note**: `ssl` and `ssl-rustls` are mutually exclusive. The deprecated `vendored` feature has been removed as OpenSSL dependencies have been eliminated.
 
 ## Code Quality Standards (Zero Tolerance)
 
@@ -92,7 +92,7 @@ cargo audit                 # Security vulnerability scanning (advisory)
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
+- **Automation:** cargo-dist handles versioning and distribution; git-cliff handles changelog generation
 - **CI Parity:** All CI operations executable locally
 
 ### Error Handling Patterns

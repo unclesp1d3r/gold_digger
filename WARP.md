@@ -28,8 +28,8 @@ cargo build
 # Release build
 cargo build --release
 
-# With vendored OpenSSL (static linking)
-cargo build --release --features vendored
+# With pure Rust TLS (alternative to native TLS)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # Minimal build (no default features)
 cargo build --no-default-features --features "csv json"
@@ -116,9 +116,8 @@ cargo run --release
 ### Feature Flags (Cargo.toml)
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: Enables MySQL native TLS support using platform-native libraries (no OpenSSL dependency)
-- `ssl-rustls`: Enables pure Rust TLS implementation (alternative to native TLS)
-- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
+- `ssl`: Enables MySQL native TLS support using platform-native TLS libraries (native-tls). On Linux, this commonly links to the system OpenSSL library (not vendored OpenSSL)
+- `ssl-rustls`: Enables pure Rust TLS implementation (rustls) as an alternative to platform-native TLS
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
 
@@ -152,20 +151,6 @@ match get_extension_from_filename(&output_file) {
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
 ## Critical Gotchas and Invariants
-
-### Type Conversion Panics
-
-**🚨 CRITICAL:** `rows_to_strings()` uses `from_value::<String>()` which panics on:
-
-- NULL values
-- Non-string types (numbers, dates, binary data)
-
-**Workarounds until fixed:**
-
-```sql
--- Cast all columns to strings in your query
-SELECT CAST(id AS CHAR) as id, CAST(created_at AS CHAR) as created_at FROM users;
-```
 
 ### Memory and Performance
 
@@ -224,9 +209,8 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **Automation:** cargo-dist handles versioning and distribution; git-cliff handles changelog generation
 - **CI Parity:** All CI operations executable locally via `just` recipes
-- **CI Parity:** All CI operations executable locally
 
 ### Code Quality Requirements
 
@@ -247,6 +231,7 @@ just fmt          # Auto-format code
 just fmt-check    # Verify formatting (CI-compatible)
 just lint         # Run clippy with -D warnings
 just test         # Run tests (cargo nextest preferred)
+just security     # Comprehensive security scanning
 just ci-check     # Full CI validation locally
 just build        # Build release artifacts
 just docs         # Serve documentation locally
@@ -323,28 +308,11 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ## CI/CD and Release Management
 
-### Version Discrepancy
-
-- **Current Issue:** CHANGELOG.md shows v0.2.6, Cargo.toml shows v0.2.5
-- **Action Required:** Sync versions and tag appropriately
-
-### CI Improvements Needed
-
-```yaml
-# Add to .github/workflows/rust.yml
-  - name: Check formatting
-    run: cargo fmt --check
-  - name: Clippy (fail on warnings)
-    run: cargo clippy -- -D warnings
-  - name: Run tests
-    run: cargo test
-```
-
-### Future Release Engineering
-
-- Use `cargo-dist` for automated versioning and distribution
-- Add `cargo-dist` for cross-platform binary distribution
-- SBOM generation, vulnerability scanning, cryptographic signing per requirements
+- **GitHub Actions:** CI/CD pipeline
+- **cargo-dist:** Release management and distribution
+- **GitHub Releases:** Release artifacts
+- **GitHub Pages:** Documentation deployment
+- NOTE: `.github/workflows/release.yml` is automatically generated and should not be altered.
 
 ## Security and Operational Guidelines
 
@@ -425,7 +393,7 @@ let opts = OptsBuilder::new()
 - **After**: Uses platform-native TLS (`ssl`) or pure Rust implementation (`ssl-rustls`)
 - **Breaking Change**: Remove `vendored` from build scripts and CI configurations
 - **Benefits**: Simplified builds, reduced attack surface, better cross-platform compatibility
-- **Note**: Platform TLS libraries receive OS security updates, but Linux may still rely on system OpenSSL
+- **Note**: Platform TLS libraries receive OS security updates. The `ssl` feature uses native-tls which on Linux commonly links to the system OpenSSL library (not vendored OpenSSL)
 
 **Migration Steps**:
 
@@ -487,8 +455,8 @@ cargo build --no-default-features --features "csv json"
 # Database admin build (all MySQL types with native TLS)
 cargo build --release --features "default additional_mysql_types"
 
-# Legacy vendored build (REMOVED - use default instead)
-# cargo build --release --features "default vendored"  # No longer supported
+# Pure Rust TLS build (alternative to default native TLS)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 ### Dependencies by Feature
