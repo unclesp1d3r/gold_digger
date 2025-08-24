@@ -254,8 +254,7 @@ docs:
 
 [windows]
 docs:
-    cargo doc --no-deps
-    start target/doc/gold_digger/index.html
+    @echo "mdbook requires a Unix-like environment to serve"
 
 # =============================================================================
 # RUNNING & DEVELOPMENT
@@ -437,6 +436,14 @@ act-ci-dry:
 # Run CI workflow locally (full execution)
 act-ci:
     act -W .github/workflows/ci.yml
+
+# Run push workflow locally (dry-run)
+act-push-dry:
+    act push --dryrun
+
+# Run push workflow locally (full execution)
+act-push:
+    act push
 
 # Run release workflow dry-run (requires tag parameter)
 act-release-dry TAG:
