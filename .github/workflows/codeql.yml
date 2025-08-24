@@ -23,11 +23,8 @@ jobs:
         with:
           persist-credentials: false # Disable caching to avoid leaking credentials
 
-      - name: Install Rust toolchain
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
 
       - uses: github/codeql-action/init@v3
         with:

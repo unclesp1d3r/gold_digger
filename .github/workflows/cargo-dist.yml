@@ -77,9 +77,11 @@ jobs:
           submodules: recursive
           persist-credentials: false # Disable caching to avoid leaking credentials
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install cargo-dist
-        # Install a specific version for reproducibility
-        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+        run: cargo binstall cargo-dist@0.22.1 --no-confirm
 
       - id: plan
         run: |
@@ -158,8 +160,11 @@ jobs:
           submodules: recursive
           persist-credentials: false # Disable caching to avoid leaking credentials
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install cargo-dist
-        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+        run: cargo binstall cargo-dist@0.22.1 --no-confirm
 
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts manifest
@@ -204,8 +209,11 @@ jobs:
           submodules: recursive
           persist-credentials: false # Disable caching to avoid leaking credentials
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install cargo-dist
-        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.22.1/cargo-dist-installer.sh | sh"
+        run: cargo binstall cargo-dist@0.22.1 --no-confirm
 
       # Fetch artifacts from previous jobs
       - name: Fetch local artifacts manifest

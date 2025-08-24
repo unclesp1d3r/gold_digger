@@ -9,437 +9,58 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Optimize Rust compilation
-  CARGO_INCREMENTAL: 0
-  CARGO_NET_RETRY: 10
-  RUST_BACKTRACE: short
-
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
-  # Detect changes to optimize workflow execution
-  changes:
-    runs-on: ubuntu-22.04
-    outputs:
-      code: ${{ steps.changes.outputs.code }}
-      docs: ${{ steps.changes.outputs.docs }}
-      ci: ${{ steps.changes.outputs.ci }}
-      deps: ${{ steps.changes.outputs.deps }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          base: main
-          filters: |
-            code:
-              - 'src/**'
-              - 'tests/**'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'rust-toolchain.toml'
-              - 'rustfmt.toml'
-              - 'deny.toml'
-              - 'justfile'
-            docs:
-              - 'docs/**'
-              - 'README.md'
-              - 'CHANGELOG.md'
-              - '*.md'
-              - '!src/**/*.md'  # Exclude source code docs from docs-only changes
-              - '!tests/**/*.md'  # Exclude test docs from docs-only changes
-            ci:
-              - '.github/**'
-              - '.pre-commit-config.yaml'
-              - '.actrc'
-            deps:
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-            config:
-              - 'rust-toolchain.toml'
-              - 'rustfmt.toml'
-              - 'deny.toml'
-              - 'cargo-dist.toml'
-
-  # Fast validation job - runs first to catch obvious issues quickly
-  validate:
-    runs-on: ubuntu-22.04
-    needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
-    concurrency:
-      group: validate-${{ github.ref }}
-      cancel-in-progress: true
-
-    env:
-      PRE_COMMIT_HOME: ${{ github.workspace }}/.cache/pre-commit
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Rust Environment
-        uses: ./.github/actions/setup-rust
-        with:
-          components: "clippy,rustfmt"
-          install-nextest: "true"
-          install-cargo-audit: "true"
-
-      - name: Install just
-        uses: extractions/setup-just@v3
-
-      # Optimized caching strategy
-      - name: Cache pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PRE_COMMIT_HOME }}
-          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt') }}
-          restore-keys: |
-            pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}-
-            pre-commit-${{ runner.os }}-
-
-      # Cache Python dependencies for pre-commit
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Setup Python for pre-commit
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install pre-commit
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pre-commit
-          mkdir -p "$PRE_COMMIT_HOME"
-
-      # Build dependencies once for validation
-      - name: Build project dependencies
-        uses: ./.github/actions/build-dependencies
-        with:
-          features: "ssl"
-
-      # Fast validation checks
-      - name: Pre-commit validation
-        shell: bash
-        run: pre-commit run --show-diff-on-failure --color=always --all-files
-
-      - name: Format check
-        shell: bash
-        run: just fmt-check
-
-      - name: Quick lint check (ssl only)
-        uses: ./.github/actions/run-clippy
-        with:
-          features: "ssl"
-          sarif-output: "false"
-
-      # Quick smoke test
-      - name: Quick validation test
-        uses: ./.github/actions/run-tests
-        with:
-          features: "ssl"
-          use-nextest: "true"
-
-  # Cross-platform testing matrix - runs after validation passes
-  test-matrix:
-    needs: [changes, validate]
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
+  test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          # Primary platforms with full TLS matrix
-          - os: ubuntu-22.04
-            tls: ssl
-            coverage: true
-          - os: ubuntu-22.04
-            tls: ssl-rustls
-          - os: ubuntu-22.04
-            tls: none
-          # Secondary platforms with reduced matrix for faster execution
-          - os: macos-13
-            tls: ssl
-          - os: macos-13
-            tls: ssl-rustls
-          - os: windows-2022
-            tls: ssl
-          - os: windows-2022
-            tls: ssl-rustls
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
-    concurrency:
-      group: test-${{ github.ref }}-${{ matrix.os }}-${{ matrix.tls }}
-      cancel-in-progress: true
-
-    env:
-      # Platform-specific optimizations
-      CARGO_BUILD_JOBS: ${{ matrix.os == 'ubuntu-22.04' && '4' || '2' }}
-      # Reduce memory usage on constrained runners
-      CARGO_NET_GIT_FETCH_WITH_CLI: ${{ matrix.os == 'windows-2022' && 'true' || 'false' }}
+        features: [ssl, ssl-rustls, none]
 
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+      - uses: actions/checkout@v4
 
-      - name: Setup Rust Environment
-        uses: ./.github/actions/setup-rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          components: "clippy,rustfmt"
-          install-nextest: "true"
+          components: clippy, rustfmt
 
       - name: Install just
         uses: extractions/setup-just@v3
 
-      # Optimized dependency building with better caching
-      - name: Build project dependencies
-        uses: ./.github/actions/build-dependencies
-        with:
-          features: "${{ matrix.tls }}"
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
 
-      # Run comprehensive tests
+      - name: Install cargo-dist
+        run: cargo binstall cargo-dist --no-confirm
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: |
+          if [ "${{ matrix.features }}" = "none" ]; then
+            cargo clippy --no-default-features --features "json csv additional_mysql_types verbose"
+          else
+            cargo clippy --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
+          fi
+
       - name: Run tests
-        uses: ./.github/actions/run-tests
-        with:
-          features: "${{ matrix.tls }}"
-          use-nextest: "true"
-
-      # Generate coverage only on Ubuntu with ssl to avoid redundancy
-      - name: Install cargo-llvm-cov
-        if: matrix.coverage == true
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-llvm-cov
-
-      - name: Generate coverage
-        if: matrix.coverage == true
-        shell: bash
         run: |
-          echo "📊 Running coverage with ssl configuration..."
-          cargo llvm-cov --workspace --lcov --output-path lcov.info --no-default-features --features "json csv ssl additional_mysql_types verbose"
-
-      - name: Upload coverage artifact
-        if: matrix.coverage == true
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-lcov
-          path: lcov.info
-
-      - name: Upload to Codecov
-        if: matrix.coverage == true && github.repository == 'unclesp1d3r/gold_digger'
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          flags: unit
-          fail_ci_if_error: false
-          verbose: true
-
-      # Build time and size metrics (optimized for performance)
-      - name: Build metrics collection
-        shell: bash
-        run: |
-          echo "⏱️ Collecting build metrics for ${{ matrix.tls }} on ${{ matrix.os }}"
-
-          # Use incremental builds when possible (don't clean if cache hit)
-          if [[ ! -d "target/release" ]]; then
-            echo "🧹 No existing build artifacts, starting fresh build"
+          if [ "${{ matrix.features }}" = "none" ]; then
+            cargo test --no-default-features --features "json csv additional_mysql_types verbose"
           else
-            echo "♻️ Using incremental build from cache"
+            cargo test --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
           fi
 
-          # Time the build with optimized flags
-          start_time=$(date +%s)
-          case "${{ matrix.tls }}" in
-            "ssl")
-              echo "Building with ssl..."
-              cargo build --release --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short
-              ;;
-            "ssl-rustls")
-              echo "Building with ssl-rustls..."
-              cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short
-              ;;
-            "none")
-              echo "Building without TLS..."
-              cargo build --release --no-default-features --features "json csv additional_mysql_types verbose" --message-format=short
-              ;;
-          esac
-          end_time=$(date +%s)
-
-          build_time=$((end_time - start_time))
-          echo "🏁 Build completed in ${build_time} seconds"
-
-          # Get binary size and other metrics
-          if [[ "${{ matrix.os }}" == "windows-2022" ]]; then
-            binary_path="target/release/gold_digger.exe"
-          else
-            binary_path="target/release/gold_digger"
-          fi
-
-          if [[ -f "$binary_path" ]]; then
-            binary_size=$(stat -c%s "$binary_path" 2>/dev/null || stat -f%z "$binary_path" 2>/dev/null || echo "unknown")
-            echo "📦 Binary size: ${binary_size} bytes"
-
-            # Additional metrics for optimization tracking
-            stripped_size="unknown"
-            if command -v strip >/dev/null 2>&1 && [[ "${{ matrix.os }}" != "windows-2022" ]]; then
-              cp "$binary_path" "${binary_path}.stripped"
-              strip "${binary_path}.stripped" 2>/dev/null || true
-              if [[ -f "${binary_path}.stripped" ]]; then
-                stripped_size=$(stat -c%s "${binary_path}.stripped" 2>/dev/null || stat -f%z "${binary_path}.stripped" 2>/dev/null || echo "unknown")
-                rm -f "${binary_path}.stripped"
-              fi
-            fi
-          else
-            echo "⚠️ Binary not found at expected path: $binary_path"
-            binary_size="unknown"
-            stripped_size="unknown"
-          fi
-
-          # Create metrics summary
-          echo "📊 Build Metrics Summary:"
-          echo "  OS: ${{ matrix.os }}"
-          echo "  TLS: ${{ matrix.tls }}"
-          echo "  Build Time: ${build_time}s"
-          echo "  Binary Size: ${binary_size} bytes"
-          echo "  Stripped Size: ${stripped_size} bytes"
-
-          # Save metrics to file for potential artifact upload
-          mkdir -p build-metrics
-          cat > "build-metrics/metrics-${{ matrix.os }}-${{ matrix.tls }}.txt" << EOF
-          os=${{ matrix.os }}
-          tls=${{ matrix.tls }}
-          build_time=${build_time}
-          binary_size=${binary_size}
-          stripped_size=${stripped_size}
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          cargo_build_jobs=${CARGO_BUILD_JOBS:-default}
-          EOF
-
-      - name: Upload build metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-metrics-${{ matrix.os }}-${{ matrix.tls }}
-          path: build-metrics/
-          retention-days: 30
-
-  # Comprehensive linting job - runs in parallel with test-matrix after validation
-  lint-comprehensive:
-    needs: [changes, validate]
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
-    runs-on: ubuntu-22.04
-    concurrency:
-      group: lint-${{ github.ref }}
-      cancel-in-progress: true
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Rust Environment
-        uses: ./.github/actions/setup-rust
-        with:
-          components: "clippy,rustfmt"
-
-      - name: Install just
-        uses: extractions/setup-just@v3
-
-      - name: Build project dependencies
-        uses: ./.github/actions/build-dependencies
-        with:
-          features: "ssl,ssl-rustls,none"
-
-      - name: Comprehensive clippy check
-        uses: ./.github/actions/run-clippy
-        with:
-          features: "ssl,ssl-rustls,none"
-          sarif-output: "false"
-
-  # Documentation-only job - runs when only docs change
-  docs-check:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true' && needs.changes.outputs.code == 'false'
-    runs-on: ubuntu-22.04
-    concurrency:
-      group: docs-${{ github.ref }}
-      cancel-in-progress: true
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - name: Setup Rust Environment
-        uses: ./.github/actions/setup-rust
-
-      - name: Install just
-        uses: extractions/setup-just@v3
-
-      - name: Check documentation
-        shell: bash
+      - name: Build release and validate
         run: |
-          echo "📚 Checking documentation..."
-          cargo doc --no-deps --document-private-items
-          echo "✅ Documentation check passed"
-
-  # Final status check - ensures all required jobs pass
-  ci-success:
-    needs: [changes, validate, test-matrix, lint-comprehensive, docs-check]
-    if: always()
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check CI status
-        shell: bash
-        run: |
-          # Check if any required job failed
-          if [[ "${NEEDS_VALIDATE_RESULT}" == "failure" ]]; then
-            echo "❌ Validation failed"
-            exit 1
+          if [ "${{ matrix.features }}" = "none" ]; then
+            cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
+          else
+            cargo build --release --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
           fi
-
-          # Only check test-matrix if code, ci, or deps changed (includes coverage now)
-          if [[ "${NEEDS_CHANGES_OUTPUTS_CODE}" == "true" ]] || [[ "${NEEDS_CHANGES_OUTPUTS_CI}" == "true" ]] || [[ "${NEEDS_CHANGES_OUTPUTS_DEPS}" == "true" ]]; then
-            if [[ "${NEEDS_TEST_MATRIX_RESULT}" == "failure" ]]; then
-              echo "❌ Cross-platform tests (including coverage) failed"
-              exit 1
-            fi
-            if [[ "${NEEDS_LINT_COMPREHENSIVE_RESULT}" == "failure" ]]; then
-              echo "❌ Comprehensive linting failed"
-              exit 1
-            fi
-          fi
-
-          # Check docs if only docs changed
-          if [[ "${NEEDS_CHANGES_OUTPUTS_DOCS}" == "true" ]] && [[ "${NEEDS_CHANGES_OUTPUTS_CODE}" == "false" ]]; then
-            if [[ "${NEEDS_DOCS_CHECK_RESULT}" == "failure" ]]; then
-              echo "❌ Documentation check failed"
-              exit 1
-            fi
-          fi
-
-          echo "✅ All CI checks passed successfully"
-
-        env:
-          NEEDS_VALIDATE_RESULT: ${{ needs.validate.result }}
-          NEEDS_CHANGES_OUTPUTS_CODE: ${{ needs.changes.outputs.code }}
-          NEEDS_CHANGES_OUTPUTS_CI: ${{ needs.changes.outputs.ci }}
-          NEEDS_CHANGES_OUTPUTS_DEPS: ${{ needs.changes.outputs.deps }}
-          NEEDS_TEST_MATRIX_RESULT: ${{ needs.test-matrix.result }}
-          NEEDS_LINT_COMPREHENSIVE_RESULT: ${{ needs.lint-comprehensive.result }}
-          NEEDS_CHANGES_OUTPUTS_DOCS: ${{ needs.changes.outputs.docs }}
-          NEEDS_DOCS_CHECK_RESULT: ${{ needs.docs-check.result }}
+          cargo dist plan --output-format=json > /dev/null
