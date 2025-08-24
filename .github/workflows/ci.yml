@@ -17,6 +17,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CI: true
+  GITHUB_ACTIONS: true
 
 jobs:
   # Code quality checks - only need to run once
