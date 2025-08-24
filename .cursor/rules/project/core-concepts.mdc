@@ -27,21 +27,35 @@ from_value::<String>(row[column.name_str().as_ref()])
 **Example**: `SELECT CAST(column AS CHAR) AS column FROM table`
 **Fallback**: Use `from_value_opt` with proper error handling in Rust code
 
-### Configuration Interface (CLI-First Design)
+### Configuration Architecture (CLI-First Design)
+
+**Resolution Pattern:**
 
 ```rust
-// CLI flags (highest priority)
---db-url <URL>      // Database connection (overrides DATABASE_URL)
---query <SQL>       // Inline SQL (mutually exclusive with --query-file)
---query-file <FILE> // SQL from file (mutually exclusive with --query)
---output <FILE>     // Output path (overrides OUTPUT_FILE)
---format <FORMAT>   // Force format (csv|json|tsv)
-
-// Environment variables (fallback when CLI flags not provided)
-DATABASE_URL   // MySQL connection string with optional SSL params
-DATABASE_QUERY // SQL to execute
-OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone())                    // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value)                           // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration")  // Error if neither
+    }
+}
 ```
+
+**CLI Flags (Highest Priority):**
+
+- `--db-url <URL>`: Database connection (overrides `DATABASE_URL`)
+- `--query <SQL>`: Inline SQL (mutually exclusive with `--query-file`)
+- `--query-file <FILE>`: SQL from file (mutually exclusive with `--query`)
+- `--output <FILE>`: Output path (overrides `OUTPUT_FILE`)
+- `--format <FORMAT>`: Force format (csv|json|tsv)
+
+**Environment Variables (Fallback):**
+
+- `DATABASE_URL`: MySQL connection string with optional SSL params
+- `DATABASE_QUERY`: SQL to execute
+- `OUTPUT_FILE`: Determines format by extension: .csv, .json, or TSV fallback
 
 **No dotenv support** - despite README implications, use exported environment variables only.
 
