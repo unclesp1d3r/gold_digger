@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false # Disable caching to avoid leaking credentials
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

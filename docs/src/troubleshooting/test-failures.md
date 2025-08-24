@@ -150,7 +150,7 @@ Error: Environment variable DATABASE_URL not found
 
        #[test]
        fn test_with_env_vars() {
-           env::set_var("DATABASE_URL", "sqlite::memory:");
+           env::set_var("DATABASE_URL", "mysql://root@localhost:3306/mysql");
            env::set_var("DATABASE_QUERY", "SELECT 1");
 
            // Run test
@@ -168,7 +168,7 @@ Error: Environment variable DATABASE_URL not found
    #[cfg(test)]
    fn get_test_config() -> Config {
        Config {
-           database_url: "sqlite::memory:".to_string(),
+           database_url: "mysql://root@localhost:3306/mysql".to_string(),
            query: "SELECT 1".to_string(),
            output_file: "/tmp/test_output.json".to_string(),
        }
@@ -771,10 +771,10 @@ git config core.hooksPath .githooks
 
 ```bash
 # Generate coverage report
-cargo tarpaulin --out Html
-
-# Check coverage with llvm-cov
 cargo llvm-cov --html
+
+# Check coverage with JSON output
+cargo llvm-cov --json --output-path coverage.json
 ```
 
 ## Getting Help

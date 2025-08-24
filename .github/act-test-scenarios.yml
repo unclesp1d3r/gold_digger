@@ -191,9 +191,9 @@ matrix:
 
   # Feature combinations
   features:
-    - name: "native-tls"
+    - name: "ssl"
       flags: "--no-default-features --features json,csv,ssl,additional_mysql_types,verbose"
-    - name: "rustls"
+    - name: "ssl-rustls"
       flags: "--no-default-features --features json,csv,ssl-rustls,additional_mysql_types,verbose"
     - name: "minimal"
       flags: "--no-default-features --features json,csv,additional_mysql_types,verbose"

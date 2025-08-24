@@ -241,8 +241,7 @@ docs-clean:
 
 # Check documentation (build + link validation + formatting)
 docs-check:
-    cd docs
-    mdbook build
+    cd docs && mdbook build
     @just fmt-check
 
 # Generate and serve documentation
@@ -394,7 +393,12 @@ dist-generate:
 # Validate cargo-dist configuration
 dist-check:
     @if command -v cargo-dist >/dev/null 2>&1; then \
-    cargo dist plan --check; \
+    if cargo dist plan >/dev/null 2>&1; then \
+    echo "cargo-dist configuration check passed"; \
+    else \
+    echo "cargo-dist configuration check failed"; \
+    exit 1; \
+    fi; \
     else \
     echo "cargo-dist not installed - run 'just install-tools' first"; \
     exit 1; \
@@ -402,9 +406,14 @@ dist-check:
 
 # Validate cargo-dist configuration
 validate-cargo-dist:
-    @test -f cargo-dist.toml && echo "cargo-dist.toml exists" || echo "Missing: cargo-dist.toml"
+    @test -f dist-workspace.toml && echo "dist-workspace.toml exists" || echo "Missing: dist-workspace.toml"
     @if command -v cargo-dist >/dev/null 2>&1; then \
-    cargo dist plan --check && echo "cargo-dist.toml is valid" || echo "cargo-dist.toml is invalid"; \
+    if cargo dist plan >/dev/null 2>&1; then \
+    echo "cargo-dist configuration is valid"; \
+    else \
+    echo "cargo-dist configuration is invalid"; \
+    exit 1; \
+    fi; \
     else \
     echo "cargo-dist not installed - run 'just install-tools' first"; \
     fi

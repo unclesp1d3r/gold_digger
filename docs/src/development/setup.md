@@ -62,7 +62,7 @@ just setup
 # Or install manually:
 rustup component add rustfmt clippy
 cargo install cargo-nextest --locked
-cargo install cargo-tarpaulin --locked
+cargo install cargo-llvm-cov --locked
 cargo install cargo-audit --locked
 cargo install cargo-deny --locked
 ```
@@ -122,13 +122,13 @@ pre-commit run --all-files
 
 ### Essential Tools
 
-| Tool              | Purpose                                 | Installation                    |
-| ----------------- | --------------------------------------- | ------------------------------- |
-| `cargo-nextest`   | Fast parallel test runner               | `cargo install cargo-nextest`   |
-| `cargo-tarpaulin` | Code coverage analysis                  | `cargo install cargo-tarpaulin` |
-| `cargo-audit`     | Security vulnerability scanning         | `cargo install cargo-audit`     |
-| `cargo-deny`      | License and security policy enforcement | `cargo install cargo-deny`      |
-| `just`            | Task runner (like make)                 | `cargo install just`            |
+| Tool             | Purpose                                 | Installation                   |
+| ---------------- | --------------------------------------- | ------------------------------ |
+| `cargo-nextest`  | Fast parallel test runner               | `cargo install cargo-nextest`  |
+| `cargo-llvm-cov` | Code coverage analysis (cross-platform) | `cargo install cargo-llvm-cov` |
+| `cargo-audit`    | Security vulnerability scanning         | `cargo install cargo-audit`    |
+| `cargo-deny`     | License and security policy enforcement | `cargo install cargo-deny`     |
+| `just`           | Task runner (like make)                 | `cargo install just`           |
 
 ### Optional Tools
 
@@ -503,7 +503,7 @@ act workflow_dispatch --env-file .env.local -s GITHUB_TOKEN=ghp_xxx --input tag=
 
 ```bash
 # Test specific job
-just act-job ci
+just act-job validate
 
 # Test release workflow
 just act-release-dry v1.0.0

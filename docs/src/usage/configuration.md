@@ -190,6 +190,74 @@ gold_digger --db-url "mysql://user:pass@host:3306/db" \
 }
 ```
 
+### Shell Completion Setup
+
+Generate and install shell completions for improved CLI experience:
+
+```bash
+# Bash completion
+gold_digger completion bash > ~/.bash_completion.d/gold_digger
+source ~/.bash_completion.d/gold_digger
+
+# Zsh completion
+gold_digger completion zsh > ~/.zsh/completions/_gold_digger
+# Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath)
+
+# Fish completion
+gold_digger completion fish > ~/.config/fish/completions/gold_digger.fish
+
+# PowerShell completion
+gold_digger completion powershell >> $PROFILE
+```
+
+### Pretty JSON Output
+
+Enable pretty-printed JSON for better readability:
+
+```bash
+# Compact JSON (default)
+gold_digger --query "SELECT id, name FROM users LIMIT 3" --output compact.json
+
+# Pretty-printed JSON
+gold_digger --query "SELECT id, name FROM users LIMIT 3" --output pretty.json --pretty
+```
+
+**Output comparison:**
+
+Compact:
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Alice"
+    },
+    {
+      "id": 2,
+      "name": "Bob"
+    }
+  ]
+}
+```
+
+Pretty:
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Alice"
+    },
+    {
+      "id": 2,
+      "name": "Bob"
+    }
+  ]
+}
+```
+
 ### Query from File
 
 Store complex queries in files:

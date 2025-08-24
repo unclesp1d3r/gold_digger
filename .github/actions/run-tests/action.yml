@@ -5,7 +5,7 @@ inputs:
   features:
     description: "Feature combinations to test (comma-separated)"
     required: false
-    default: "native-tls,rustls,none"
+    default: "ssl,ssl-rustls,none"
   use-nextest:
     description: "Whether to use nextest for testing"
     required: false
@@ -17,6 +17,8 @@ runs:
     - name: Run Tests
       shell: bash
       run: |
+        set -euo pipefail
+
         # Parse features input - handle single feature or comma-separated list
         if [[ "${{ inputs.features }}" == *","* ]]; then
           IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
@@ -28,18 +30,18 @@ runs:
         for feature in "${FEATURES[@]}"; do
           feature=$(echo "$feature" | xargs)  # Trim whitespace
           case "$feature" in
-            "native-tls")
-              echo "🧪 Testing with native-tls (ssl feature)..."
+            "ssl")
+              echo "🧪 Testing with ssl feature..."
               if [[ "${{ inputs.use-nextest }}" == "true" ]]; then
-                cargo nextest run --no-default-features --features "json csv ssl additional_mysql_types verbose" || cargo test --no-default-features --features "json csv ssl additional_mysql_types verbose"
+                cargo nextest run --no-default-features --features "json csv ssl additional_mysql_types verbose"
               else
                 cargo test --no-default-features --features "json csv ssl additional_mysql_types verbose"
               fi
               ;;
-            "rustls")
-              echo "🧪 Testing with rustls (ssl-rustls feature)..."
+            "ssl-rustls")
+              echo "🧪 Testing with ssl-rustls feature..."
               if [[ "${{ inputs.use-nextest }}" == "true" ]]; then
-                cargo nextest run --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" || cargo test --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+                cargo nextest run --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
               else
                 cargo test --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
               fi
@@ -47,7 +49,7 @@ runs:
             "none")
               echo "🧪 Testing without TLS features..."
               if [[ "${{ inputs.use-nextest }}" == "true" ]]; then
-                cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose" || cargo test --no-default-features --features "json csv additional_mysql_types verbose"
+                cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose"
               else
                 cargo test --no-default-features --features "json csv additional_mysql_types verbose"
               fi

@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 use csv::{QuoteStyle, WriterBuilder};
 
@@ -18,10 +18,10 @@ where
     F: IntoIterator<Item = String>,
     W: Write,
 {
+    let buffered_output = BufWriter::with_capacity(8 * 1024, output); // 8KB buffer for better performance
     let mut wtr = WriterBuilder::new()
         .quote_style(QuoteStyle::Necessary)
-        .buffer_capacity(8 * 1024) // 8KB buffer for better performance
-        .from_writer(output);
+        .from_writer(buffered_output);
 
     for row in rows {
         wtr.write_record(row)?;

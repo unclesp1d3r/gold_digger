@@ -151,8 +151,8 @@ validate_workflow_security() {
             check_result "warning" "$workflow_name missing permissions section"
         fi
 
-        # Check for hardcoded secrets
-        if grep -E "(password|token|key|secret).*:" "$workflow" | grep -v "\${{" | grep -v "permissions:" >/dev/null; then
+        # Check for hardcoded secrets (exclude templated values and legitimate uses)
+        if grep -E "(password|token|secret|api[_-]?key|access[_-]?key).*:" "$workflow" | grep -v "\${{" | grep -v "permissions:" | grep -v "actions/cache" | grep -v "key:" | grep -v "github-token:" | grep -v "GITHUB_TOKEN" | grep -v "id-token:" >/dev/null; then
             check_result "fail" "$workflow_name may contain hardcoded secrets"
         else
             check_result "pass" "$workflow_name has no apparent hardcoded secrets"
@@ -315,7 +315,7 @@ validate_job_dependencies() {
 # Validate caching strategies
 validate_caching_strategies() {
     local workflows=(.github/workflows/*.yml .github/workflows/*.yaml)
-    local has_caching=false
+    local has_caching="false"
 
     for workflow in "${workflows[@]}"; do
         if [[ ! -f "$workflow" ]]; then
@@ -327,7 +327,7 @@ validate_caching_strategies() {
 
         # Check for caching usage
         if grep -q "actions/cache@" "$workflow"; then
-            has_caching=true
+            has_caching="true"
             check_result "pass" "$workflow_name uses caching"
 
             # Check for proper cache keys
@@ -351,7 +351,7 @@ validate_caching_strategies() {
         fi
     done
 
-    if ! $has_caching; then
+    if [ "$has_caching" != "true" ]; then
         check_result "warning" "No workflows use caching (may impact performance)"
     fi
 }

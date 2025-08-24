@@ -94,10 +94,10 @@ monitoring:
 
 # Feature-specific Performance Targets
 feature_targets:
-  native_tls:
+  ssl:
     build_time: 180.0
     binary_size: 8388608 # 8MB
-  rustls:
+  ssl-rustls:
     build_time: 200.0
     binary_size: 10485760 # 10MB
   minimal:

@@ -31,10 +31,12 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: dorny/paths-filter@v3
         id: changes
         with:
+          base: main
           filters: |
             code:
               - 'src/**'
@@ -69,7 +71,7 @@ jobs:
   validate:
     runs-on: ubuntu-22.04
     needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: true
@@ -81,12 +83,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Rust Environment
         uses: ./.github/actions/setup-rust
         with:
           components: "clippy,rustfmt"
           install-nextest: "true"
+          install-cargo-audit: "true"
 
       - name: Install just
         uses: extractions/setup-just@v3
@@ -126,7 +130,7 @@ jobs:
       - name: Build project dependencies
         uses: ./.github/actions/build-dependencies
         with:
-          features: "native-tls"
+          features: "ssl"
 
       # Fast validation checks
       - name: Pre-commit validation
@@ -137,43 +141,43 @@ jobs:
         shell: bash
         run: just fmt-check
 
-      - name: Quick lint check (native-tls only)
+      - name: Quick lint check (ssl only)
         uses: ./.github/actions/run-clippy
         with:
-          features: "native-tls"
+          features: "ssl"
           sarif-output: "false"
 
       # Quick smoke test
       - name: Quick validation test
         uses: ./.github/actions/run-tests
         with:
-          features: "native-tls"
+          features: "ssl"
           use-nextest: "true"
 
   # Cross-platform testing matrix - runs after validation passes
   test-matrix:
     needs: [changes, validate]
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
     strategy:
       matrix:
         include:
           # Primary platforms with full TLS matrix
           - os: ubuntu-22.04
-            tls: native-tls
+            tls: ssl
             coverage: true
           - os: ubuntu-22.04
-            tls: rustls
+            tls: ssl-rustls
           - os: ubuntu-22.04
             tls: none
           # Secondary platforms with reduced matrix for faster execution
           - os: macos-13
-            tls: native-tls
+            tls: ssl
           - os: macos-13
-            tls: rustls
+            tls: ssl-rustls
           - os: windows-2022
-            tls: native-tls
+            tls: ssl
           - os: windows-2022
-            tls: rustls
+            tls: ssl-rustls
       fail-fast: false
     runs-on: ${{ matrix.os }}
     concurrency:
@@ -190,6 +194,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Rust Environment
         uses: ./.github/actions/setup-rust
@@ -213,7 +218,7 @@ jobs:
           features: "${{ matrix.tls }}"
           use-nextest: "true"
 
-      # Generate coverage only on Ubuntu with native-tls to avoid redundancy
+      # Generate coverage only on Ubuntu with ssl to avoid redundancy
       - name: Install cargo-llvm-cov
         if: matrix.coverage == true
         uses: taiki-e/install-action@v2
@@ -224,7 +229,7 @@ jobs:
         if: matrix.coverage == true
         shell: bash
         run: |
-          echo "📊 Running coverage with native-tls configuration..."
+          echo "📊 Running coverage with ssl configuration..."
           cargo llvm-cov --workspace --lcov --output-path lcov.info --no-default-features --features "json csv ssl additional_mysql_types verbose"
 
       - name: Upload coverage artifact
@@ -235,7 +240,7 @@ jobs:
           path: lcov.info
 
       - name: Upload to Codecov
-        if: matrix.coverage == true && github.repository == 'UncleSp1d3r/gold_digger'
+        if: matrix.coverage == true && github.repository == 'unclesp1d3r/gold_digger'
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -259,12 +264,12 @@ jobs:
           # Time the build with optimized flags
           start_time=$(date +%s)
           case "${{ matrix.tls }}" in
-            "native-tls")
-              echo "Building with native-tls..."
+            "ssl")
+              echo "Building with ssl..."
               cargo build --release --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short
               ;;
-            "rustls")
-              echo "Building with rustls..."
+            "ssl-rustls")
+              echo "Building with ssl-rustls..."
               cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short
               ;;
             "none")
@@ -334,7 +339,7 @@ jobs:
   # Comprehensive linting job - runs in parallel with test-matrix after validation
   lint-comprehensive:
     needs: [changes, validate]
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.ci == 'true' || needs.changes.outputs.deps == 'true'
     runs-on: ubuntu-22.04
     concurrency:
       group: lint-${{ github.ref }}
@@ -344,6 +349,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Rust Environment
         uses: ./.github/actions/setup-rust
@@ -356,12 +362,12 @@ jobs:
       - name: Build project dependencies
         uses: ./.github/actions/build-dependencies
         with:
-          features: "native-tls,rustls,none"
+          features: "ssl,ssl-rustls,none"
 
       - name: Comprehensive clippy check
         uses: ./.github/actions/run-clippy
         with:
-          features: "native-tls,rustls,none"
+          features: "ssl,ssl-rustls,none"
           sarif-output: "false"
 
   # Documentation-only job - runs when only docs change
@@ -375,6 +381,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Setup Rust Environment
         uses: ./.github/actions/setup-rust
@@ -399,29 +407,39 @@ jobs:
         shell: bash
         run: |
           # Check if any required job failed
-          if [[ "${{ needs.validate.result }}" == "failure" ]]; then
+          if [[ "${NEEDS_VALIDATE_RESULT}" == "failure" ]]; then
             echo "❌ Validation failed"
             exit 1
           fi
 
-          # Only check test-matrix if code changed (includes coverage now)
-          if [[ "${{ needs.changes.outputs.code }}" == "true" ]] || [[ "${{ needs.changes.outputs.ci }}" == "true" ]]; then
-            if [[ "${{ needs.test-matrix.result }}" == "failure" ]]; then
+          # Only check test-matrix if code, ci, or deps changed (includes coverage now)
+          if [[ "${NEEDS_CHANGES_OUTPUTS_CODE}" == "true" ]] || [[ "${NEEDS_CHANGES_OUTPUTS_CI}" == "true" ]] || [[ "${NEEDS_CHANGES_OUTPUTS_DEPS}" == "true" ]]; then
+            if [[ "${NEEDS_TEST_MATRIX_RESULT}" == "failure" ]]; then
               echo "❌ Cross-platform tests (including coverage) failed"
               exit 1
             fi
-            if [[ "${{ needs.lint-comprehensive.result }}" == "failure" ]]; then
+            if [[ "${NEEDS_LINT_COMPREHENSIVE_RESULT}" == "failure" ]]; then
               echo "❌ Comprehensive linting failed"
               exit 1
             fi
           fi
 
           # Check docs if only docs changed
-          if [[ "${{ needs.changes.outputs.docs }}" == "true" ]] && [[ "${{ needs.changes.outputs.code }}" == "false" ]]; then
-            if [[ "${{ needs.docs-check.result }}" == "failure" ]]; then
+          if [[ "${NEEDS_CHANGES_OUTPUTS_DOCS}" == "true" ]] && [[ "${NEEDS_CHANGES_OUTPUTS_CODE}" == "false" ]]; then
+            if [[ "${NEEDS_DOCS_CHECK_RESULT}" == "failure" ]]; then
               echo "❌ Documentation check failed"
               exit 1
             fi
           fi
 
           echo "✅ All CI checks passed successfully"
+
+        env:
+          NEEDS_VALIDATE_RESULT: ${{ needs.validate.result }}
+          NEEDS_CHANGES_OUTPUTS_CODE: ${{ needs.changes.outputs.code }}
+          NEEDS_CHANGES_OUTPUTS_CI: ${{ needs.changes.outputs.ci }}
+          NEEDS_CHANGES_OUTPUTS_DEPS: ${{ needs.changes.outputs.deps }}
+          NEEDS_TEST_MATRIX_RESULT: ${{ needs.test-matrix.result }}
+          NEEDS_LINT_COMPREHENSIVE_RESULT: ${{ needs.lint-comprehensive.result }}
+          NEEDS_CHANGES_OUTPUTS_DOCS: ${{ needs.changes.outputs.docs }}
+          NEEDS_DOCS_CHECK_RESULT: ${{ needs.docs-check.result }}

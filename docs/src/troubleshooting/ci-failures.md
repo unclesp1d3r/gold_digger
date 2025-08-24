@@ -117,8 +117,16 @@ cargo test test_name -- --exact --nocapture
    # Check if tests require database
    grep -r "DATABASE_URL" tests/
 
-   # Set test environment variables
-   export DATABASE_URL="sqlite::memory:"
+   # Option 1: Use local MySQL instance
+   export DATABASE_URL="mysql://root@localhost:3306/mysql"
+
+   # Option 2: Use Testcontainers for automated MySQL setup
+   # This automatically spins up a MySQL container for tests
+   cargo test --features testcontainers
+
+   # Option 3: Manual MySQL container setup
+   docker run --name test-mysql -e MYSQL_ROOT_PASSWORD=testpass -p 3306:3306 -d mysql:8.0
+   export DATABASE_URL="mysql://root:testpass@localhost:3306/mysql"
    ```
 
 2. **Platform-Specific Test Behavior:**

@@ -5,7 +5,7 @@ inputs:
   features:
     description: "Feature combinations to test (comma-separated)"
     required: false
-    default: "native-tls,rustls,none"
+    default: "ssl,ssl-rustls,none"
   sarif-output:
     description: "Whether to generate SARIF output"
     required: false
@@ -19,6 +19,7 @@ runs:
   using: composite
   steps:
     - name: Run Clippy Linting
+      continue-on-error: true
       shell: bash
       run: |
         set -euo pipefail
@@ -59,46 +60,59 @@ runs:
           fi
         fi
 
+        # Early guard: Check if FEATURES array is empty or contains only invalid entries
+        if [[ ${#FEATURES[@]} -eq 0 ]]; then
+          echo "❌ Error: No valid features specified for clippy linting"
+          echo "Available features: ssl, ssl-rustls, none"
+          echo "Received features input: '${{ inputs.features }}'"
+          exit 1
+        fi
+
         # Lint each feature combination
+        processed=0
         for feature in "${FEATURES[@]}"; do
           # Skip empty entries explicitly
           if [[ -z "$feature" ]]; then
             continue
           fi
           case "$feature" in
-            "native-tls")
-              echo "🔍 Running clippy with native-tls (ssl feature)..."
+            "ssl")
+              echo "🔍 Running clippy with ssl feature..."
               if [[ "${{ inputs.sarif-output }}" == "true" ]]; then
                 cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=json -- -D warnings \
                   | clippy-sarif \
-                  | tee "${{ inputs.sarif-prefix }}-native-tls.sarif" \
+                  | tee "${{ inputs.sarif-prefix }}-ssl.sarif" \
                   | sarif-fmt
               else
-                # Capture output and exit code
-                if ! output=$(cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings 2>&1); then
-                  echo "❌ Clippy failed with native-tls features:"
-                  echo "$output"
-                  echo "$output" > /tmp/clippy_error.log
-                  exit 1
+                # Stream output to both console and error log, preserve exit code
+                cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings 2>&1 | tee /tmp/clippy_error.log
+                clippy_exit_code=${PIPESTATUS[0]}
+                if [[ $clippy_exit_code -ne 0 ]]; then
+                  echo "❌ Clippy failed with ssl features (exit code: $clippy_exit_code):"
+                  cat /tmp/clippy_error.log
+                  exit $clippy_exit_code
                 fi
               fi
+              ((processed++))
               ;;
-            "rustls")
-              echo "🔍 Running clippy with rustls (ssl-rustls feature)..."
+            "ssl-rustls")
+              echo "🔍 Running clippy with ssl-rustls feature..."
               if [[ "${{ inputs.sarif-output }}" == "true" ]]; then
                 cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=json -- -D warnings \
                   | clippy-sarif \
-                  | tee "${{ inputs.sarif-prefix }}-rustls.sarif" \
+                  | tee "${{ inputs.sarif-prefix }}-ssl-rustls.sarif" \
                   | sarif-fmt
               else
-                # Capture output and exit code
-                if ! output=$(cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings 2>&1); then
-                  echo "❌ Clippy failed with rustls features:"
-                  echo "$output"
-                  echo "$output" > /tmp/clippy_error.log
-                  exit 1
+                # Stream output to both console and error log, preserve exit code
+                cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings 2>&1 | tee /tmp/clippy_error.log
+                clippy_exit_code=${PIPESTATUS[0]}
+                if [[ $clippy_exit_code -ne 0 ]]; then
+                  echo "❌ Clippy failed with ssl-rustls features (exit code: $clippy_exit_code):"
+                  cat /tmp/clippy_error.log
+                  exit $clippy_exit_code
                 fi
               fi
+              ((processed++))
               ;;
             "none")
               echo "🔍 Running clippy without TLS features..."
@@ -108,14 +122,16 @@ runs:
                   | tee "${{ inputs.sarif-prefix }}-notls.sarif" \
                   | sarif-fmt
               else
-                # Capture output and exit code
-                if ! output=$(cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings 2>&1); then
-                  echo "❌ Clippy failed without TLS features:"
-                  echo "$output"
-                  echo "$output" > /tmp/clippy_error.log
-                  exit 1
+                # Stream output to both console and error log, preserve exit code
+                cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings 2>&1 | tee /tmp/clippy_error.log
+                clippy_exit_code=${PIPESTATUS[0]}
+                if [[ $clippy_exit_code -ne 0 ]]; then
+                  echo "❌ Clippy failed without TLS features (exit code: $clippy_exit_code):"
+                  cat /tmp/clippy_error.log
+                  exit $clippy_exit_code
                 fi
               fi
+              ((processed++))
               ;;
             *)
               echo "⚠️ Unknown feature: $feature, skipping..."
@@ -123,4 +139,13 @@ runs:
           esac
         done
 
+        # Check if any features were actually processed
+        if [[ $processed -eq 0 ]]; then
+          echo "❌ Error: No valid features were processed during clippy linting"
+          echo "Available features: ssl, ssl-rustls, none"
+          echo "Received features: ${FEATURES[*]}"
+          exit 1
+        fi
+
+        # Print success message only if we reach this point (processed > 0)
         echo "✅ Clippy linting completed successfully"

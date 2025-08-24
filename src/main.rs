@@ -13,6 +13,33 @@ use gold_digger::rows_to_strings;
 #[cfg(feature = "ssl")]
 use gold_digger::tls::{TlsConfig, create_tls_connection};
 
+/// Redacts sensitive information from SQL error messages
+#[cfg(feature = "verbose")]
+fn redact_sql_error(message: &str) -> String {
+    // Simple redaction using string replacement for common sensitive patterns
+    let mut redacted = message.to_string();
+    let lower_msg = message.to_lowercase();
+
+    // Redact common sensitive patterns
+    if lower_msg.contains("password") {
+        redacted = redacted.replace("password", "***REDACTED***");
+    }
+    if lower_msg.contains("identified by") {
+        redacted = redacted.replace("identified by", "***REDACTED***");
+    }
+    if lower_msg.contains("token") {
+        redacted = redacted.replace("token", "***REDACTED***");
+    }
+    if lower_msg.contains("secret") {
+        redacted = redacted.replace("secret", "***REDACTED***");
+    }
+    if lower_msg.contains("key") && lower_msg.contains("=") {
+        redacted = redacted.replace("key", "***REDACTED***");
+    }
+
+    redacted
+}
+
 /// Main entry point for the gold_digger CLI tool.
 ///
 /// Parses CLI arguments and environment variables, executes a database query, and writes the output in the specified format.
@@ -67,20 +94,50 @@ fn main() {
     let result: Vec<mysql::Row> = match conn.query(&database_query) {
         Ok(result) => result,
         Err(e) => {
-            // Provide more specific error context based on error type
-            let error_msg = e.to_string().to_lowercase();
-            let context = if error_msg.contains("syntax") {
-                "SQL syntax error in query"
-            } else if error_msg.contains("table") && error_msg.contains("exist") {
-                "Table does not exist"
-            } else if error_msg.contains("column") {
-                "Column does not exist or is ambiguous"
-            } else if error_msg.contains("access denied") {
-                "Insufficient privileges for query execution"
-            } else {
-                "Query execution failed"
+            // Structured error matching on mysql::Error variants
+            let (context, should_show_details) = match &e {
+                mysql::Error::MySqlError(mysql_err) => {
+                    // Map known MySQL error codes to contextual messages
+                    let context = match mysql_err.code {
+                        1064 => "SQL syntax error in query",                   // ER_PARSE_ERROR
+                        1146 => "Table does not exist",                        // ER_NO_SUCH_TABLE
+                        1054 => "Column does not exist or is ambiguous",       // ER_BAD_FIELD_ERROR
+                        1045 => "Access denied - invalid credentials",         // ER_ACCESS_DENIED_ERROR
+                        1044 => "Access denied to database",                   // ER_DBACCESS_DENIED_ERROR
+                        1142 => "Insufficient privileges for query execution", // ER_TABLEACCESS_DENIED_ERROR
+                        1143 => "Insufficient column privileges",              // ER_COLUMNACCESS_DENIED_ERROR
+                        1049 => "Unknown database",                            // ER_BAD_DB_ERROR
+                        2002 => "Connection failed - server not reachable",    // CR_CONNECTION_ERROR
+                        2003 => "Connection failed - server not responding",   // CR_CONN_HOST_ERROR
+                        2006 => "Connection lost - server has gone away",      // CR_SERVER_GONE_ERROR
+                        2013 => "Connection lost during query",                // CR_SERVER_LOST
+                        _ => "Query execution failed",
+                    };
+                    (context, true)
+                },
+                mysql::Error::IoError(_) => ("Network I/O error during query execution", false),
+                mysql::Error::UrlError(_) => ("Invalid database URL format", false),
+                mysql::Error::DriverError(_) => ("Database driver error", false),
+                _ => ("Query execution failed", false),
             };
-            exit_with_error(anyhow::anyhow!("{}: {}", context, e), Some("Database query failed"));
+
+            // Create error message with appropriate level of detail
+            let error_message = {
+                #[cfg(feature = "verbose")]
+                {
+                    if cli.verbose > 0 && should_show_details {
+                        format!("{}: {}", context, redact_sql_error(&e.to_string()))
+                    } else {
+                        context.to_string()
+                    }
+                }
+                #[cfg(not(feature = "verbose"))]
+                {
+                    context.to_string()
+                }
+            };
+
+            exit_with_error(anyhow::anyhow!("{}", error_message), Some("Database query failed"));
         },
     };
 
@@ -314,5 +371,24 @@ mod tests {
         let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());
+    }
+
+    #[cfg(feature = "verbose")]
+    #[test]
+    fn test_redact_sql_error() {
+        // Test that sensitive information is redacted from error messages
+        let error_with_password = "Error: Access denied for user 'test' (using password: YES)";
+        let redacted = redact_sql_error(error_with_password);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("password"));
+
+        let error_with_identified_by = "Error: CREATE USER failed with identified by 'secret123'";
+        let redacted = redact_sql_error(error_with_identified_by);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("identified by"));
+
+        let normal_error = "Error: Table 'test.users' doesn't exist";
+        let redacted = redact_sql_error(normal_error);
+        assert_eq!(redacted, normal_error); // Should be unchanged
     }
 }

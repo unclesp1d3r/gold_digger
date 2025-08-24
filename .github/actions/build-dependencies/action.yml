@@ -5,7 +5,7 @@ inputs:
   features:
     description: "Feature combinations to build (comma-separated)"
     required: false
-    default: "native-tls,rustls,none"
+    default: "ssl,ssl-rustls,none"
 
 runs:
   using: composite
@@ -59,13 +59,13 @@ runs:
 
         for feature in "${FEATURES[@]}"; do
           case "$feature" in
-            "native-tls")
-              echo "🔨 Building dependencies with native-tls (ssl feature)..."
+            "ssl")
+              echo "🔨 Building dependencies with ssl feature..."
               # Use cargo check for faster dependency resolution
               cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short -j "$N_JOBS" --locked
               ;;
-            "rustls")
-              echo "🔨 Building dependencies with rustls (ssl-rustls feature)..."
+            "ssl-rustls")
+              echo "🔨 Building dependencies with ssl-rustls feature..."
               cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short -j "$N_JOBS" --locked
               ;;
             "none")

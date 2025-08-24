@@ -162,11 +162,11 @@ error: import order violation
 2. **Remove Unused Imports:**
 
    ```bash
-   # Use clippy to detect unused imports
+   # Detect unused imports with clippy
    cargo clippy -- -W unused-imports
 
-   # Or use rustc to see warnings
-   cargo check -D warnings
+   # Auto-fix unused imports (optional)
+   cargo fix --allow-dirty --allow-staged
    ```
 
 3. **Configure Import Settings:**
@@ -550,7 +550,7 @@ error: clippy not installed
    println!("Processing item {} with value {} and status {}", item.id, item.value, item.status);
 
    // Solution: Break into multiple lines
-   println!("Processing item {} with value {} and status {}", item.id, item.value, item.status);
+   println!("Processing item {} with value {} and status {}", item.id, item.value, item.status,);
    ```
 
 ## Configuration Management

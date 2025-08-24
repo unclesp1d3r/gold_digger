@@ -13,14 +13,17 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that exports results to str
 
 ## Features
 
-- **CLI-first design** with environment variable fallbacks
-- **Multiple output formats**: CSV (RFC 4180), JSON, TSV
-- **Safe type handling**: Graceful NULL and type conversion without panics
-- **Secure TLS support**: Platform-native or pure Rust TLS implementations
-- **Comprehensive error handling**: Structured exit codes and actionable error messages
-- **Shell completion**: Support for Bash, Zsh, Fish, and PowerShell
-- **Configuration debugging**: JSON config dump with credential redaction
-- **Cross-platform**: Linux, macOS, and Windows support
+- **CLI-first design** with environment variable fallbacks and comprehensive command-line interface
+- **Multiple output formats**: CSV (RFC 4180), JSON with pretty-printing, TSV
+- **Safe type handling**: Graceful NULL and type conversion without panics, with intelligent JSON type inference
+- **Secure TLS support**: Platform-native or pure Rust TLS implementations with detailed error handling
+- **Comprehensive error handling**: Structured exit codes, intelligent error categorization, and actionable error messages
+- **Shell completion**: Support for Bash, Zsh, Fish, and PowerShell with easy generation
+- **Configuration debugging**: JSON config dump with automatic credential redaction
+- **Query flexibility**: Support for inline queries or external query files
+- **Verbose logging**: Multi-level verbose output with security-aware credential redaction
+- **Empty result handling**: Configurable behavior for queries returning no data
+- **Cross-platform**: Linux, macOS, and Windows support with consistent behavior
 
 ### Why "Gold Digger"?
 
@@ -82,8 +85,7 @@ cargo build --release --no-default-features --features "json csv ssl-rustls addi
 # Minimal build (no TLS, basic features only)
 cargo build --release --no-default-features --features "json csv"
 
-# Build for musl targets (requires ssl-rustls for compatibility)
-cargo build --release --target x86_64-unknown-linux-musl --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+
 ```
 
 ### TLS Support
@@ -98,24 +100,27 @@ Gold Digger supports secure database connections through two TLS implementations
 
 #### TLS Configuration
 
-TLS must be configured programmatically via the mysql crate's `SslOpts` - URL-based SSL parameters are not supported:
+Gold Digger provides comprehensive TLS support with enhanced error handling and security features:
 
-```rust
-use mysql::{OptsBuilder, SslOpts};
+**Current Implementation:**
 
-let ssl_opts = SslOpts::default()
-    .with_root_cert_path("/path/to/ca.pem")
-    .with_client_cert_path("/path/to/client-cert.pem")
-    .with_client_key_path("/path/to/client-key.pem");
+- TLS configuration is handled automatically when the `ssl` or `ssl-rustls` features are enabled
+- The mysql crate doesn't support URL-based SSL parameters (like `ssl-mode`, `ssl-ca`)
+- TLS configuration must be done programmatically via the mysql crate's `SslOpts`
 
-let opts = OptsBuilder::new()
-    .ip_or_hostname(Some("localhost"))
-    .tcp_port(3306)
-    .user(Some("username"))
-    .pass(Some("password"))
-    .db_name(Some("database"))
-    .ssl_opts(ssl_opts);
-```
+**TLS Error Handling:**
+Gold Digger provides detailed TLS error messages with actionable guidance:
+
+- Certificate validation failures with troubleshooting hints
+- TLS handshake failures with server configuration guidance
+- Unsupported TLS version warnings (only TLS 1.2+ supported)
+- Certificate file validation (existence, readability, format)
+
+**Security Features:**
+
+- Automatic credential redaction in all error messages and logs
+- URL sanitization to prevent credential leakage
+- Comprehensive TLS error categorization for proper exit codes
 
 #### Breaking Change: Vendored OpenSSL Feature Removed
 
@@ -162,6 +167,9 @@ gold_digger --allow-empty --db-url "mysql://user:pass@localhost:3306/mydb" \
 
 # Generate shell completions
 gold_digger completion bash > ~/.bash_completion.d/gold_digger
+gold_digger completion zsh > ~/.zsh/completions/_gold_digger
+gold_digger completion fish > ~/.config/fish/completions/gold_digger.fish
+gold_digger completion powershell > $PROFILE
 
 # Debug configuration (credentials redacted)
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
@@ -182,6 +190,21 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
 | `--quiet`             | -     | -                    | Suppress non-error output                              |
 | `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
 | `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+
+### Subcommands
+
+| Command              | Description                       |
+| -------------------- | --------------------------------- |
+| `completion <SHELL>` | Generate shell completion scripts |
+
+#### Completion Shells
+
+Supported shells for completion generation:
+
+- `bash` - Bash shell completion
+- `zsh` - Zsh shell completion
+- `fish` - Fish shell completion
+- `powershell` - PowerShell completion
 
 ### Environment Variables (Fallback)
 
@@ -215,14 +238,16 @@ just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
 
 ### Exit Codes
 
-Gold Digger uses structured exit codes for better automation:
+Gold Digger uses structured exit codes for better automation and error handling:
 
 - **0**: Success with results (or empty with `--allow-empty`)
-- **1**: Success but no rows returned
-- **2**: Configuration error (missing/invalid params, mutually exclusive flags)
-- **3**: Database connection/authentication failure
-- **4**: Query execution failure (including type conversion errors)
-- **5**: File I/O operation failure
+- **1**: Success but no rows returned (use `--allow-empty` to get exit code 0)
+- **2**: Configuration error (missing/invalid parameters, mutually exclusive flags, TLS configuration issues)
+- **3**: Database connection/authentication failure (access denied, connection refused, TLS handshake failures)
+- **4**: Query execution failure (SQL syntax errors, type conversion errors, database-level errors)
+- **5**: File I/O operation failure (cannot read query file, cannot write output file, permission errors)
+
+The exit code mapping includes intelligent error detection based on error message patterns, providing consistent behavior across different failure scenarios.
 
 ## Security & Quality Assurance
 
