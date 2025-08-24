@@ -143,14 +143,6 @@ jobs:
           features: "native-tls"
           sarif-output: "false"
 
-      - name: Report validation failure
-        if: failure()
-        uses: ./.github/actions/error-reporter
-        with:
-          failure-category: "format"
-          error-context: "Pre-commit validation or quick lint check failed during validation phase"
-          troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#format-and-linting-failures"
-
       # Quick smoke test
       - name: Quick validation test
         uses: ./.github/actions/run-tests
@@ -214,28 +206,12 @@ jobs:
         with:
           features: "${{ matrix.tls }}"
 
-      - name: Report build failure
-        if: failure()
-        uses: ./.github/actions/error-reporter
-        with:
-          failure-category: "build"
-          error-context: "Build failed on ${{ matrix.os }} with ${{ matrix.tls }} TLS backend during dependency build phase"
-          troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/build-failures.md"
-
       # Run comprehensive tests
       - name: Run tests
         uses: ./.github/actions/run-tests
         with:
           features: "${{ matrix.tls }}"
           use-nextest: "true"
-
-      - name: Report test failure
-        if: failure()
-        uses: ./.github/actions/error-reporter
-        with:
-          failure-category: "test"
-          error-context: "Test execution failed on ${{ matrix.os }} with ${{ matrix.tls }} TLS backend"
-          troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#test-failures"
 
       # Generate coverage only on Ubuntu with native-tls to avoid redundancy
       - name: Install cargo-llvm-cov
@@ -387,14 +363,6 @@ jobs:
         with:
           features: "native-tls,rustls,none"
           sarif-output: "false"
-
-      - name: Report lint failure
-        if: failure()
-        uses: ./.github/actions/error-reporter
-        with:
-          failure-category: "format"
-          error-context: "Comprehensive clippy check failed with zero-tolerance policy violations"
-          troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#format-and-linting-failures"
 
   # Documentation-only job - runs when only docs change
   docs-check:

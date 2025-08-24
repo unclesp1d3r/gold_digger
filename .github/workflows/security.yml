@@ -90,11 +90,3 @@ jobs:
 
       - name: cargo-deny
         run: cargo +stable deny check
-
-      - name: Report security failure
-        if: failure()
-        uses: ./.github/actions/error-reporter
-        with:
-          failure-category: "security"
-          error-context: "Security scanning failed - vulnerabilities, license issues, or policy violations detected"
-          troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#security-failures"
