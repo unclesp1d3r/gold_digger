@@ -200,21 +200,26 @@ Includes both native-tls and rustls implementations."
 
 #### Automated Releases
 
-Release Please automatically:
+cargo-dist automatically:
 
 - Analyzes conventional commits to determine version bumps
 - Creates release PRs with updated CHANGELOG.md
 - Generates semantic version tags (patch/minor/major)
+- Builds cross-platform artifacts and installers
+- Creates GitHub releases with signed artifacts
 - Integrates with the existing release workflow for artifact generation
 
-You can test the Release Please workflow locally using the justfile:
+You can test the cargo-dist workflow locally using the justfile:
 
 ```bash
-# Test Release Please workflow (dry-run)
-just act-release-please-dry
+# Test cargo-dist workflow (dry-run)
+just dist-plan
 
-# Test Release Please integration with release workflow
-just act-release-integration v1.0.0
+# Build cargo-dist artifacts locally
+just dist-build
+
+# Generate installers
+just dist-generate
 ```
 
 Install and run pre-commit hooks:
@@ -380,8 +385,8 @@ just act-setup      # Set up act and pull Docker images
 just act-ci-dry     # Test CI workflow (dry-run)
 just act-release-dry v1.0.0  # Test release workflow (dry-run)
 
-# Test Release Please workflow
-just act-release-please-dry  # Test automated versioning
+# Test cargo-dist workflow
+just dist-plan  # Test automated versioning
 ```
 
 The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.

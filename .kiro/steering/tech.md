@@ -130,14 +130,20 @@ SELECT CAST(column AS CHAR) AS column
 
 ## Build & Development Tools
 
-### Quality Gates
+### Quality Gates (Required Before Commits)
 
 ```bash
-# Basic quality checks (run locally before commits)
-cargo fmt --check           # Formatting validation
-cargo clippy -- -D warnings # Zero-tolerance linting
-cargo test                  # Test execution
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
+```
 
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+
+### CI-Aligned Commands
+
+```bash
 # CI-aligned commands (reproduce CI environment locally)
 cargo nextest run           # Parallel test execution (faster than cargo test)
 cargo llvm-cov --workspace --lcov --output-path lcov.info  # Coverage generation for CI
@@ -151,6 +157,23 @@ cargo tarpaulin --out Html --output-dir target/tarpaulin  # HTML coverage report
 - **nextest**: Faster parallel test execution used in CI; install with `cargo install cargo-nextest`
 - **llvm-cov**: Generates coverage data in lcov format for CI upload to Codecov
 - **tarpaulin**: Alternative coverage tool for local HTML reports; install with `cargo install cargo-tarpaulin`
+
+## Essential Just Recipes
+
+Key `justfile` targets for development workflow:
+
+```bash
+just setup        # Install development dependencies
+just fmt          # Auto-format code
+just fmt-check    # Verify formatting (CI-compatible)
+just lint         # Run clippy with -D warnings
+just test         # Run tests (cargo nextest preferred)
+just ci-check     # Full CI validation locally
+just build        # Build release artifacts
+just docs         # Serve documentation locally
+```
+
+All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 **Local Development Workflow:**
 

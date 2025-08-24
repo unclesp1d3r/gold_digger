@@ -65,14 +65,50 @@ additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decima
 verbose = []                               # Conditional println!/eprintln!
 ```
 
-## Code Quality Gates
+## Code Quality Standards (Zero Tolerance)
 
-### Required Before PRs
+### Quality Gates (Required Before Commits)
 
 ```bash
-cargo fmt --check      # 100-char line length via rustfmt.toml
-cargo clippy -- -D warnings  # Zero tolerance for warnings
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **CI Parity:** All CI operations executable locally via `just` recipes
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+
+## Essential Just Recipes
+
+Key `justfile` targets for development workflow:
+
+```bash
+just setup        # Install development dependencies
+just fmt          # Auto-format code
+just fmt-check    # Verify formatting (CI-compatible)
+just lint         # Run clippy with -D warnings
+just test         # Run tests (cargo nextest preferred)
+just ci-check     # Full CI validation locally
+just build        # Build release artifacts
+just docs         # Serve documentation locally
+```
+
+All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### Rust Style Guidelines
 
@@ -106,9 +142,8 @@ Current v0.2.5 → Target v1.0:
 
 ## Development Workflow
 
-### Commit Standards
+### Development Practices
 
-- **Format**: Conventional Commits
 - **Reviews**: CodeRabbit.ai preferred, disable GitHub Copilot auto-reviews
 - **Scope**: Target small, reviewable changes for single-maintainer workflow
 
@@ -173,6 +208,9 @@ cargo build --no-default-features --features "csv json"  # Minimal
 cargo install --path .  # Local install
 OUTPUT_FILE=/tmp/out.json DATABASE_URL="mysql://u:p@h:3306/db" DATABASE_QUERY="SELECT CAST(id AS CHAR) FROM t" cargo run --release
 
-# Quality assurance
-cargo fmt --check && cargo clippy -- -D warnings && cargo test
+# Quality assurance (pipeline standards)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```

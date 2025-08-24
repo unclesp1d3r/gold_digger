@@ -80,13 +80,52 @@ Flags take precedence over environment variables; provide either the flag or the
 - **anyhow**: Error handling and propagation
 - **tracing**: Structured logging with credential protection
 
-## Code Quality Requirements
+## Code Quality Standards
 
-- Zero clippy warnings: `cargo clippy -- -D warnings`
-- 100-character line limit (rustfmt)
-- Feature-gated compilation for optional functionality
+### Quality Gates (Required Before Commits)
+
+```bash
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
+```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+
+### Commit Standards
+
+- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
+- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
+- **Automation:** cargo-dist handles versioning and distribution, git-cliff handles changelog
+- **CI Parity:** All CI operations executable locally via `just` recipes
+
+### Code Quality Requirements
+
+- **Formatting:** 100-character line limit via `rustfmt.toml`
+- **Linting:** Zero clippy warnings (`-D warnings`)
+- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
+- **Documentation:** Doc comments required for all public functions
+- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+- **Feature-gated compilation** for optional functionality
 - Use `anyhow::Result<T>` for all fallible operations
-- Conventional commit format
+
+## Essential Just Recipes
+
+Key `justfile` targets for development workflow:
+
+```bash
+just setup        # Install development dependencies
+just fmt          # Auto-format code
+just fmt-check    # Verify formatting (CI-compatible)
+just lint         # Run clippy with -D warnings
+just test         # Run tests (cargo nextest preferred)
+just ci-check     # Full CI validation locally
+just build        # Build release artifacts
+just docs         # Serve documentation locally
+```
+
+All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ## Safe Database Value Conversion Pattern
 

@@ -6,6 +6,7 @@ authors = [ "UncleSp1d3r <unclespider@protonmail.com>" ]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
 readme = "README.md"
 repository = "https://github.com/unclesp1d3r/gold_digger"
+homepage = "https://unclesp1d3r.github.io/gold_digger/"
 license = "MIT"
 keywords = [ "mysql", "query", "tool", "mariadb" ]
 categories = [ "command-line-utilities", "database" ]
@@ -17,7 +18,14 @@ exclude = [
   ".gitignore",
   ".gitlint",
   ".chglog/",
+  "WARP.md","GEMINI.md","AGENTS.md",
 ]
+
+[package.metadata.wix]
+upgrade-guid = "1193C717-3A21-4D74-B2FB-D840FC3ECC66"
+path-guid = "7641C7C8-5EB9-4BCF-8317-8A21B53B2997"
+license = false
+eula = false
 
 [dependencies]
 mysql = { version = "26.0.1", features = [
@@ -30,12 +38,12 @@ clap = { version = "4.5", features = [ "derive", "env" ] }
 clap_complete = "4.5"
 mysql_common = { version = "0.35.5", optional = true }
 thiserror = "2.0.16"
-url = "2.5.6"
+url = "2.5.7"
 
 [dev-dependencies]
-testcontainers = { version = "0.23", features = ["blocking"] }
-testcontainers-modules = { version = "0.11", features = ["mysql"] }
-tempfile = "3.8"
+testcontainers = { version = "0.24.0", features = ["blocking"] }
+testcontainers-modules = { version = "0.12.1", features = ["mysql"] }
+tempfile = "3.21.0"
 
 [profile.release]
 lto              = true
@@ -45,6 +53,11 @@ debug            = false
 debug-assertions = false
 strip            = true
 panic            = "abort"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 
 [features]
 default = [ "json", "csv", "ssl", "additional_mysql_types", "verbose" ]

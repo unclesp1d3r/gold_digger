@@ -13,24 +13,37 @@ runs:
     - name: Build Dependencies
       shell: bash
       run: |
-        IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        # Parse features input - handle single feature or comma-separated list
+        if [[ "${{ inputs.features }}" == *","* ]]; then
+          IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        else
+          FEATURES=("${{ inputs.features }}")
+        fi
+
+        # Build dependencies for each feature combination
+        # Use parallel builds when possible
+        export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-$(nproc 2>/dev/null || echo 2)}
 
         for feature in "${FEATURES[@]}"; do
+          feature=$(echo "$feature" | xargs)  # Trim whitespace
           case "$feature" in
             "native-tls")
-              echo "🔨 Building with native-tls (ssl feature)..."
-              cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose"
+              echo "🔨 Building dependencies with native-tls (ssl feature)..."
+              # Use cargo check for faster dependency resolution
+              cargo check --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" --message-format=short
               ;;
             "rustls")
-              echo "🔨 Building with rustls (ssl-rustls feature)..."
-              cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+              echo "🔨 Building dependencies with rustls (ssl-rustls feature)..."
+              cargo check --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" --message-format=short
               ;;
             "none")
-              echo "🔨 Building without TLS features..."
-              cargo check --all-targets --no-default-features --features "json csv additional_mysql_types verbose"
+              echo "🔨 Building dependencies without TLS features..."
+              cargo check --all-targets --no-default-features --features "json csv additional_mysql_types verbose" --message-format=short
               ;;
             *)
-              echo "⚠️ Unknown feature: $feature"
+              echo "⚠️ Unknown feature: $feature, skipping..."
               ;;
           esac
         done
+
+        echo "✅ Dependencies built successfully"

@@ -122,8 +122,8 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
+- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **CI Parity:** All CI operations executable locally via `just` recipes
 
 ### Code Quality Requirements
 
@@ -133,6 +133,23 @@ All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 - **Documentation:** Doc comments required for all public functions
 - **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 - **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
+
+## Essential Just Recipes
+
+Key `justfile` targets for development workflow:
+
+```bash
+just setup        # Install development dependencies
+just fmt          # Auto-format code
+just fmt-check    # Verify formatting (CI-compatible)
+just lint         # Run clippy with -D warnings
+just test         # Run tests (cargo nextest preferred)
+just ci-check     # Full CI validation locally
+just build        # Build release artifacts
+just docs         # Serve documentation locally
+```
+
+All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### Security Requirements
 

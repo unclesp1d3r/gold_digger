@@ -17,9 +17,16 @@ runs:
     - name: Run Tests
       shell: bash
       run: |
-        IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        # Parse features input - handle single feature or comma-separated list
+        if [[ "${{ inputs.features }}" == *","* ]]; then
+          IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        else
+          FEATURES=("${{ inputs.features }}")
+        fi
 
+        # Test each feature combination
         for feature in "${FEATURES[@]}"; do
+          feature=$(echo "$feature" | xargs)  # Trim whitespace
           case "$feature" in
             "native-tls")
               echo "🧪 Testing with native-tls (ssl feature)..."
@@ -46,7 +53,17 @@ runs:
               fi
               ;;
             *)
-              echo "⚠️ Unknown feature: $feature"
+              echo "⚠️ Unknown feature: $feature, skipping..."
               ;;
           esac
         done
+
+        echo "✅ Tests completed successfully"
+
+    - name: Report test failure
+      if: failure()
+      uses: ./.github/actions/error-reporter
+      with:
+        failure-category: "test"
+        error-context: "Test execution failed with features: ${{ inputs.features }}, nextest: ${{ inputs.use-nextest }}"
+        troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#unit-test-failures"

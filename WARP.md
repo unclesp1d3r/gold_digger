@@ -212,17 +212,20 @@ Based on `project_spec/requirements.md`, major missing features:
 ### Quality Gates (Required Before Commits)
 
 ```bash
-cargo fmt --check           # 100-character line limit enforced
-cargo clippy -- -D warnings # Zero tolerance for warnings
-cargo nextest run           # Parallel test execution (preferred)
-cargo audit                 # Security vulnerability scanning (advisory)
+just fmt-check    # cargo fmt --check (100-char line limit)
+just lint         # cargo clippy -- -D warnings (zero tolerance)
+just test         # cargo nextest run (preferred) or cargo test
+just security     # cargo audit (advisory)
 ```
+
+All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
 
 ### Commit Standards
 
 - **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
+- **Automation:** cargo-dist handles versioning, changelog, and distribution
+- **CI Parity:** All CI operations executable locally via `just` recipes
 - **CI Parity:** All CI operations executable locally
 
 ### Code Quality Requirements
@@ -234,31 +237,61 @@ cargo audit                 # Security vulnerability scanning (advisory)
 - **Testing:** Target ≥80% coverage with `cargo tarpaulin`
 - **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
 
+### Essential Just Recipes
+
+Key `justfile` targets for development workflow:
+
+```bash
+just setup        # Install development dependencies
+just fmt          # Auto-format code
+just fmt-check    # Verify formatting (CI-compatible)
+just lint         # Run clippy with -D warnings
+just test         # Run tests (cargo nextest preferred)
+just ci-check     # Full CI validation locally
+just build        # Build release artifacts
+just docs         # Serve documentation locally
+```
+
+All recipes must use `cd {{justfile_dir()}}` and support cross-platform execution.
+
 ### Recommended Justfile
 
 ```justfile
 default: lint
 
 setup:
+    cd {{justfile_dir()}}
     rustup component add rustfmt clippy
 
 fmt:
+    cd {{justfile_dir()}}
     cargo fmt
 
 fmt-check:
+    cd {{justfile_dir()}}
     cargo fmt --check
 
 lint:
+    cd {{justfile_dir()}}
     cargo clippy -- -D warnings
 
 build:
+    cd {{justfile_dir()}}
     cargo build --release
 
 run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
+    cd {{justfile_dir()}}
     OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
 
 test:
-    cargo test
+    cd {{justfile_dir()}}
+    cargo nextest run
+
+ci-check: fmt-check lint test
+
+security:
+    cd {{justfile_dir()}}
+    cargo audit
 ```
 
 ## Testing Strategy
@@ -309,7 +342,7 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ### Future Release Engineering
 
-- Consider `release-please` for automated versioning
+- Use `cargo-dist` for automated versioning and distribution
 - Add `cargo-dist` for cross-platform binary distribution
 - SBOM generation, vulnerability scanning, cryptographic signing per requirements
 

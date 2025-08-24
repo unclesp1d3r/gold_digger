@@ -25,6 +25,16 @@ runs:
 
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
+      with:
+        # Cache key includes OS and feature combinations for better hit rates
+        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+        # Shared cache across jobs but separate by OS
+        shared-key: ${{ runner.os }}-shared
+        # Cache build artifacts and registry
+        cache-targets: true
+        cache-on-failure: true
+        # Optimize cache size
+        save-if: ${{ github.ref == 'refs/heads/main' }}
 
     - name: Install nextest
       if: inputs.install-nextest == 'true'

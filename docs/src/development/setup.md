@@ -476,11 +476,11 @@ just act-job ci
 # Test release workflow
 just act-release-dry v1.0.0
 
-# Test Release Please workflow
-just act-release-please-dry
+# Test cargo-dist workflow
+just dist-plan
 
-# Test Release Please integration with release workflow
-just act-release-please-test
+# Build cargo-dist artifacts locally
+just dist-build
 
 # Clean up act containers
 just act-clean

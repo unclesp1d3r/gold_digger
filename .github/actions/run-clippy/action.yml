@@ -23,9 +23,16 @@ runs:
       run: |
         set -o pipefail
 
-        IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        # Parse features input - handle single feature or comma-separated list
+        if [[ "${{ inputs.features }}" == *","* ]]; then
+          IFS=',' read -ra FEATURES <<< "${{ inputs.features }}"
+        else
+          FEATURES=("${{ inputs.features }}")
+        fi
 
+        # Lint each feature combination
         for feature in "${FEATURES[@]}"; do
+          feature=$(echo "$feature" | xargs)  # Trim whitespace
           case "$feature" in
             "native-tls")
               echo "🔍 Running clippy with native-tls (ssl feature)..."
@@ -61,7 +68,17 @@ runs:
               fi
               ;;
             *)
-              echo "⚠️ Unknown feature: $feature"
+              echo "⚠️ Unknown feature: $feature, skipping..."
               ;;
           esac
         done
+
+        echo "✅ Clippy linting completed successfully"
+
+    - name: Report clippy failure
+      if: failure()
+      uses: ./.github/actions/error-reporter
+      with:
+        failure-category: "format"
+        error-context: "Clippy linting failed with features: ${{ inputs.features }}"
+        troubleshooting-guide: "https://github.com/${{ github.repository }}/blob/main/docs/src/troubleshooting/ci-failures.md#clippy-warnings"

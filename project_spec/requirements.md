@@ -460,7 +460,7 @@ docs-build:     # Build documentation for verification
 #### GitHub Actions Workflows
 
 - **ci.yml**: PR and push checks (lint, test, security, coverage)
-- **release-please.yml**: Automated version management and changelog
+- **cargo-dist.toml**: Automated version management, changelog, and distribution
 - **release.yml**: Release artifact construction and publishing
 
 #### Quality Gates
@@ -612,7 +612,7 @@ pub enum GoldDiggerError {
 
 ### Pipeline Compliance
 
-- **Conventional Commits**: Semantic versioning via Release Please
+- **Conventional Commits**: Semantic versioning via cargo-dist
 - **Security Gates**: CodeQL, Syft, Grype, FOSSA as merge blockers
 - **Cross-platform**: CI matrix testing on Ubuntu, Windows, macOS
 - **Supply Chain**: SLSA L3 provenance; Cosign keyless signing
