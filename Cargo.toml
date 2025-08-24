@@ -45,7 +45,6 @@ thiserror = "2.0.16"
 url = "2.5.7"
 
 [dev-dependencies]
-testcontainers = { version = "0.24.0", features = ["blocking"] }
 testcontainers-modules = { version = "0.12.1", features = ["mysql"] }
 tempfile = "3.21.0"
 
