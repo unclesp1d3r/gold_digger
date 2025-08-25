@@ -11,18 +11,7 @@ use rustls::{
 };
 
 #[cfg(feature = "ssl")]
-use std::sync::{Arc, Once};
-
-#[cfg(feature = "ssl")]
-static RUSTLS_INIT: Once = Once::new();
-
-/// Ensures rustls crypto provider is initialized
-#[cfg(feature = "ssl")]
-fn ensure_rustls_initialized() {
-    RUSTLS_INIT.call_once(|| {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    });
-}
+use std::sync::Arc;
 
 /// TLS-specific error types for better error handling and user guidance
 #[derive(Error, Debug)]
@@ -467,7 +456,7 @@ impl ServerCertVerifier for SkipHostnameVerifier {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &rustls::crypto::aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
@@ -481,12 +470,12 @@ impl ServerCertVerifier for SkipHostnameVerifier {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &rustls::crypto::aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        rustls::crypto::ring::default_provider()
+        rustls::crypto::aws_lc_rs::default_provider()
             .signature_verification_algorithms
             .supported_schemes()
     }
@@ -536,7 +525,7 @@ impl ServerCertVerifier for AcceptAllVerifier {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &rustls::crypto::aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
@@ -550,12 +539,12 @@ impl ServerCertVerifier for AcceptAllVerifier {
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &rustls::crypto::aws_lc_rs::default_provider().signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        rustls::crypto::ring::default_provider()
+        rustls::crypto::aws_lc_rs::default_provider()
             .signature_verification_algorithms
             .supported_schemes()
     }
@@ -620,9 +609,6 @@ pub mod cert_utils {
 #[cfg(feature = "ssl")]
 pub fn create_tls_connection(database_url: &str, tls_config: Option<TlsConfig>) -> Result<Pool, TlsError> {
     use mysql::{Opts, OptsBuilder};
-
-    // Ensure rustls crypto provider is initialized
-    ensure_rustls_initialized();
 
     // Parse the database URL first to validate format
     let opts = Opts::from_url(database_url)
@@ -959,9 +945,6 @@ impl TlsConfig {
             return Ok(None);
         }
 
-        // Ensure rustls crypto provider is initialized
-        ensure_rustls_initialized();
-
         // For custom CA validation, validate the CA file exists and is readable
         if let TlsValidationMode::CustomCa { ca_file_path } = &self.validation_mode {
             cert_utils::validate_ca_file(ca_file_path)?;
@@ -1224,10 +1207,6 @@ mod tests {
 
     #[test]
     fn test_to_ssl_opts_enabled_no_certs() {
-        #[cfg(feature = "ssl")]
-        {
-            ensure_rustls_initialized();
-        }
         let config = TlsConfig::new(); // enabled by default
         let ssl_opts = config.to_ssl_opts();
         assert!(ssl_opts.is_ok());
@@ -1247,10 +1226,6 @@ mod tests {
 
     #[test]
     fn test_to_ssl_opts_with_validation_modes() {
-        #[cfg(feature = "ssl")]
-        {
-            ensure_rustls_initialized();
-        }
         // Test skip hostname verification
         let config = TlsConfig::with_skip_hostname_verification();
         let ssl_opts = config.to_ssl_opts();
@@ -1331,8 +1306,6 @@ mod tests {
     #[cfg(feature = "ssl")]
     #[test]
     fn test_rustls_error_classification() {
-        ensure_rustls_initialized();
-
         // Test certificate error classification
         let cert_error = rustls::Error::InvalidCertificate(rustls::CertificateError::Expired);
         let tls_error = TlsError::from_rustls_error(cert_error, Some("example.com"));

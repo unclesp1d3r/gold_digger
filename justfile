@@ -101,9 +101,9 @@ build:
 build-release:
     cargo build --release
 
-# Build with pure Rust TLS (alternative to native TLS)
+# Build with rustls TLS (consolidated implementation)
 build-rustls:
-    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+    cargo build --release --no-default-features --features "json,csv,ssl,additional_mysql_types,verbose"
 
 
 
@@ -185,21 +185,16 @@ security:
 # DEPENDENCIES & VALIDATION
 # =============================================================================
 
-# Validate TLS dependency tree (for rustls migration)
+# Validate TLS dependency tree (rustls-only implementation)
 validate-deps:
-    @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-    echo "ERROR: native-tls not found with ssl feature"; \
+    @if cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
+    echo "ERROR: native-tls found with ssl feature (should be rustls-only)"; \
     cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
     exit 1; \
     fi
-    @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-    echo "ERROR: native-tls found with ssl-rustls feature"; \
-    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
-    exit 1; \
-    fi
-    @if ! cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
-    echo "ERROR: rustls not found with ssl-rustls feature"; \
-    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
+    @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
+    echo "ERROR: rustls not found with ssl feature"; \
+    cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
     exit 1; \
     fi
     @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|rustls"; then \
@@ -282,8 +277,8 @@ features:
     @echo "Default features:"
     @echo "  cargo build --release"
     @echo ""
-    @echo "Pure Rust TLS build:"
-    @echo "  cargo build --release --no-default-features --features \"json,csv,ssl-rustls,additional_mysql_types,verbose\""
+    @echo "Rustls TLS build:"
+    @echo "  cargo build --release --no-default-features --features \"json,csv,ssl,additional_mysql_types,verbose\""
     @echo ""
     @echo "Minimal build (no TLS, no extra types):"
     @echo "  cargo build --no-default-features --features \"csv json\""

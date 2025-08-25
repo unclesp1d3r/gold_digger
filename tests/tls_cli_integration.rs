@@ -8,6 +8,7 @@ use std::fs;
 use tempfile::TempDir;
 
 /// Helper function to create a temporary certificate file for testing
+#[allow(dead_code)]
 fn create_temp_cert_file(content: &str) -> Result<(TempDir, std::path::PathBuf), Box<dyn std::error::Error>> {
     let temp_dir = tempfile::tempdir()?;
     let cert_path = temp_dir.path().join("test_cert.pem");
@@ -16,6 +17,7 @@ fn create_temp_cert_file(content: &str) -> Result<(TempDir, std::path::PathBuf),
 }
 
 /// Sample valid PEM certificate for testing
+#[allow(dead_code)]
 const VALID_CERT_PEM: &str = r#"-----BEGIN CERTIFICATE-----
 MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
 BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
@@ -105,7 +107,9 @@ mod tls_cli_flag_tests {
             .unwrap();
 
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert_snapshot!("invalid_ca_file_content_error", stderr);
+        // Normalize the temporary directory path for consistent snapshots
+        let normalized_stderr = stderr.replace(&cert_path.to_string_lossy().to_string(), "/tmp/test_cert.pem");
+        assert_snapshot!("invalid_ca_file_content_error", normalized_stderr);
     }
 }
 

@@ -70,14 +70,27 @@ lto = "fat"  # Use fat LTO for maximum performance optimization in distribution 
 
 [features]
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-json = []
-csv = []
-ssl = ["mysql/rustls-tls-ring", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
-additional_mysql_types = [
-  "mysql_common",
-  "mysql_common?/bigdecimal",
-  "mysql_common?/rust_decimal",
-  "mysql_common?/time",
-  "mysql_common?/frunk",
+
+# Output format support
+json = []  # Enable JSON output format with deterministic field ordering
+csv = []   # Enable CSV output format with RFC4180 compliance
+
+# TLS/SSL support - rustls-only implementation for consistent cross-platform behavior
+ssl = [
+  "mysql/rustls-tls",         # MySQL driver with rustls TLS backend using AWS-LC crypto
+  "rustls",                   # Pure Rust TLS implementation
+  "rustls-native-certs",      # Platform certificate store integration (Windows/macOS/Linux)
+  "rustls-pemfile"            # PEM certificate file parsing for custom CA support
 ]
-verbose = []
+
+# Extended MySQL type support for complex data types
+additional_mysql_types = [
+  "mysql_common",                    # Base MySQL type extensions
+  "mysql_common?/bigdecimal",        # High-precision decimal arithmetic
+  "mysql_common?/rust_decimal",      # Fixed-point decimal types
+  "mysql_common?/time",              # Enhanced date/time handling
+  "mysql_common?/frunk",             # Generic programming utilities
+]
+
+# Development and debugging support
+verbose = []  # Enable detailed logging and diagnostic output

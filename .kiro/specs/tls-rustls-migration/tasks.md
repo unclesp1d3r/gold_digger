@@ -103,7 +103,7 @@
   - Ensure all TLS-related features work correctly in CI environment
   - _Requirements: 11.3_
 
-- [ ] 14. Update Cargo.toml feature documentation
+- [x] 14. Update Cargo.toml feature documentation
 
   - Update feature descriptions to reflect rustls-only implementation
   - Remove references to ssl-rustls feature

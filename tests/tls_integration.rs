@@ -9,12 +9,13 @@
 //! Requirements covered: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
 
 use anyhow::Result;
-use gold_digger::tls::{TlsConfig, TlsValidationMode};
+use gold_digger::tls::TlsConfig;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Helper function to create a temporary certificate file for testing
+#[allow(dead_code)]
 fn create_temp_cert_file(content: &str) -> Result<(TempDir, PathBuf)> {
     let temp_dir = tempfile::tempdir()?;
     let cert_path = temp_dir.path().join("test_cert.pem");
@@ -23,6 +24,7 @@ fn create_temp_cert_file(content: &str) -> Result<(TempDir, PathBuf)> {
 }
 
 /// Sample valid PEM certificate for testing
+#[allow(dead_code)]
 const VALID_CERT_PEM: &str = r#"-----BEGIN CERTIFICATE-----
 MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
 BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
@@ -42,6 +44,7 @@ XqSR4fNMW7M0PJjdXNzGxhMvKs9vEehxiaUHLjUx7bZT2+WBxNki4NfeCEHeQpZs
 "#;
 
 /// Check if we're running in CI environment to avoid testcontainers
+#[allow(dead_code)]
 fn is_ci() -> bool {
     std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok()
 }
@@ -49,6 +52,7 @@ fn is_ci() -> bool {
 #[cfg(feature = "ssl")]
 mod platform_certificate_tests {
     use super::*;
+    use gold_digger::tls::TlsValidationMode;
 
     /// Test platform certificate store integration
     /// Requirement: 10.1 - Platform certificate validation
@@ -99,6 +103,7 @@ mod platform_certificate_tests {
 #[cfg(feature = "ssl")]
 mod custom_ca_tests {
     use super::*;
+    use gold_digger::tls::TlsValidationMode;
 
     /// Test custom CA file functionality with test certificates
     /// Requirement: 10.2 - Custom CA certificate validation
@@ -174,6 +179,7 @@ mod custom_ca_tests {
 #[cfg(feature = "ssl")]
 mod hostname_verification_tests {
     use super::*;
+    use gold_digger::tls::TlsValidationMode;
 
     /// Test hostname verification bypass with mismatched certificates
     /// Requirement: 10.3 - Hostname verification bypass
@@ -214,6 +220,7 @@ mod hostname_verification_tests {
 #[cfg(feature = "ssl")]
 mod invalid_certificate_tests {
     use super::*;
+    use gold_digger::tls::TlsValidationMode;
 
     /// Test invalid certificate acceptance mode
     /// Requirement: 10.4 - Invalid certificate acceptance
