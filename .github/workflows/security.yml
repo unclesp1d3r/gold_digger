@@ -41,7 +41,7 @@ jobs:
         run: cargo audit
 
       - name: Run cargo deny check
-        run: cargo deny check
+        run: cargo deny check --config deny.ci.toml
 
       - name: Run cargo outdated
         run: cargo outdated --depth=1 --exit-code=1

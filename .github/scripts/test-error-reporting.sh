@@ -68,7 +68,7 @@ simulate_error_report "format" \
 echo -e "${GREEN}5. Testing Dependency Failure Reporting${NC}"
 echo "----------------------------------------"
 simulate_error_report "dependency" \
-    "TLS backend conflict between ssl and ssl-rustls features" \
+    "TLS feature not enabled. Recompile with --features ssl to enable TLS support" \
     "https://github.com/UncleSp1d3r/gold_digger/blob/main/docs/src/troubleshooting/ci-failures.md#dependency-failures"
 
 # Test debug artifact collection

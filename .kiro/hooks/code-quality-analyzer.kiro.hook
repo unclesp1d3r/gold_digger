@@ -4,7 +4,7 @@
   "description": "Monitors Rust source files for changes and analyzes modified code for potential improvements including code smells, design patterns, best practices, readability, maintainability, and performance optimizations while maintaining existing functionality",
   "version": "1",
   "when": {
-    "type": "userTriggered",
+    "type": "fileEdited",
     "patterns": [
       "src/*.rs",
       "tests/*.rs",

@@ -308,13 +308,13 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ## Quick Reference
 
-| File                           | Purpose         | Key Issues                                |
-| ------------------------------ | --------------- | ----------------------------------------- |
-| `src/main.rs`                  | Entry point     | Exit codes, pattern bug, env var handling |
-| `src/lib.rs`                   | Core logic      | Type conversion panics, NULL handling     |
-| `src/json.rs`                  | JSON output     | Non-deterministic HashMap                 |
-| `Cargo.toml`                   | Dependencies    | Version mismatch with CHANGELOG           |
-| `project_spec/requirements.md` | Target features | Comprehensive feature roadmap             |
+| File                           | Purpose         | Key Issues                                   |
+| ------------------------------ | --------------- | -------------------------------------------- |
+| `src/main.rs`                  | Entry point     | Exit codes, pattern bug, env var handling    |
+| `src/lib.rs`                   | Core logic      | Type conversion panics, NULL handling        |
+| `src/json.rs`                  | JSON output     | Deterministic BTreeMap / ordered JSON output |
+| `Cargo.toml`                   | Dependencies    | Version mismatch with CHANGELOG              |
+| `project_spec/requirements.md` | Target features | Comprehensive feature roadmap                |
 
 ---
 

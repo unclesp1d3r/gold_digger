@@ -1,8 +1,8 @@
 fn main() {
     // Build script for gold_digger
     //
-    // Note: Previously this file contained feature conflict checks for ssl vs ssl-rustls,
-    // but we've migrated to a rustls-only implementation with a single ssl feature.
+    // This build script handles any compile-time configuration needed for Gold Digger.
+    // The project uses a single rustls-based TLS implementation via the ssl feature.
 
     // Re-run if features change
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SSL");

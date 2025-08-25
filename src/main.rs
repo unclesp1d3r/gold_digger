@@ -370,7 +370,6 @@ fn dump_configuration(cli: &Cli) -> Result<()> {
         "allow_empty": cli.allow_empty,
         "features": {
             "ssl": cfg!(feature = "ssl"),
-            "ssl_rustls": cfg!(feature = "ssl"),
             "json": cfg!(feature = "json"),
             "csv": cfg!(feature = "csv"),
             "verbose": cfg!(feature = "verbose"),
@@ -386,10 +385,9 @@ fn dump_configuration(cli: &Cli) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_create_database_connection_invalid_url() {
-        // Test with invalid URL to ensure error handling works
-        let cli = Cli::parse_from([
+    /// Creates a CLI instance with common test arguments
+    fn build_test_cli() -> Cli {
+        Cli::parse_from([
             "gold_digger",
             "--db-url",
             "mysql://test",
@@ -397,7 +395,13 @@ mod tests {
             "SELECT 1",
             "--output",
             "test.json",
-        ]);
+        ])
+    }
+
+    #[test]
+    fn test_create_database_connection_invalid_url() {
+        // Test with invalid URL to ensure error handling works
+        let cli = build_test_cli();
         let result = create_database_connection("invalid://url", &cli);
         assert!(result.is_err());
     }
@@ -406,15 +410,7 @@ mod tests {
     #[test]
     fn test_create_database_connection_with_ssl_feature() {
         // Test that the function exists and handles errors properly when ssl feature is enabled
-        let cli = Cli::parse_from([
-            "gold_digger",
-            "--db-url",
-            "mysql://test",
-            "--query",
-            "SELECT 1",
-            "--output",
-            "test.json",
-        ]);
+        let cli = build_test_cli();
         let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test", &cli);
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());
@@ -424,15 +420,7 @@ mod tests {
     #[test]
     fn test_create_database_connection_without_ssl_feature() {
         // Test that the function works without ssl feature
-        let cli = Cli::parse_from([
-            "gold_digger",
-            "--db-url",
-            "mysql://test",
-            "--query",
-            "SELECT 1",
-            "--output",
-            "test.json",
-        ]);
+        let cli = build_test_cli();
         let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test", &cli);
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());

@@ -81,7 +81,7 @@ src/
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["mysql/rustls-tls-ring", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
+ssl = ["mysql/rustls-tls", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
 additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decimal", ...]
 verbose = []                               # Conditional println!/eprintln!
 ```

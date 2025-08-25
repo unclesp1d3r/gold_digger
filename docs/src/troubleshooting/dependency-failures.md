@@ -104,8 +104,7 @@ error: lock file is out of date
 **Error Pattern:**
 
 ```
-error: feature `ssl` and `ssl-rustls` cannot be used together
-error: multiple TLS implementations detected
+error: TLS feature not enabled. Recompile with --features ssl to enable TLS support
 ```
 
 **Solutions:**
@@ -126,8 +125,8 @@ error: multiple TLS implementations detected
    # Use native TLS (platform-specific)
    cargo build --no-default-features --features "json csv ssl additional_mysql_types verbose"
 
-   # Use rustls (pure Rust)
-   cargo build --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+   # Standard build with TLS
+   cargo build --release
 
    # No TLS (testing only)
    cargo build --no-default-features --features "json csv additional_mysql_types verbose"
@@ -139,10 +138,14 @@ error: multiple TLS implementations detected
    # In Cargo.toml - ensure mutually exclusive features
    [features]
    default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-   ssl = ["mysql/native-tls"]
-   ssl-rustls = ["mysql/rustls-tls"]
+   ssl = [
+     "mysql/rustls-tls",
+     "rustls",
+     "rustls-native-certs",
+     "rustls-pemfile",
+   ]
 
-   # Don't enable both ssl and ssl-rustls simultaneously
+   # Single rustls-based TLS implementation
    ```
 
 ### Missing Feature Dependencies

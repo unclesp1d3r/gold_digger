@@ -132,6 +132,16 @@ test-no-docker:
     cd {{justfile_dir()}}
     cargo nextest run || cargo test
 
+# Run integration tests (requires Docker)
+test-integration:
+    cd {{justfile_dir()}}
+    cargo test --features integration_tests -- --ignored
+
+# Run all tests including integration tests
+test-all:
+    cd {{justfile_dir()}}
+    cargo test --features integration_tests -- --include-ignored
+
 # Run tests with coverage (llvm-cov)
 coverage:
     cd {{justfile_dir()}}
@@ -166,14 +176,18 @@ profile:
 audit:
     cargo audit
 
-# Check for license/security issues
+# Check for license/security issues (local development - tolerant)
 deny:
     cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
+
+# Check for license/security issues (CI strict enforcement)
+deny-ci:
+    cargo deny check --config deny.ci.toml || echo "cargo-deny not installed - run 'just install-tools'"
 
 # Comprehensive security scanning (combines audit, deny, and grype)
 security:
     just audit
-    just deny
+    just deny-ci
     @if command -v grype >/dev/null 2>&1; then \
     grype . --fail-on high || echo "High or critical vulnerabilities found"; \
     else \
@@ -578,6 +592,8 @@ help:
     @echo "Testing:"
     @echo "  test          Run tests with nextest (including ignored Docker tests)"
     @echo "  test-no-docker Run tests with nextest (excluding Docker tests)"
+    @echo "  test-integration Run integration tests (requires Docker)"
+    @echo "  test-all      Run all tests including integration tests"
     @echo "  coverage      Run tests with coverage report"
     @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
     @echo "  cover         Alias for coverage-llvm (CI naming consistency)"

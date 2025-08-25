@@ -169,7 +169,7 @@ TLS error messages are scrubbed of sensitive information:
 [features]
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
 ssl = [
-  "mysql/rustls-tls-ring",
+  "mysql/rustls-tls",
   "rustls",
   "rustls-native-certs",
   "rustls-pemfile",
@@ -280,7 +280,7 @@ Gold Digger displays security warnings for insecure modes:
 # Hostname verification disabled
 WARNING: Hostname verification disabled. Connection is vulnerable to man-in-the-middle attacks.
 
-# Certificate validation disabled  
+# Certificate validation disabled
 WARNING: Certificate validation disabled. Connection is NOT secure.
 This should ONLY be used for testing. Never use in production.
 ```

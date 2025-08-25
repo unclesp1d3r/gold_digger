@@ -1,4 +1,4 @@
-use std::{env, ffi::OsStr, path::Path};
+use std::{borrow::Cow, env, ffi::OsStr, path::Path};
 
 use anyhow::{Context, Result};
 use mysql::Row;
@@ -92,11 +92,15 @@ fn mysql_value_to_string(value: &mysql::Value) -> String {
     match value {
         mysql::Value::NULL => String::new(),
         mysql::Value::Bytes(bytes) => {
-            // Try to convert bytes to UTF-8 string, fallback to debug representation
+            // Try to convert bytes to UTF-8 string, fallback to lossy conversion
             // Use Cow to avoid unnecessary allocation when bytes are valid UTF-8
             match std::str::from_utf8(bytes) {
                 Ok(s) => s.to_string(),
-                Err(_) => String::from_utf8_lossy(bytes).into_owned(),
+                Err(_) => {
+                    // String::from_utf8_lossy returns Cow<str>, only allocate if needed
+                    let cow: Cow<str> = String::from_utf8_lossy(bytes);
+                    cow.into_owned()
+                },
             }
         },
         mysql::Value::Int(i) => i.to_string(),
@@ -226,7 +230,7 @@ mod tests {
         let invalid_bytes = vec![0xFF, 0xFE, 0xFD];
         let result = mysql_value_to_string(&mysql::Value::Bytes(invalid_bytes));
         assert!(!result.is_empty()); // Should contain replacement characters
-        assert!(result.contains("�") || !result.is_empty()); // UTF-8 replacement or some content
+        assert!(result.contains('\u{FFFD}')); // Explicitly check for Unicode replacement character
     }
 
     #[test]

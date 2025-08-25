@@ -193,8 +193,8 @@ matrix:
   features:
     - name: "ssl"
       flags: "--no-default-features --features json,csv,ssl,additional_mysql_types,verbose"
-    - name: "ssl-rustls"
-      flags: "--no-default-features --features json,csv,ssl-rustls,additional_mysql_types,verbose"
+    - name: "default"
+      flags: "--release"
     - name: "minimal"
       flags: "--no-default-features --features json,csv,additional_mysql_types,verbose"
 

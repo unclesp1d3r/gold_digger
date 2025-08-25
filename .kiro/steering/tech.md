@@ -44,7 +44,7 @@ default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
 
 ### TLS/SSL Implementation
 
-- **mysql/rustls-tls-ring** - Pure Rust TLS with platform certificate store integration (default)
+- **mysql/rustls-tls** - Pure Rust TLS with platform certificate store integration (default)
   - Consistent cross-platform behavior
   - Enhanced security controls and validation options
   - Automatic system certificate store usage on all platforms
@@ -167,7 +167,7 @@ rustup component add llvm-tools-preview rust-src
 
 ### Cross-Platform Support
 
-- **Native dependencies**: Platform-specific TLS implementations
-- **Pure Rust option**: `ssl-rustls` feature for maximum portability
+- **Pure Rust TLS**: Single rustls-based implementation for consistent cross-platform behavior
+- **Platform Integration**: Automatic system certificate store usage (Windows/macOS/Linux)
 - **Minimal builds**: Feature flags allow targeted compilation
 - **Runtime dependencies**: System libraries only (no external services)

@@ -160,7 +160,7 @@ match get_extension_from_filename(&output_file) {
 ### Output Schemas
 
 - **CSV:** Headers in first row, `QuoteStyle::Necessary`
-- **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}`
+- **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}` with BTreeMap for deterministic key ordering
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
 ## 🚨 Critical Safety Rules
@@ -237,7 +237,7 @@ Based on `project_spec/requirements.md`, major missing features:
 
 - **F007:** Streaming output for large result sets
 - **F008:** Structured logging with credential redaction
-- **F010:** Deterministic JSON output, pretty-print option
+- **F010:** Pretty-print JSON option (deterministic ordering implemented via BTreeMap)
 
 ### Low Priority
 
@@ -423,15 +423,15 @@ let opts = OptsBuilder::new()
 
 **v0.2.7+**: Gold Digger has migrated to a simplified, rustls-only TLS implementation:
 
-- **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls)
+- **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls-tls)
 - **After**: Single rustls-based implementation with platform certificate store integration
-- **Breaking Change**: Remove `ssl-rustls` feature references from build scripts
+- **Breaking Change**: Remove `ssl-rustls` feature references from build scripts and CI/CD
 - **Benefits**: Simplified configuration, consistent cross-platform behavior, enhanced security controls
 - **Platform Integration**: Automatic system certificate store usage on all platforms
 
 **Migration Steps**:
 
-1. Remove `ssl-rustls` feature references from build commands
+1. Remove `ssl-rustls` feature references from build commands and CI/CD pipelines
 2. Use default `ssl` feature for rustls-based TLS (recommended)
 3. Update documentation to reflect simplified TLS model
 
@@ -490,7 +490,7 @@ cargo build --release --features "default additional_mysql_types"
 ### Dependencies by Feature
 
 - **Base:** `mysql`, `anyhow`, `csv`, `serde_json`, `clap`
-- **Rustls TLS:** `mysql/rustls-tls-ring`, `rustls`, `rustls-native-certs`, `rustls-pemfile` (pure Rust implementation with platform certificate store integration)
+- **Rustls TLS:** `mysql/rustls-tls`, `rustls`, `rustls-native-certs`, `rustls-pemfile` (pure Rust implementation with platform certificate store integration)
 - **Types:** `mysql_common` with bigdecimal, rust_decimal, time, frunk
 - **No native TLS dependencies** in any configuration
 

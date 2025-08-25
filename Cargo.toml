@@ -94,3 +94,6 @@ additional_mysql_types = [
 
 # Development and debugging support
 verbose = []  # Enable detailed logging and diagnostic output
+
+# Integration testing support
+integration_tests = []  # Enable heavy integration tests requiring external databases

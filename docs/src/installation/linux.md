@@ -75,7 +75,11 @@ cargo build --release
 Linux builds use OpenSSL by default. For pure Rust TLS (no OpenSSL dependency):
 
 ```bash
-cargo install gold_digger --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+# Standard installation with TLS support
+cargo install gold_digger
+
+# Or minimal installation without TLS
+cargo install gold_digger --no-default-features --features "json,csv,additional_mysql_types,verbose"
 ```
 
 ## Distribution Packages (Coming Soon)

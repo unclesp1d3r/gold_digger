@@ -154,7 +154,7 @@ println!("Connecting to database...");
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["mysql/rustls-tls-ring", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
+ssl = ["mysql/rustls-tls", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
 additional_mysql_types = [...]             # BigDecimal, Decimal, etc.
 verbose = []                               # Conditional logging
 ```
@@ -203,7 +203,7 @@ cargo run --release
 
 1. **Pattern Bug:** `Some(&_)` should be `Some(_)` in main.rs
 2. **Exit Codes:** Uses `exit(-1)` instead of proper error codes
-3. **JSON Output:** Should use BTreeMap for deterministic ordering
+3. **JSON Output:** Uses BTreeMap for deterministic key ordering (implemented)
 4. **Version Sync:** CHANGELOG.md vs Cargo.toml version mismatch
 
 ## AI Assistant Guidelines

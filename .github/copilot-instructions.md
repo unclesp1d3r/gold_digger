@@ -81,7 +81,7 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 ### Known Issues to Fix
 
 1. **Pattern Bug:** In `src/main.rs`, `Some(&_)` should be `Some(_)`
-2. **JSON Non-determinism:** Uses HashMap instead of BTreeMap
+2. **JSON Output:** Uses BTreeMap for deterministic key ordering (implemented)
 3. **Exit Codes:** Uses `exit(-1)` instead of proper error codes
 
 ## Project File Organization

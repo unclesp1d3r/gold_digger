@@ -3,13 +3,13 @@
 
 ### BREAKING CHANGES
 - **TLS Migration**: Simplified to rustls-only implementation with platform certificate store integration
-  - **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls)
+  - **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls-tls)
   - **After**: Single rustls-based implementation via `ssl` feature
   - **Migration**: Update build scripts to use simplified `ssl` feature
 
 ### Features
 - **TLS Implementation**: Migrated to rustls-only implementation with enhanced security controls
-  - Single `ssl` feature now uses `mysql/rustls-tls-ring` with platform certificate store integration
+  - Single `ssl` feature now uses `mysql/rustls-tls` with platform certificate store integration
   - Automatic system certificate store usage on Windows, macOS, and Linux
   - Enhanced TLS validation modes: Platform, CustomCa, SkipHostnameVerification, AcceptInvalid
   - Intelligent error messages with specific CLI flag suggestions for TLS issues

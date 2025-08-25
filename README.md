@@ -83,12 +83,13 @@ cargo build --release --no-default-features --features "json csv"
 
 ### TLS Support
 
-Gold Digger supports secure database connections with flexible security controls:
+Gold Digger supports secure database connections with a unified rustls-based TLS implementation:
 
-- **Automatic Certificate Validation**: Uses your system's certificate store by default
-- **Custom CA Support**: Use your own certificate authority files
-- **Development-Friendly**: Options to handle self-signed certificates and hostname mismatches
-- **Security Warnings**: Clear feedback about connection security levels
+- **Pure Rust TLS**: Consistent cross-platform behavior using rustls with AWS-LC crypto
+- **Platform Certificate Store**: Automatic integration with system certificate stores (Windows/macOS/Linux)
+- **Flexible Security Controls**: Four distinct TLS validation modes via mutually exclusive CLI flags
+- **Enhanced Error Messages**: Intelligent error classification with specific CLI flag suggestions
+- **Security Warnings**: Prominent warnings for insecure TLS modes with clear guidance
 
 ## Usage
 
@@ -152,21 +153,23 @@ gold_digger --db-url "mysql://user:pass@test.db:3306/mydb" \
 
 ### CLI Options
 
-| Flag                              | Short | Environment Variable | Description                                            |
-| --------------------------------- | ----- | -------------------- | ------------------------------------------------------ |
-| `--db-url <URL>`                  | -     | `DATABASE_URL`       | Database connection string                             |
-| `--query <SQL>`                   | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
-| `--query-file <FILE>`             | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
-| `--output <FILE>`                 | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
-| `--format <FORMAT>`               | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
-| `--pretty`                        | -     | -                    | Pretty-print JSON output                               |
-| `--verbose`                       | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
-| `--quiet`                         | -     | -                    | Suppress non-error output                              |
-| `--allow-empty`                   | -     | -                    | Exit with code 0 even if no results                    |
-| `--dump-config`                   | -     | -                    | Print current configuration as JSON                    |
-| `--tls-ca-file <FILE>`            | -     | -                    | Use custom CA certificate file (mutually exclusive)    |
-| `--insecure-skip-hostname-verify` | -     | -                    | Skip hostname verification (mutually exclusive)        |
-| `--allow-invalid-certificate`     | -     | -                    | Accept invalid certificates (mutually exclusive)       |
+| Flag                              | Short | Environment Variable | Description                                             |
+| --------------------------------- | ----- | -------------------- | ------------------------------------------------------- |
+| `--db-url <URL>`                  | -     | `DATABASE_URL`       | Database connection string                              |
+| `--query <SQL>`                   | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                    |
+| `--query-file <FILE>`             | -     | -                    | Read SQL from file (mutually exclusive with `--query`)  |
+| `--output <FILE>`                 | `-o`  | `OUTPUT_FILE`        | Output file path                                        |
+| `--format <FORMAT>`               | -     | -                    | Force output format: `csv`, `json`, or `tsv`            |
+| `--pretty`                        | -     | -                    | Pretty-print JSON output                                |
+| `--verbose`                       | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)        |
+| `--quiet`                         | -     | -                    | Suppress non-error output                               |
+| `--allow-empty`                   | -     | -                    | Exit with code 0 even if no results                     |
+| `--dump-config`                   | -     | -                    | Print current configuration as JSON                     |
+| `--tls-ca-file <FILE>`            | -     | -                    | Use custom CA certificate file for trust anchor pinning |
+| `--insecure-skip-hostname-verify` | -     | -                    | Skip hostname verification (keeps chain validation)     |
+| `--allow-invalid-certificate`     | -     | -                    | Disable certificate validation entirely (DANGEROUS)     |
+
+**Note**: TLS flags are mutually exclusive - use only one at a time.
 
 ### Subcommands
 
@@ -225,6 +228,65 @@ Gold Digger uses structured exit codes for better automation and error handling:
 - **5**: File I/O operation failure (cannot read query file, cannot write output file, permission errors)
 
 The exit code mapping includes intelligent error detection based on error message patterns, providing consistent behavior across different failure scenarios.
+
+## Testing
+
+Gold Digger includes comprehensive test suites to ensure reliability and correctness:
+
+### Unit Tests
+
+Run the standard test suite (no external dependencies):
+
+```bash
+# Run all unit tests
+cargo test
+
+# Run tests with nextest (faster parallel execution)
+cargo nextest run
+
+# Run tests excluding Docker-dependent tests
+just test-no-docker
+```
+
+### Integration Tests
+
+For comprehensive testing with real database connections, enable the integration test feature:
+
+```bash
+# Run integration tests (requires Docker)
+cargo test --features integration_tests -- --ignored
+
+# Run all tests including integration tests
+cargo test --features integration_tests -- --include-ignored
+
+# Using justfile commands
+just test-integration  # Run only integration tests
+just test-all         # Run all tests including integration tests
+```
+
+### Test Requirements
+
+**Integration Tests:**
+
+- Docker installed and running
+- `integration_tests` feature enabled
+- Tests are marked with `#[ignore]` by default
+
+**Unit Tests:**
+
+- No external dependencies required
+- Run in CI environments
+- Cover TLS configuration, error handling, and format validation
+
+### Test Coverage
+
+```bash
+# Generate coverage report
+cargo llvm-cov --html
+
+# Generate coverage for CI
+cargo llvm-cov --lcov --output-path lcov.info
+```
 
 ## Security & Quality Assurance
 

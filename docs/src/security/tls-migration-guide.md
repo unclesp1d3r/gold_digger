@@ -19,7 +19,7 @@ ssl-rustls = ["mysql/rustls-tls"] # Pure Rust TLS
 ```toml
 # Single rustls-based TLS feature
 ssl = [
-  "mysql/rustls-tls-ring",
+  "mysql/rustls-tls",
   "rustls",
   "rustls-native-certs",
   "rustls-pemfile",
