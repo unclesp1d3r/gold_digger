@@ -279,24 +279,24 @@ just dist-build
 just dist-generate
 ```
 
-##### Local Release Testing
+For detailed release process documentation, see the [Release Runbook](docs/src/development/release-runbook.md).
 
-Before creating an actual release, you can simulate the entire release process locally:
+##### Release Process
+
+For detailed release process documentation, see the [Release Runbook](docs/src/development/release-runbook.md).
+
+**Quick local test commands:**
 
 ```bash
-# Test the complete release pipeline locally
-just release-dry
+# Test release workflow locally
+just act-release-dry v1.0.0-test
 
-# Test GitHub Actions workflows locally (requires act)
-just act-setup      # Set up act and pull Docker images
-just act-ci-dry     # Test CI workflow (dry-run)
-just act-release-dry v1.0.0  # Test release workflow (dry-run)
+# Plan cargo-dist release
+cargo dist plan
 
-# Test cargo-dist workflow
-just dist-plan  # Test automated versioning
+# Build artifacts locally
+cargo dist build
 ```
-
-The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.
 
 ##### Testing Recommendations
 

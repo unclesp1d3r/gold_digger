@@ -98,6 +98,43 @@ Gold Digger supports secure database connections through two TLS implementations
   - **Linux**: System TLS via native-tls (commonly OpenSSL)
 - **Alternative (`ssl-rustls` feature)**: Pure Rust TLS implementation
 
+## Release Process
+
+Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for automated cross-platform releases:
+
+### Release Automation
+
+- **Triggered by Git Tags**: Push a version tag (e.g., `v1.0.0`) to trigger automated release
+- **Cross-Platform Builds**: 6 target platforms built natively (ARM64 & x86_64 for macOS/Linux/Windows)
+- **Multiple Installers**: Shell script, PowerShell, MSI, Homebrew formula, and npm package
+- **Security Integration**: GitHub attestation signing and CycloneDX SBOM generation
+- **Package Manager Integration**: Automatic Homebrew tap updates
+
+### Release Artifacts
+
+Each release includes:
+
+- **Platform-specific binaries** for all 6 target platforms
+- **Installers** for easy deployment (shell, PowerShell, MSI, Homebrew)
+- **Signed artifacts** with GitHub attestation
+- **SBOM files** in CycloneDX format for security auditing
+- **Checksums** for integrity verification
+
+### Development Testing
+
+```bash
+# Test release workflow locally
+just act-release-dry v1.0.0-test
+
+# Plan cargo-dist release
+cargo dist plan
+
+# Build artifacts locally
+cargo dist build
+```
+
+For detailed release documentation, see [DISTRIBUTION.md](DISTRIBUTION.md).
+
 #### TLS Configuration
 
 Gold Digger provides comprehensive TLS support with enhanced error handling and security features:
@@ -255,10 +292,10 @@ Gold Digger maintains high security and quality standards for all releases:
 
 ### Release Security
 
-- **Signed Artifacts:** All release binaries are cryptographically signed with Cosign using keyless OIDC
-- **Supply Chain Security:** SLSA Level 3 provenance attestation for build integrity
-- **Vulnerability Scanning:** Automated security scanning of all dependencies
-- **Software Bill of Materials (SBOM):** Complete dependency information included with each release
+- **Signed Artifacts:** All release binaries are cryptographically signed using GitHub attestation
+- **Supply Chain Security:** Automated security scanning of all dependencies
+- **Software Bill of Materials (SBOM):** Complete dependency information in CycloneDX format included with each release
+- **Cross-Platform Distribution:** 6 target platforms (ARM64 & x86_64 for macOS/Linux/Windows) via cargo-dist
 
 ### Quality Standards
 
