@@ -24,6 +24,7 @@
 
 - [Common Issues](troubleshooting/README.md)
 - [Connection Problems](troubleshooting/connection-issues.md)
+- [Type Safety](troubleshooting/type-safety.md)
 - [Type Errors](troubleshooting/type-errors.md)
 - [Performance](troubleshooting/performance.md)
 
@@ -33,3 +34,6 @@
 - [Contributing](development/contributing.md)
 - [Architecture](development/architecture.md)
 - [API Reference](development/api-reference.md)
+- [Release Runbook](development/release-runbook.md)
+- [Release Notes Template](development/release-notes-template.md)
+- [Cargo-Dist Completion Summary](development/cargo-dist-completion-summary.md)

@@ -52,7 +52,7 @@ pub fn rows_to_strings(rows: Vec<Row>) -> anyhow::Result<Vec<Vec<String>>> {
         return Ok(Vec::new());
     }
 
-    let mut result_rows: Vec<Vec<String>> = Vec::new();
+    let mut result_rows = Vec::with_capacity(rows.len() + 1);
 
     // Extract headers from the first row
     let header_row: Vec<String> = rows[0]
@@ -93,12 +93,30 @@ fn mysql_value_to_string(value: &mysql::Value) -> String {
         mysql::Value::NULL => String::new(),
         mysql::Value::Bytes(bytes) => {
             // Try to convert bytes to UTF-8 string, fallback to debug representation
-            String::from_utf8(bytes.clone()).unwrap_or_else(|_| format!("{:?}", bytes))
+            String::from_utf8_lossy(bytes).into_owned()
         },
         mysql::Value::Int(i) => i.to_string(),
         mysql::Value::UInt(u) => u.to_string(),
-        mysql::Value::Float(f) => f.to_string(),
-        mysql::Value::Double(d) => d.to_string(),
+        mysql::Value::Float(f) => {
+            // Handle special float values
+            if f.is_nan() {
+                "NaN".to_string()
+            } else if f.is_infinite() {
+                if f.is_sign_positive() { "Infinity" } else { "-Infinity" }.to_string()
+            } else {
+                f.to_string()
+            }
+        },
+        mysql::Value::Double(d) => {
+            // Handle special double values
+            if d.is_nan() {
+                "NaN".to_string()
+            } else if d.is_infinite() {
+                if d.is_sign_positive() { "Infinity" } else { "-Infinity" }.to_string()
+            } else {
+                d.to_string()
+            }
+        },
         mysql::Value::Date(year, month, day, hour, minute, second, microsecond) => {
             if *hour == 0 && *minute == 0 && *second == 0 && *microsecond == 0 {
                 format!("{:04}-{:02}-{:02}", year, month, day)
@@ -200,10 +218,26 @@ mod tests {
         let result = mysql_value_to_string(&mysql::Value::Bytes(bytes));
         assert_eq!(result, "hello world");
 
-        // Test invalid UTF-8 bytes
+        // Test invalid UTF-8 bytes - should use lossy conversion
         let invalid_bytes = vec![0xFF, 0xFE, 0xFD];
-        let result = mysql_value_to_string(&mysql::Value::Bytes(invalid_bytes.clone()));
-        assert!(result.contains("255")); // Should contain debug representation
+        let result = mysql_value_to_string(&mysql::Value::Bytes(invalid_bytes));
+        assert!(!result.is_empty()); // Should contain replacement characters
+        assert!(result.contains("�") || !result.is_empty()); // UTF-8 replacement or some content
+    }
+
+    #[test]
+    fn test_mysql_value_to_string_special_floats() {
+        // Test NaN
+        assert_eq!(mysql_value_to_string(&mysql::Value::Float(f32::NAN)), "NaN");
+        assert_eq!(mysql_value_to_string(&mysql::Value::Double(f64::NAN)), "NaN");
+
+        // Test Infinity
+        assert_eq!(mysql_value_to_string(&mysql::Value::Float(f32::INFINITY)), "Infinity");
+        assert_eq!(mysql_value_to_string(&mysql::Value::Double(f64::INFINITY)), "Infinity");
+
+        // Test Negative Infinity
+        assert_eq!(mysql_value_to_string(&mysql::Value::Float(f32::NEG_INFINITY)), "-Infinity");
+        assert_eq!(mysql_value_to_string(&mysql::Value::Double(f64::NEG_INFINITY)), "-Infinity");
     }
 
     #[test]

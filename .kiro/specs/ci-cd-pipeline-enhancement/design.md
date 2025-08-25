@@ -2,522 +2,831 @@
 
 ## Overview
 
-This design implements a comprehensive CI/CD pipeline enhancement for the Gold Digger project that meets EvilBit Labs standards. The current CI infrastructure already has a solid foundation with cross-platform testing, security scanning, and release automation, but requires optimization and standardization to fully comply with organizational requirements.
+This design implements focused CI/CD pipeline improvements for the Gold Digger project using simple, maintainable GitHub Actions workflows. The enhancement replaces complex custom scripts with well-maintained marketplace actions and separates concerns into focused, independent workflows that are easy to troubleshoot and maintain.
 
-The design consolidates and enhances existing workflows (`ci.yml`, `codeql.yml`, `security.yml`, `release.yml`) to create a unified, secure, and efficient pipeline that leverages the project's existing justfile commands and maintains compatibility with the current development workflow.
+The design prioritizes simplicity and reliability by using proven GitHub Actions from the marketplace, standard cargo commands that developers can run locally, and cargo-dist for complete release automation. Each workflow has a single responsibility and can be debugged independently without complex custom logic.
 
 ## Architecture
 
 ### Current State Analysis
 
-The project already has:
+The project currently has basic CI workflows that need focused improvements:
 
-- ✅ Cross-platform CI testing (Ubuntu 22.04, macOS 13, Windows 2022)
-- ✅ Pre-commit hook validation
-- ✅ Comprehensive security scanning (CodeQL, Syft, Grype, cargo-audit, cargo-deny)
-- ✅ Coverage reporting with Codecov integration
-- ✅ SLSA Level 3 provenance and Cosign keyless signing in releases
-- ✅ Justfile integration for consistent command execution
+**Existing Infrastructure:**
 
-### Enhancement Areas
+- Basic workflow files that need simplification and separation of concerns
+- Limited cross-platform testing coverage
+- Missing quality gates and security scanning
+- No coverage reporting or release automation
 
-The design focuses on:
+**Enhancement Strategy:**
 
-1. **Workflow Consolidation**: Streamline separate workflows into cohesive pipeline
-2. **Quality Gate Enforcement**: Ensure zero-tolerance policies are properly enforced
-3. **Security Integration**: Enhance existing security scanning with better reporting
-4. **Performance Optimization**: Improve CI execution time and resource usage
-5. **Standards Compliance**: Align with EBL-STD-Pipeline requirements
+The design implements separate, focused workflows using well-maintained GitHub Actions:
+
+1. **Cross-Platform Testing**: Independent workflows testing both latest and older supported versions (ubuntu-latest + ubuntu-22.04, windows-latest + windows-2022, macos-latest + macos-13)
+2. **Quality Gates**: Dedicated workflow using standard cargo commands and marketplace actions
+3. **Security Scanning**: Focused security workflow using GitHub's CodeQL action and cargo audit
+4. **Coverage Reporting**: Simple coverage workflow using proven marketplace actions
+5. **Release Automation**: Complete cargo-dist integration for automated releases
+6. **Workflow Organization**: Single-responsibility workflows that are easy to understand and debug
+
+### Platform Compatibility Strategy
+
+**Platform Testing Strategy**:
+
+The CI pipeline tests against both the latest and older supported versions to ensure broad compatibility:
+
+- **Ubuntu**: `ubuntu-latest` (currently ubuntu-24.04) and `ubuntu-22.04`
+- **Windows**: `windows-latest` (currently windows-2025) and `windows-2022`
+- **macOS**: `macos-latest` (currently macos-14) and `macos-13`
+
+**Coverage Rationale**:
+
+This approach provides comprehensive coverage by testing:
+
+- **Latest versions**: Using `-latest` labels ensures we test against current platform versions
+- **Older supported versions**: Testing specific older versions (22.04, 2022, 13) ensures compatibility with users on slightly older but still supported systems
+- **Version span**: Covers approximately 3 years of platform versions, providing good backward compatibility
+- **Future-proof**: `-latest` labels automatically update to newer versions as GitHub Actions updates them
+
+**GitHub Actions Runner Labels Used**:
+
+- `ubuntu-latest`, `ubuntu-22.04`
+- `windows-latest`, `windows-2022`
+- `macos-latest`, `macos-13`
+
+**Design Rationale**: Using current platform versions ensures access to the latest tooling, security updates, and performance improvements while maintaining broad compatibility. The three-version compatibility window provides sufficient coverage for most deployment environments without requiring maintenance of legacy systems.
 
 ### Pipeline Architecture
 
 ```mermaid
 graph TD
-    A[Push/PR Trigger] --> B[Pre-commit Validation]
-    B --> C[Cross-Platform Testing Matrix]
-    C --> D[Security Scanning]
-    D --> E[Quality Gates Check]
-    E --> F[Coverage Reporting]
-    F --> G[Merge Approval]
+    A[Push/PR Trigger] --> B[Quality Gates Workflow]
+    A --> C[Ubuntu Testing Workflows]
+    A --> D[macOS Testing Workflows]
+    A --> E[Windows Testing Workflows]
+    A --> F[Security Scanning Workflow]
+    A --> G[Coverage Reporting Workflow]
 
-    H[Tag Push] --> I[Release Build Matrix]
-    I --> J[Rust Binary Packaging]
-    J --> K[SBOM Generation]
-    K --> L[Artifact Signing]
-    L --> M[Release Publication]
+    H[Tag Push] --> I[cargo-dist Release Workflow]
+    I --> J[Automated SBOM Generation]
+    I --> K[Artifact Signing & Attestation]
+    I --> L[GitHub Release Publication]
 
-    subgraph "Cross-Platform Matrix"
-        C1[Ubuntu 22.04]
-        C2[macOS 13]
-        C3[Windows 2022]
+    subgraph "Independent Workflows"
+        B --> B1[cargo fmt --check]
+        B --> B2[cargo clippy]
+        C --> C1[cargo test on ubuntu-latest]
+        C --> C2[cargo test on ubuntu-22.04]
+        D --> D1[cargo test on macos-latest]
+        D --> D2[cargo test on macos-13]
+        E --> E1[cargo test on windows-latest]
+        E --> E2[cargo test on windows-2022]
+        F --> F1[CodeQL Analysis]
+        F --> F2[cargo audit]
+        G --> G1[Coverage Generation]
+        G --> G2[Codecov Upload]
     end
 
-    subgraph "Security Scanning"
-        D1[CodeQL Analysis]
-        D2[Dependency Audit]
-        D3[Vulnerability Scan]
-        D4[License Check]
-        D5[Cosign Signing]
+    subgraph "cargo-dist Automation"
+        I --> I1[Cross-platform Builds]
+        I --> I2[Checksum Generation]
+        I --> I3[Release Notes]
     end
 ```
 
 ## Components and Interfaces
 
-### 1. Enhanced CI Workflow (ci.yml)
+### 1. Quality Gates Workflow
 
-**Purpose**: Main CI pipeline for pull requests and pushes to main branch
-
-**Key Enhancements**:
-
-- Consolidate quality checks into single workflow
-- Optimize caching strategies for faster execution
-- Implement proper failure handling with actionable error messages
-- Integrate security scanning results into main CI flow
-
-**Interface**:
-
-```yaml
-# Triggers
-on:
-  push: {branches: [main]}
-  pull_request: {branches: [main]}
-  workflow_dispatch: {}
-
-# Jobs
-jobs:
-  pre-commit:   # Pre-commit hook validation
-  test-matrix:   # Cross-platform testing
-  quality-gates:   # Format/lint/security checks
-  coverage:   # Coverage reporting (Ubuntu only)
-```
-
-### 2. Rust-Native Release Workflow
-
-**Purpose**: Secure, efficient release automation using Rust-native tooling
+**Purpose**: Enforce code quality standards using standard cargo commands and marketplace actions
 
 **Key Components**:
 
-- **taiki-e/upload-rust-binary-action@v1**: Native Rust binary packaging with automatic platform detection
-- **sigstore/cosign-installer@v3.6.0**: Keyless signing with OIDC authentication
-- **syft**: SBOM generation in CycloneDX format
-- **GitHub OIDC**: Secure authentication without personal access tokens
+- **Rust Toolchain Setup**: `dtolnay/rust-toolchain@stable` action for reliable toolchain management
+- **Caching**: `swatinem/rust-cache@v2` for automatic Rust-specific caching
+- **Format Checking**: `cargo fmt --check` with clear error messages
+- **Linting**: `cargo clippy -- -D warnings` with zero-tolerance policy
+- **Local Reproducibility**: Standard cargo commands that developers can run locally
 
-**Workflow Architecture**:
+**Workflow Structure**:
 
 ```yaml
-# Release workflow structure
+name: Quality Gates
+on:
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
+
 jobs:
-  resolve-tag:      # Tag resolution and validation
-  create-release:   # GitHub release creation
-  build-and-package: # Cross-platform builds with Rust-native packaging
-  sbom-and-sign:    # SBOM generation and Cosign signing
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
 ```
 
-**Key Benefits**:
+**Design Rationale**: Uses proven marketplace actions for reliability and focuses on standard cargo commands that developers can reproduce locally. Runs on `ubuntu-latest` since code quality checks are platform-independent. Single responsibility makes troubleshooting straightforward.
 
-- **Simplified Complexity**: Removed SLSA framework complexity in favor of proven, reliable tools
-- **Rust-Native**: Uses tooling specifically designed for Rust projects
-- **Security-First**: Maintains all security requirements (signing, SBOM, OIDC)
-- **Maintainable**: Cleaner, more understandable workflow structure
+### 2. Cross-Platform Testing Workflows
 
-### 3. Consolidated Security Workflow
+**Purpose**: Independent testing workflows for each supported platform
 
-**Purpose**: Comprehensive security scanning with proper SARIF integration
+**Key Components**:
 
-**Key Enhancements**:
+- **Platform-Specific Workflows**: Separate workflows for each platform testing both latest and older versions
+- **Standard Actions**: `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2` for consistency
+- **Standard Commands**: `cargo test` or `cargo nextest run` for test execution
+- **Isolated Failures**: Platform-specific failures are easy to identify and debug
+- **Parallel Execution**: All platforms run independently for faster feedback
 
-- Merge CodeQL and security scanning into unified workflow
-- Implement proper failure thresholds for vulnerability scanning
-- Add security artifact management
-- Integrate with GitHub Security tab
-
-**Interface**:
+**Workflow Structure**:
 
 ```yaml
-# Security scanning components
-  - CodeQL Analysis (Rust)
-  - Clippy SARIF generation
-  - SBOM generation (CycloneDX format)
-  - Vulnerability scanning (Grype with fail-on critical/high)
-  - Dependency auditing (cargo-audit, cargo-deny)
+# Example: Ubuntu Latest Testing Workflow
+name: Test Ubuntu Latest
+on:
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
+
+jobs:
+  test-ubuntu-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test
+
+# Example: Ubuntu 22.04 Testing Workflow  
+name: Test Ubuntu 22.04
+on:
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
+
+jobs:
+  test-ubuntu-22:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test
 ```
 
-### 3. Enhanced Release Pipeline
+**Design Rationale**: Separate workflows make platform-specific issues easy to identify and debug. Using standard marketplace actions ensures reliability and predictable behavior across all platforms.
 
-**Purpose**: Secure, compliant release automation with full attestation
+### 3. Security Scanning Workflow
 
-**Current State**: Already implements SLSA Level 3 with Cosign keyless signing
+**Purpose**: Simple security analysis using standard GitHub Actions
 
-**Key Enhancements**:
+**Key Components**:
 
-- Optimize build matrix execution
-- Improve SBOM generation per artifact
-- Add checksum validation
-- Enhance error handling and rollback capabilities
+- **CodeQL Analysis**: Standard GitHub CodeQL action for Rust security analysis
+- **Dependency Auditing**: `cargo audit` with standard GitHub Actions
+- **Clear Error Messages**: Actionable error messages for vulnerability remediation
+- **GitHub Security Integration**: Results visible in GitHub Security tab
+- **Simple Troubleshooting**: Standard actions make debugging predictable
 
-### 4. Justfile Integration Layer
+**Workflow Structure**:
 
-**Purpose**: Ensure CI commands match local development experience
+```yaml
+name: Security
+on:
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
 
-**Commands Used**:
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: rust
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
 
-- `just setup` - Development environment setup
-- `just fmt-check` - Format validation (fail on violations)
-- `just lint` - Clippy with `-D warnings` (zero tolerance)
-- `just test-nextest` - Test execution with nextest
-- `just coverage-llvm` - Coverage generation for CI
-- `just ci-check` - Combined quality gates
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Security audit
+        run: cargo audit
+```
+
+**Design Rationale**: Uses standard GitHub Actions for security scanning to ensure reliability and integration with GitHub's security features. Runs on `ubuntu-latest` since security scanning is platform-independent. Simple structure makes troubleshooting straightforward.
+
+### 4. Coverage Reporting Workflow
+
+**Purpose**: Simple test coverage reporting using well-maintained actions
+
+**Key Components**:
+
+- **Standard Toolchain**: `dtolnay/rust-toolchain` for consistent Rust setup
+- **Coverage Tools**: `taiki-e/install-action@v2` for installing coverage tools (with `cargo-bins/cargo-binstall` fallback)
+- **Standard Commands**: `cargo test` or coverage commands that developers can run locally
+- **Codecov Integration**: `codecov/codecov-action` for coverage upload
+- **Simple Troubleshooting**: Standard actions and commands for easy debugging
+
+**Workflow Structure**:
+
+```yaml
+name: Coverage
+on:
+  push: {branches: [main]}
+  pull_request: {branches: [main]}
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Generate coverage
+        run: cargo llvm-cov --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v4
+        with:
+          file: lcov.info
+```
+
+**Design Rationale**: Uses proven marketplace actions for coverage generation and upload. Standard commands ensure developers can reproduce coverage locally for debugging.
+
+### 5. cargo-dist Release Automation
+
+**Purpose**: Complete release automation using cargo-dist standard tooling
+
+**Key Components**:
+
+- **Automatic Workflow Generation**: cargo-dist generates the release workflow automatically
+- **Cross-Platform Builds**: Auditable artifacts for all configured platforms
+- **SBOM Generation**: Automatic SBOM generation using cargo-auditable
+- **Artifact Signing**: Automatic attestation and signing
+- **Checksum Generation**: SHA256 checksums as part of standard process
+- **Configuration-Driven**: All changes made through cargo-dist.toml
+- **Changelog Integration**: Works with git-cliff for automated changelog generation
+
+**Implementation Strategy**:
+
+```toml
+# cargo-dist.toml configuration
+[workspace]
+members = ["dist"]
+
+[dist]
+cargo-dist-version = "0.8.0"
+ci = ["github"]
+installers = ["shell", "powershell", "homebrew", "msi"]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+pr-run-mode = "plan"
+
+[dist.github-actions]
+attestations = true
+```
+
+**Design Rationale**: Leverages cargo-dist's proven release automation to handle all aspects of release management. Configuration-driven approach ensures consistency and reduces custom scripting.
+
+### 6. git-cliff Changelog Automation
+
+**Purpose**: Automated changelog generation using git-cliff for conventional commits
+
+**Key Components**:
+
+- **git-cliff Integration**: Automated changelog generation from conventional commit messages
+- **Conventional Commit Parsing**: Support for commit types, scopes, and breaking changes
+- **Release Integration**: Automatic changelog updates during release workflow
+- **Chronological Ordering**: Proper versioning and chronological entry organization
+- **Standard Tooling**: Use git-cliff as a proven changelog generation tool
+
+**Implementation Strategy**:
+
+```yaml
+# git-cliff changelog generation in release workflow
+  - name: Generate Changelog
+    uses: taiki-e/install-action@v2
+    with:
+      tool: git-cliff
+  - name: Update Changelog
+    run: |
+      git-cliff --tag ${{ github.ref_name }} --output CHANGELOG.md
+      git-cliff --tag ${{ github.ref_name }} --strip header --output release-notes.md
+```
+
+**Design Rationale**: Uses git-cliff for structured changelog generation from conventional commits. Provides consistent, categorized changelog entries while maintaining simplicity and standard tooling approach.
+
+### 7. Workflow Organization and Cleanup
+
+**Purpose**: Simple, focused workflow organization for easy maintenance
+
+**Cleanup Strategy**:
+
+- **Single Responsibility**: Each workflow focuses on one specific area
+- **Independent Workflows**: Quality, testing (per platform), security, coverage, release
+- **Standard Actions**: Use proven marketplace actions throughout
+- **Simple Structure**: Easy to understand and troubleshoot independently
+
+**Final Workflow Structure**:
+
+```yaml
+.github/workflows/
+├── quality.yml        # Code formatting and linting
+├── test-ubuntu-latest.yml    # Ubuntu latest testing
+├── test-ubuntu-22.yml        # Ubuntu 22.04 testing
+├── test-macos-latest.yml     # macOS latest testing
+├── test-macos-13.yml         # macOS 13 testing
+├── test-windows-latest.yml   # Windows latest testing
+├── test-windows-2022.yml     # Windows 2022 testing
+├── security.yml       # CodeQL and cargo audit
+├── coverage.yml       # Test coverage reporting
+└── release.yml        # cargo-dist generated (do not edit)
+```
+
+**Design Rationale**: Separate workflows make issues easy to identify and debug. Each workflow can be understood and maintained independently without complex interdependencies.
 
 ## Data Models
 
-### CI Configuration Schema
+### Workflow Configuration Schema
 
 ```yaml
-# Workflow configuration structure
-workflow:
-  name: string
+# Simple workflow structure using standard actions
+quality_workflow:
+  name: Quality Gates
   triggers:
-    - push: {branches: [string]}
-    - pull_request: {branches: [string]}
-
+    - push: {branches: [main]}
+    - pull_request: {branches: [main]}
   jobs:
-    job_name:
-      strategy:
-        matrix:
-          os: [ubuntu-22.04, macos-13, windows-2022]
+    quality:
+      runs-on: ubuntu-latest
       steps:
-        - name: string
-          uses: string
-          with: object
-          env: object
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - uses: swatinem/rust-cache@v2
+        - run: cargo fmt --check
+        - run: cargo clippy -- -D warnings
+
+platform_test_workflow:
+  name: Test {Platform}
+  triggers:
+    - push: {branches: [main]}
+    - pull_request: {branches: [main]}
+  jobs:
+    test:
+      runs-on: {platform-runner: null}
+      steps:
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - uses: swatinem/rust-cache@v2
+        - run: cargo test
 ```
 
-### Security Artifact Schema
+### cargo-dist Configuration Schema
 
-```json
-{
-  "sbom": {
-    "format": "cyclonedx-json",
-    "version": "1.5",
-    "artifacts": [
-      "binary",
-      "dependencies"
-    ]
-  },
-  "signatures": {
-    "cosign": {
-      "keyless": true,
-      "oidc": true,
-      "transparency_log": true
-    }
-  },
-  "attestations": {
-    "slsa_provenance": {
-      "level": 3,
-      "builder": "github-actions"
-    }
-  }
-}
+```toml
+# cargo-dist.toml - complete release automation
+[workspace]
+members = ["dist"]
+
+[dist]
+cargo-dist-version = "0.8.0"
+ci = ["github"]
+installers = ["shell", "powershell", "homebrew", "msi"]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+pr-run-mode = "plan"
+
+[dist.github-actions]
+attestations = true
 ```
 
-### Quality Gate Metrics
+### Security Configuration Schema
 
 ```yaml
-quality_gates:
+# Simple security workflow using standard actions
+security_workflow:
+  name: Security
+  jobs:
+    codeql:
+      steps:
+        - uses: actions/checkout@v4
+        - uses: github/codeql-action/init@v3
+        - uses: github/codeql-action/autobuild@v3
+        - uses: github/codeql-action/analyze@v3
+
+    audit:
+      steps:
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - run: cargo audit
+```
+
+### Quality Standards Schema
+
+```yaml
+quality_standards:
   formatting:
-    tool: cargo fmt --check
+    command: cargo fmt --check
+    standard: rustfmt configuration
     tolerance: zero_violations
+    local_reproduction: cargo fmt --check
 
   linting:
-    tool: cargo clippy -- -D warnings
-    tolerance: zero_warnings
+    command: cargo clippy -- -D warnings
+    policy: zero_tolerance
+    local_reproduction: cargo clippy -- -D warnings
+
+  testing:
+    command: cargo test
+    platforms: [ubuntu-latest, ubuntu-22.04, macos-latest, macos-13, 
+          windows-latest, windows-2022]
+    local_reproduction: cargo test
 
   security:
-    vulnerability_scan:
-      fail_on: [critical, high]
-      tool: grype
+    codeql:
+      tool: github/codeql-action
+      integration: github_security_tab
 
     dependency_audit:
-      tool: cargo-audit
-      fail_on_advisory: true
+      tool: cargo audit
+      local_reproduction: cargo audit
+
+  coverage:
+    tool: cargo-llvm-cov
+    upload: codecov/codecov-action
+    local_reproduction: cargo llvm-cov --lcov
+```
+
+### Marketplace Actions Schema
+
+```yaml
+standard_actions:
+  rust_toolchain:
+    action: dtolnay/rust-toolchain@stable
+    purpose: reliable_rust_setup
+
+  caching:
+    action: swatinem/rust-cache@v2
+    purpose: automatic_rust_caching
+
+  tool_installation:
+    primary: taiki-e/install-action@v2
+    fallback: cargo-bins/cargo-binstall
+    purpose: cargo_tool_installation
+
+  codecov_upload:
+    action: codecov/codecov-action@v4
+    purpose: coverage_reporting
+
+  codeql_security:
+    action: github/codeql-action/*@v3
+    purpose: security_analysis
 ```
 
 ## Error Handling
 
-### 1. Quality Gate Failures
+### 1. Clear Error Reporting
 
 **Format Violations**:
 
 ```bash
-# Current: cargo fmt --check (via just fmt-check)
-# Enhancement: Provide specific file and line information
+# Standard cargo fmt error output
 Error: Code formatting violations detected
-Files: src/main.rs (lines 45-50), src/lib.rs (line 123)
-Action: Run 'just fmt' to fix automatically
+Command: cargo fmt --check
+Files with issues: src/main.rs, src/lib.rs
+Action: Run 'cargo fmt' to fix automatically
+Local reproduction: cargo fmt --check
 ```
 
 **Lint Warnings**:
 
 ```bash
-# Current: cargo clippy -- -D warnings (via just lint)
-# Enhancement: Categorize warnings and provide fix suggestions
-Error: Clippy warnings detected (zero tolerance policy)
-Warnings: 3 performance, 1 correctness
-Action: Run 'just fix' for automatic fixes or address manually
+# Standard clippy error output  
+Error: Clippy warnings detected
+Command: cargo clippy -- -D warnings
+Policy: Zero tolerance for warnings
+Action: Fix warnings or run 'cargo clippy --fix'
+Local reproduction: cargo clippy -- -D warnings
+```
+
+**Platform-Specific Test Failures**:
+
+```bash
+# Clear platform attribution
+Error: Tests failed on macos-13
+Workflow: test-macos-13.yml
+Command: cargo test
+Status: ubuntu-latest ✅, ubuntu-22.04 ✅, macos-latest ✅, windows-latest ✅, windows-2022 ✅, macos-13 ❌
+Action: Check platform-specific test failures
+Local reproduction: cargo test
 ```
 
 ### 2. Security Scan Failures
 
-**Vulnerability Detection**:
+**CodeQL Analysis**:
 
 ```bash
-# Current: grype with fail-on critical/high
-# Enhancement: Provide remediation guidance
-Error: High/Critical vulnerabilities detected
-Affected: openssl-sys 0.9.87 (CVE-2023-XXXX)
-Remediation: Update to openssl-sys >= 0.9.90
+# Standard GitHub Security tab integration
+Error: CodeQL analysis found security issues
+Tool: github/codeql-action
+Integration: Results visible in GitHub Security tab
+Action: Review security findings in GitHub Security tab
+Local reproduction: Not applicable (GitHub-hosted analysis)
 ```
 
 **Dependency Audit Failures**:
 
 ```bash
-# Current: cargo-audit with advisory database
-# Enhancement: Link to security advisories and update paths
+# Standard cargo audit output
 Error: Security advisory detected
+Tool: cargo audit
 Advisory: RUSTSEC-2023-XXXX affecting serde < 1.0.190
+Severity: High
 Action: Update Cargo.toml dependencies
+Local reproduction: cargo audit
 ```
 
-### 3. Platform-Specific Failures
+### 3. Coverage and Release Failures
 
-**Windows Build Issues**:
+**Coverage Generation Failures**:
 
 ```bash
-# Current: OpenSSL setup for Windows
-# Enhancement: Provide platform-specific troubleshooting
-Error: Windows build failed - OpenSSL configuration
-Cause: vcpkg OpenSSL installation failed
-Action: Check Windows runner OpenSSL setup in CI workflow
+# Standard coverage tool errors
+Error: Coverage generation failed
+Tool: cargo-llvm-cov
+Command: cargo llvm-cov --lcov --output-path lcov.info
+Action: Check test execution and coverage configuration
+Local reproduction: cargo llvm-cov --lcov
 ```
 
-**Cross-Platform Test Failures**:
+**Release Automation Failures**:
 
 ```bash
-# Current: Matrix strategy with fail-fast: false
-# Enhancement: Isolate platform-specific vs universal issues
-Error: Tests failed on macOS 13
-Status: Ubuntu ✅, Windows ✅, macOS ❌
-Isolation: Platform-specific issue detected
+# cargo-dist standard error output
+Error: Release build failed
+Tool: cargo-dist
+Issue: Cross-platform build failure
+Action: Check cargo-dist.toml configuration
+Documentation: cargo-dist troubleshooting guide
 ```
 
 ## Testing Strategy
 
-### 1. CI Pipeline Testing
+### 1. Workflow Validation
 
-**Workflow Validation**:
+**Independent Workflow Testing**:
 
-- Test workflow syntax with `act` (local GitHub Actions runner)
-- Validate matrix strategy execution across all platforms
-- Test failure scenarios and error handling paths
-- Verify artifact generation and upload processes
+- Test each workflow independently (quality, platform testing, security, coverage)
+- Validate standard GitHub Actions work correctly across all platforms
+- Test platform-specific failure isolation and clear error reporting
+- Verify marketplace actions provide consistent behavior
 
-**Integration Testing**:
+**Quality Gate Testing**:
 
-- Test justfile command integration in CI environment
-- Validate environment variable handling across platforms
-- Test caching strategies for performance optimization
-- Verify security tool integration and SARIF output
+- Test formatting enforcement with `cargo fmt --check`
+- Test linting enforcement with `cargo clippy -- -D warnings`
+- Validate that developers can reproduce failures locally
+- Test clear error messages and actionable guidance
 
-### 2. Security Testing
+**Local Reproduction Testing**:
 
-**SBOM Validation**:
+- Verify all CI commands can be run locally with same results
+- Test standard cargo commands work consistently across platforms
+- Validate troubleshooting steps are accurate and helpful
+- Ensure no custom scripts are required for local development
 
-- Verify SBOM completeness for all artifacts
-- Test SBOM format compliance (CycloneDX)
-- Validate dependency tracking accuracy
-- Test SBOM integration with vulnerability scanning
+### 2. Security and Release Testing
 
-**Signing and Attestation**:
+**Security Workflow Testing**:
 
-- Test Cosign keyless signing process
-- Validate SLSA provenance generation
-- Test signature verification workflows
-- Verify transparency log integration
+- Test CodeQL analysis integration with GitHub Security tab
+- Validate `cargo audit` dependency scanning
+- Test clear security error reporting and remediation guidance
+- Verify standard GitHub Actions security integration
 
-### 3. Quality Gate Testing
+**cargo-dist Release Testing**:
 
-**Zero-Tolerance Policies**:
+- Test cargo-dist configuration and workflow generation
+- Validate cross-platform artifact generation
+- Test automatic SBOM generation and attestation
+- Verify release automation works without custom scripts
 
-- Test format checking with intentional violations
-- Test clippy warnings with various warning types
-- Test security scan failure scenarios
-- Validate proper CI failure and blocking behavior
+### 3. Coverage and Release Testing
 
-**Performance Testing**:
+**Coverage Workflow Testing**:
 
-- Measure CI execution time improvements
-- Test caching effectiveness across runs
-- Validate parallel job execution
-- Monitor resource usage optimization
+- Test coverage generation using `taiki-e/install-action` and `cargo-llvm-cov`
+- Validate Codecov upload with `codecov/codecov-action`
+- Test coverage report accuracy and local reproduction
+- Verify simple troubleshooting when coverage fails
+
+**cargo-dist Release Testing**:
+
+- Test cargo-dist configuration and automatic workflow generation
+- Validate cross-platform builds and artifact generation
+- Test automatic SBOM generation and attestation via cargo-dist
+- Verify GitHub release notes generation and publication
+
+**Workflow Organization Testing**:
+
+- Test independent workflow execution and failure isolation
+- Validate simple workflow structure and troubleshooting
+- Test documentation updates reflecting simple CI approach
+- Verify marketplace actions work reliably across platforms
 
 ## Implementation Phases
 
-### Phase 1: Workflow Optimization (Current → Enhanced)
+### Phase 1: Quality Gates and Platform Testing
 
-**Objective**: Optimize existing workflows without breaking changes
+**Objective**: Implement simple, focused workflows using standard marketplace actions
 
-**Tasks**:
-
-1. Enhance error messages and failure reporting in existing workflows
-2. Optimize caching strategies for faster execution
-3. Improve justfile integration consistency
-4. Add performance monitoring and metrics
-
-**Success Criteria**:
-
-- CI execution time reduced by 15-20%
-- Error messages provide actionable guidance
-- All justfile commands work consistently in CI
-- No regression in existing functionality
-
-### Phase 2: Security Integration Enhancement
-
-**Objective**: Enhance security scanning integration and reporting
+**Requirements Addressed**: 1, 2, 6, 8, 10
 
 **Tasks**:
 
-1. Improve SARIF integration for better GitHub Security tab visibility
-2. Enhance vulnerability scan reporting with remediation guidance
-3. Optimize SBOM generation for better artifact coverage
-4. Add security metrics and trending
+1. Create quality gates workflow using `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2`
+2. Implement separate platform testing workflows for ubuntu-latest + ubuntu-22.04, macos-latest + macos-13, windows-latest + windows-2022
+3. Use standard `cargo fmt --check` and `cargo clippy -- -D warnings` commands
+4. Ensure all commands can be reproduced locally by developers
+5. Implement clear error reporting using standard GitHub Actions output
 
 **Success Criteria**:
 
-- Security issues clearly visible in GitHub Security tab
-- Vulnerability scan results include remediation guidance
-- SBOM coverage includes all release artifacts
-- Security metrics tracked over time
+- Independent workflows for quality gates and each platform
+- Standard marketplace actions used throughout
+- Clear platform-specific failure attribution
+- Developers can reproduce all CI commands locally
+- Simple troubleshooting without custom scripts
 
-### Phase 3: Quality Gate Enforcement
+### Phase 2: Security Scanning and Coverage
 
-**Objective**: Ensure zero-tolerance policies are properly enforced
+**Objective**: Add security scanning and coverage using proven marketplace actions
+
+**Requirements Addressed**: 3, 4, 6, 8, 10
 
 **Tasks**:
 
-1. Implement strict quality gate enforcement
-2. Add quality metrics tracking and reporting
-3. Enhance pre-commit integration
-4. Add quality trend analysis
+1. Create security workflow using standard `github/codeql-action` for CodeQL analysis
+2. Add `cargo audit` dependency scanning with standard actions
+3. Implement coverage workflow using `taiki-e/install-action` and `codecov/codecov-action`
+4. Ensure security results integrate with GitHub Security tab
+5. Use standard actions for all security and coverage operations
 
 **Success Criteria**:
 
-- Zero tolerance for format violations and clippy warnings
-- Quality metrics visible in PR comments
-- Pre-commit hooks prevent most CI failures
-- Quality trends tracked and reported
+- CodeQL analysis integrated with GitHub Security tab using standard actions
+- Dependency auditing with clear error messages and local reproduction
+- Coverage reporting using proven marketplace actions
+- All security and coverage operations use standard tooling
+- Simple troubleshooting for all security and coverage workflows
 
-### Phase 4: Documentation and Cleanup
+### Phase 3: cargo-dist Release Automation
 
-**Objective**: Complete documentation and remove deprecated components
+**Objective**: Complete release automation using cargo-dist standard tooling
+
+**Requirements Addressed**: 5, 9, 10
 
 **Tasks**:
 
-1. Update README with new CI capabilities
-2. Document troubleshooting procedures
-3. Clean up any deprecated workflow files
-4. Add CI/CD best practices documentation
+1. Configure cargo-dist for complete release automation
+2. Set up cargo-dist.toml for cross-platform builds and attestation
+3. Enable automatic SBOM generation via cargo-dist (cargo-auditable)
+4. Configure git-cliff for automated changelog generation from conventional commits
+5. Let cargo-dist generate and manage the release workflow
 
 **Success Criteria**:
 
-- Documentation reflects actual CI capabilities
-- Troubleshooting guides available for common issues
-- No deprecated workflows remain
-- Best practices documented for contributors
+- cargo-dist handles all release automation automatically
+- Cross-platform builds with automatic SBOM generation and attestation
+- Automated changelog generation using git-cliff and conventional commits
+- Release workflow generated and managed by cargo-dist
+- No custom release scripts or complex tooling required
+
+### Phase 4: Workflow Organization and Documentation
+
+**Objective**: Finalize simple, focused workflow organization
+
+**Requirements Addressed**: 7, 8
+
+**Tasks**:
+
+1. Organize workflows into single-responsibility files
+2. Remove any complex or deprecated workflows
+3. Update documentation to reflect simple, standard approach
+4. Document troubleshooting steps for each workflow
+5. Ensure all workflows use proven marketplace actions
+
+**Success Criteria**:
+
+- Each workflow has single responsibility and is easy to understand
+- Documentation reflects simple, standard CI approach
+- Troubleshooting guides available for each workflow
+- All workflows use well-maintained marketplace actions
+- No custom scripts or complex logic in any workflow
+
+**Success Criteria**:
+
+- Each workflow has single responsibility and is easy to understand
+- Documentation reflects simple, standard CI approach
+- Troubleshooting guides available for each workflow
+- All workflows use well-maintained marketplace actions
+- No custom scripts or complex logic in any workflow
 
 ## Performance Considerations
 
-### Caching Strategy
+### Simple Caching Strategy
 
-**Rust Compilation Cache**:
+**Automatic Rust Caching**:
 
-- Use `Swatinem/rust-cache@v2` for Cargo registry and build cache
-- Implement cache key optimization for better hit rates
-- Use separate cache keys for different feature combinations
+- Use `swatinem/rust-cache@v2` for automatic Rust-specific caching
+- Leverage default cache key optimization provided by the action
+- No custom cache configuration required
 
-**Pre-commit Cache**:
+**Standard Action Performance**:
 
-- Cache pre-commit environments across runs
-- Use OS-specific cache keys for better performance
-- Implement cache cleanup for storage optimization
+- Marketplace actions are optimized for performance and reliability
+- Standard actions handle caching and optimization automatically
+- No custom performance tuning required
 
-### Parallel Execution
+### Independent Workflow Execution
 
-**Matrix Strategy Optimization**:
+**Parallel Platform Testing**:
 
-- Use `fail-fast: false` for complete platform coverage
-- Implement job dependencies for optimal resource usage
-- Use concurrency groups to prevent resource conflicts
+- Separate workflows for each platform run independently
+- No complex matrix strategies or job dependencies
+- Simple failure isolation and faster feedback
 
-**Security Scanning Parallelization**:
+**Focused Workflow Scope**:
 
-- Run CodeQL analysis in parallel with other security scans
-- Optimize SBOM generation for faster execution
-- Use artifact sharing between jobs for efficiency
+- Each workflow has single responsibility for faster execution
+- No complex interdependencies between workflows
+- Simple resource usage patterns
 
-### Resource Usage Optimization
+### Resource Optimization
 
-**Runner Selection**:
+**Standard Runner Usage**:
 
-- Use appropriate runner sizes for different job types
-- Optimize Windows runner usage (most expensive)
-- Implement job timeout limits for resource protection
-
-**Artifact Management**:
-
-- Optimize artifact size and retention policies
-- Use compression for large artifacts
-- Implement artifact cleanup for storage management
+- Use standard GitHub-hosted runners for all workflows
+- No custom runner configuration or optimization required
+- Standard timeout and resource limits
 
 ## Security Considerations
 
-### Supply Chain Security
+### Simple Security Integration
 
-**SLSA Compliance**:
+**Standard GitHub Security**:
 
-- Maintain SLSA Level 3 provenance for all releases
-- Ensure build environment isolation and integrity
-- Implement proper artifact signing and verification
+- Use GitHub's CodeQL action for security analysis
+- Leverage GitHub Security tab for vulnerability reporting
+- Standard integration with GitHub's security features
 
-**Dependency Management**:
+**Dependency Security**:
 
-- Regular dependency auditing with cargo-audit
-- License compliance checking with cargo-deny
-- Vulnerability scanning with Grype and fail-on policies
+- Use `cargo audit` for dependency vulnerability scanning
+- Standard cargo commands for security auditing
+- Clear error messages for security remediation
 
-### Credential Management
+### cargo-dist Security Automation
 
-**OIDC Authentication**:
+**Automatic Security Features**:
 
-- Use GitHub OIDC for release authentication (already implemented)
-- Avoid personal access tokens where possible
-- Implement proper secret management for third-party integrations
+- cargo-dist handles SBOM generation automatically via cargo-auditable
+- Automatic artifact signing and attestation
+- Standard GitHub OIDC authentication
 
-**Environment Security**:
+**Supply Chain Security**:
 
-- Ensure DATABASE_URL never appears in logs
-- Implement credential redaction in verbose output
-- Use secure environment variable handling
+- cargo-dist provides SLSA provenance automatically
+- Standard build environment isolation
+- Automatic transparency and verification features
 
-### Artifact Security
+### Simple Security Practices
 
-**Signing and Attestation**:
+**Standard Actions Security**:
 
-- Cosign keyless signing for all release artifacts
-- SLSA provenance attestation for build integrity
-- Transparency log integration for public verification
+- Use well-maintained marketplace actions with good security track records
+- Avoid custom scripts that could introduce security vulnerabilities
+- Leverage GitHub's built-in security features and integrations
 
-**SBOM Security**:
+**Clear Security Reporting**:
 
-- Complete software bill of materials for all artifacts
-- Vulnerability scanning of SBOM contents
-- Regular SBOM updates with dependency changes
+- Security issues reported through standard GitHub Security tab
+- Clear, actionable error messages for security failures
+- Simple troubleshooting for security-related issues

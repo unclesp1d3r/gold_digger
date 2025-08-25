@@ -12,9 +12,7 @@ pub enum TlsError {
     #[error("TLS connection failed: {message}")]
     ConnectionFailed { message: String },
 
-    #[error(
-        "Certificate validation failed: {message}. Consider using --tls-skip-verify for testing (not recommended for production)"
-    )]
+    #[error("Certificate validation failed: {message}. Check certificate chain, expiration, and CA configuration")]
     CertificateValidationFailed { message: String },
 
     #[error("Unsupported TLS version: {version}. Only TLS 1.2 and 1.3 are supported")]
@@ -430,7 +428,7 @@ mod tests {
 
         let error = TlsError::certificate_validation_failed("cert error");
         assert!(error.to_string().contains("Certificate validation failed: cert error"));
-        assert!(error.to_string().contains("--tls-skip-verify"));
+        assert!(error.to_string().contains("Check certificate chain"));
 
         let error = TlsError::unsupported_tls_version("1.0");
         assert!(error.to_string().contains("Unsupported TLS version: 1.0"));

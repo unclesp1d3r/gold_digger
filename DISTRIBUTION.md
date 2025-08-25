@@ -8,7 +8,7 @@ Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) to provide
 
 - **Cross-platform binaries** for Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), and Windows
 - **Automated installers** (shell script, PowerShell, MSI, Homebrew)
-- **Signed artifacts** with Cosign keyless OIDC authentication
+- **Signed artifacts** with GitHub attestation
 - **Complete SBOMs** (Software Bill of Materials) for all artifacts
 - **Automated checksums** (SHA256) for integrity verification
 
@@ -65,10 +65,10 @@ powershell -c "irm https://github.com/unclesp1d3r/gold_digger/releases/latest/do
 brew tap unclesp1d3r/tap
 brew install gold-digger
 
-# Chocolatey (Windows) - Future
+# Chocolatey (Windows) — Planned
 # choco install gold-digger
 
-# Scoop (Windows) - Future  
+# Scoop (Windows) — Planned
 # scoop bucket add unclesp1d3r https://github.com/unclesp1d3r/scoop-bucket
 # scoop install gold-digger
 ```
@@ -77,8 +77,8 @@ brew install gold-digger
 
 1. Visit [GitHub Releases](https://github.com/unclesp1d3r/gold_digger/releases)
 2. Download the appropriate archive for your platform:
-   - Linux: `gold_digger-x86_64-unknown-linux-gnu.tar.xz`
-   - macOS: `gold_digger-x86_64-apple-darwin.tar.xz`
+   - Linux: `gold_digger-x86_64-unknown-linux-gnu.tar.gz`
+   - macOS: `gold_digger-x86_64-apple-darwin.tar.gz`
    - Windows: `gold_digger-x86_64-pc-windows-msvc.zip`
 3. Extract and place the binary in your PATH
 
@@ -86,16 +86,14 @@ brew install gold-digger
 
 ### Artifact Signing
 
-All release artifacts are signed using [Cosign](https://github.com/sigstore/cosign) with keyless OIDC authentication:
+All release artifacts are signed using GitHub attestation:
 
 ```bash
-# Verify a downloaded binary (example for Linux x86_64)
-cosign verify-blob \
-  --certificate gold_digger-x86_64-unknown-linux-gnu.crt \
-  --signature gold_digger-x86_64-unknown-linux-gnu.sig \
-  gold_digger-x86_64-unknown-linux-gnu \
-  --certificate-identity "https://github.com/unclesp1d3r/gold_digger/.github/workflows/cargo-dist.yml@refs/tags/v*" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+# Verify a downloaded binary using GitHub CLI
+gh attestation verify gold_digger-x86_64-unknown-linux-gnu
+
+# Or verify using the GitHub web interface
+# Navigate to the release page and check the "Security" tab
 ```
 
 ### Software Bill of Materials (SBOM)
@@ -186,7 +184,7 @@ The cargo-dist workflow (`.github/workflows/cargo-dist.yml`) integrates with the
 
    ```bash
    # Force specific architecture
-   curl -L https://github.com/unclesp1d3r/gold_digger/releases/latest/download/gold_digger-aarch64-unknown-linux-gnu.tar.xz
+   curl -L https://github.com/unclesp1d3r/gold_digger/releases/latest/download/gold_digger-aarch64-unknown-linux-gnu.tar.gz
    ```
 
 2. **Permission Issues**: Installers may need elevated permissions:

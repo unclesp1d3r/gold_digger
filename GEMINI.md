@@ -4,31 +4,43 @@
 
 Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs structured data (CSV/JSON/TSV) via environment variables. It's designed for headless database automation workflows with CLI-first architecture.
 
-## Core Development Rules
+## Project File Organization
 
-### Quality Gates (Required Before Commits)
+### Configuration Files
 
-```bash
-cargo fmt --check           # 100-character line limit enforced
-cargo clippy -- -D warnings # Zero tolerance for warnings
-cargo nextest run           # Parallel test execution (preferred)
-cargo audit                 # Security vulnerability scanning (advisory)
-```
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
 
-### Commit Standards
+### Development Automation
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally via commands
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
 
-### Code Quality Requirements
+### Documentation Standards
 
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+Required for all public functions with examples:
+
+````rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
+````
 
 ### Error Handling Patterns
 
@@ -37,25 +49,76 @@ cargo audit                 # Security vulnerability scanning (advisory)
 - Implement credential redaction in all log output
 - Use `?` operator for error propagation
 
-## Critical Safety Issues
+## 🚨 Critical Safety Rules
 
-### 🚨 Type Conversion Panic Risk
-
-The current `rows_to_strings()` function uses `mysql::from_value::<String>()` which **WILL PANIC** on NULL values or non-string types:
+### Database Value Conversion (PANIC RISK)
 
 ```rust
-// ❌ DANGEROUS - will panic on NULL/numeric values
-from_value::<String>(row[column_name])
+// ❌ NEVER - causes panics on NULL/non-string types
+// from_value::<String>(row[column.name_str().as_ref()])
+// Use mysql_value_to_string() for CSV/TSV or mysql_value_to_json() for JSON instead
 
-// ✅ SAFE - always recommend SQL casting
-SELECT CAST(id AS CHAR) as id, CAST(created_at AS CHAR) as created_at FROM users;
+// ✅ ALWAYS - safe NULL handling with dedicated helpers
+
+/// Converts MySQL value to String for CSV/TSV output
+fn mysql_value_to_string(mysql_value: &mysql::Value) -> String {
+    match mysql_value {
+        mysql::Value::NULL => "".to_string(),
+        val => from_value_opt::<String>(val.clone()).unwrap_or_else(|_| format!("{:?}", val)),
+    }
+}
+
+/// Converts MySQL value to serde_json::Value for JSON output
+fn mysql_value_to_json(mysql_value: &mysql::Value) -> serde_json::Value {
+    match mysql_value {
+        mysql::Value::NULL => serde_json::Value::Null,
+        val => from_value_opt::<serde_json::Value>(val.clone())
+            .unwrap_or_else(|_| serde_json::Value::String(format!("{:?}", val))),
+    }
+}
+
+// Usage per output format:
+// - CSV/TSV: mysql_value_to_string(&mysql_value)
+// - JSON: mysql_value_to_json(&mysql_value)
 ```
 
-### Environment Variables (Required)
+### Security (NEVER VIOLATE)
 
-- `OUTPUT_FILE`: Determines format by extension (.csv/.json/fallback to TSV)
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
+
+### Configuration Architecture
+
+Gold Digger uses CLI-first configuration with environment variable fallbacks:
+
+**CLI Flags (Highest Priority):**
+
+- `--db-url`: Database connection (overrides `DATABASE_URL`)
+- `--query`: Inline SQL (mutually exclusive with `--query-file`)
+- `--query-file`: SQL from file (mutually exclusive with `--query`)
+- `--output`: Output path (overrides `OUTPUT_FILE`)
+- `--format`: Force format (csv|json|tsv)
+
+**Environment Variables (Fallback):**
+
 - `DATABASE_URL`: MySQL connection string with optional SSL params
 - `DATABASE_QUERY`: SQL query to execute
+- `OUTPUT_FILE`: Determines format by extension (.csv/.json/fallback to TSV)
+
+**Resolution Pattern:**
+
+```rust
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone()) // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value) // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration") // Error if neither
+    }
+}
+```
 
 **Note:** No dotenv support - use exported environment variables only.
 
@@ -91,11 +154,17 @@ println!("Connecting to database...");
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["mysql/native-tls"]                 # Platform native TLS
-ssl-rustls = ["mysql/rustls-tls"]         # Pure Rust TLS
+ssl = ["mysql/native-tls"]                 # Platform native TLS (default)
+ssl-rustls = ["mysql/rustls-tls"]         # Pure Rust TLS (alternative)
 additional_mysql_types = [...]             # BigDecimal, Decimal, etc.
 verbose = []                               # Conditional logging
 ```
+
+**TLS Implementation Notes:**
+
+- `ssl` and `ssl-rustls` are mutually exclusive
+- The deprecated `vendored` feature has been removed
+- Default uses platform-native TLS libraries for better OS integration
 
 ## Development Commands
 

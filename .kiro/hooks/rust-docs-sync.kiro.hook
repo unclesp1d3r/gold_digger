@@ -4,7 +4,7 @@
   "description": "Monitors all Rust source files, configuration files, and project metadata for changes and automatically updates documentation in README.md and docs folder to keep them synchronized with code changes",
   "version": "1",
   "when": {
-    "type": "fileEdited",
+    "type": "userTriggered",
     "patterns": [
       "src/*.rs",
       "tests/*.rs",
@@ -16,7 +16,8 @@
       "justfile",
       ".pre-commit-config.yaml",
       "project_spec/*.md",
-      ".kiro/steering/**/*.md"
+      ".kiro/steering/**/*.md",
+      "README.md"
     ]
   },
   "then": {

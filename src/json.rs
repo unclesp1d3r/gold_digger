@@ -40,7 +40,28 @@ impl<W: Write> FormatWriter for JsonWriter<W> {
         // Create ordered map for deterministic output
         let mut obj = BTreeMap::new();
         for (col, val) in self.columns.iter().zip(row.iter()) {
-            obj.insert(col.clone(), val.clone());
+            // Convert string values to appropriate JSON types when possible
+            let json_value = if val.is_empty() {
+                // Preserve empty strings as strings, not null
+                serde_json::Value::String(val.clone())
+            } else if let Ok(num) = val.parse::<u64>() {
+                // Try u64 first to preserve large unsigned values
+                serde_json::Value::Number(num.into())
+            } else if let Ok(num) = val.parse::<i64>() {
+                // Then try i64 for signed integers
+                serde_json::Value::Number(num.into())
+            } else if let Ok(num) = val.parse::<f64>() {
+                // Parse f64 and validate with from_f64
+                serde_json::Number::from_f64(num)
+                    .map(serde_json::Value::Number)
+                    .unwrap_or_else(|| serde_json::Value::String(val.clone()))
+            } else if val.to_lowercase() == "true" || val.to_lowercase() == "false" {
+                // Case-insensitive boolean detection
+                serde_json::Value::Bool(val.to_lowercase() == "true")
+            } else {
+                serde_json::Value::String(val.clone())
+            };
+            obj.insert(col.clone(), json_value);
         }
 
         if self.pretty {
@@ -145,5 +166,113 @@ mod tests {
         let expected = r#"{"data":[{"col1":"val1","col2":"val2"},{"col1":"val3","col2":"val4"}]}"#;
 
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_json_type_inference() {
+        let mut cursor = Cursor::new(Vec::new());
+        let mut writer = JsonWriter::new(&mut cursor, false);
+
+        writer
+            .write_header(&[
+                "empty".to_string(),
+                "u64_max".to_string(),
+                "scientific".to_string(),
+                "leading_zeros".to_string(),
+                "mixed_case_bool".to_string(),
+            ])
+            .unwrap();
+
+        // Test various type inference scenarios
+        writer
+            .write_row(&[
+                "".to_string(),        // Empty string (should be String, not Null)
+                u64::MAX.to_string(),  // u64::MAX (should be Number)
+                "1.23e-4".to_string(), // Scientific notation (should be Number)
+                "00123".to_string(),   // Leading zeros (should be Number)
+                "TRUE".to_string(),    // Mixed case boolean (should be Bool)
+            ])
+            .unwrap();
+
+        writer.finalize().unwrap();
+
+        let output = String::from_utf8(cursor.into_inner()).unwrap();
+
+        // Parse the JSON to verify type inference
+        let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let data = json["data"][0].as_object().unwrap();
+
+        // Test empty string is preserved as string, not null
+        assert!(data["empty"].is_string());
+        assert_eq!(data["empty"].as_str().unwrap(), "");
+
+        // Test u64::MAX is preserved as number
+        assert!(data["u64_max"].is_number());
+        assert_eq!(data["u64_max"].as_u64().unwrap(), u64::MAX);
+
+        // Test scientific notation is preserved as number
+        assert!(data["scientific"].is_number());
+        assert_eq!(data["scientific"].as_f64().unwrap(), 1.23e-4);
+
+        // Test leading zeros are preserved as number
+        assert!(data["leading_zeros"].is_number());
+        assert_eq!(data["leading_zeros"].as_u64().unwrap(), 123);
+
+        // Test mixed case boolean is detected
+        assert!(data["mixed_case_bool"].is_boolean());
+        assert!(data["mixed_case_bool"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_json_type_inference_edge_cases() {
+        let mut cursor = Cursor::new(Vec::new());
+        let mut writer = JsonWriter::new(&mut cursor, false);
+
+        writer
+            .write_header(&[
+                "negative".to_string(),
+                "float".to_string(),
+                "bool_false".to_string(),
+                "mixed_case_false".to_string(),
+                "invalid_float".to_string(),
+            ])
+            .unwrap();
+
+        // Test edge cases
+        writer
+            .write_row(&[
+                "-123".to_string(),     // Negative integer (should be Number)
+                "1.5".to_string(),      // Float (should be Number)
+                "false".to_string(),    // Lowercase boolean (should be Bool)
+                "FALSE".to_string(),    // Uppercase boolean (should be Bool)
+                "1.23e999".to_string(), // Invalid float (should be String)
+            ])
+            .unwrap();
+
+        writer.finalize().unwrap();
+
+        let output = String::from_utf8(cursor.into_inner()).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let data = json["data"][0].as_object().unwrap();
+
+        // Test negative integer
+        assert!(data["negative"].is_number());
+        assert_eq!(data["negative"].as_i64().unwrap(), -123);
+
+        // Test float
+        assert!(data["float"].is_number());
+        assert_eq!(data["float"].as_f64().unwrap(), 1.5);
+
+        // Test lowercase boolean
+        assert!(data["bool_false"].is_boolean());
+        assert!(!data["bool_false"].as_bool().unwrap());
+
+        // Test uppercase boolean
+        assert!(data["mixed_case_false"].is_boolean());
+        assert!(!data["mixed_case_false"].as_bool().unwrap());
+
+        // Test invalid float falls back to string
+        assert!(data["invalid_float"].is_string());
+        assert_eq!(data["invalid_float"].as_str().unwrap(), "1.23e999");
     }
 }

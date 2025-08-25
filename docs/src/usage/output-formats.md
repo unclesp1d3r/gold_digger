@@ -171,27 +171,47 @@ Different formats handle database NULL values differently:
 | JSON   | JSON `null`         | `{"id":"1","name":"John","email":null}` |
 | TSV    | Empty string        | `1	John		2024-01-15`                                         |
 
-## Type Safety Considerations
+## Type Safety and Data Conversion
 
-> **Important**: Always cast non-string columns to avoid type conversion errors.
+Gold Digger automatically handles all MySQL data types safely without requiring explicit casting.
 
-### Safe Query Pattern
+### Automatic Type Conversion
+
+All MySQL data types are converted safely:
 
 ```sql
--- ✅ Safe - all columns cast to CHAR
-SELECT
-  CAST(id AS CHAR) as id,
-  name,  -- Already string
-  CAST(created_at AS CHAR) as created_at,
-  CAST(is_active AS CHAR) as is_active
-FROM users;
+-- ✅ Safe - Gold Digger handles all types automatically
+SELECT id, name, price, created_at, is_active, description
+FROM products;
 ```
 
-### Unsafe Query Pattern
+### Type Conversion Rules
 
-```sql
--- ❌ Dangerous - can cause panics on NULL or non-string types
-SELECT id, name, created_at, is_active FROM users;
+| MySQL Type         | CSV/TSV Output        | JSON Output                        | NULL Handling         |
+| ------------------ | --------------------- | ---------------------------------- | --------------------- |
+| `INT`, `BIGINT`    | String representation | Number (if valid)                  | Empty string / `null` |
+| `DECIMAL`, `FLOAT` | String representation | Number (if valid)                  | Empty string / `null` |
+| `VARCHAR`, `TEXT`  | Direct string         | String                             | Empty string / `null` |
+| `DATE`, `DATETIME` | ISO format string     | String                             | Empty string / `null` |
+| `BOOLEAN`          | "0" or "1"            | `true`/`false` (if "true"/"false") | Empty string / `null` |
+| `NULL`             | Empty string          | `null`                             | Always handled safely |
+
+### JSON Type Inference
+
+When outputting to JSON, Gold Digger attempts to preserve appropriate data types:
+
+```json
+{
+  "data": [
+    {
+      "id": 123,           // Integer preserved
+      "price": 19.99,      // Float preserved  
+      "name": "Product",   // String preserved
+      "active": true,      // Boolean inferred
+      "description": null  // NULL preserved
+    }
+  ]
+}
 ```
 
 ## Performance Considerations

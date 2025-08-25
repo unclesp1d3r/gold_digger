@@ -1,6 +1,6 @@
 # Gold Digger
 
-Gold Digger is a Rust-based query tool that automates the routine collection of database queries for MySQL and MariaDB systems. This tool is designed to run headless, making it ideal for use in scheduled or routine tasks.
+Gold Digger is a Rust-based MySQL/MariaDB query tool that exports results to structured data files (CSV, JSON, TSV). Designed for headless operation and automation workflows, it provides CLI-first configuration with environment variable fallbacks.
 
 [![CI](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml/badge.svg)](https://github.com/unclesp1d3r/gold_digger/actions/workflows/codeql.yml)
@@ -9,13 +9,21 @@ Gold Digger is a Rust-based query tool that automates the routine collection of 
 [![GitHub](https://img.shields.io/github/license/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/issues)
 [![GitHub Repo stars](https://img.shields.io/github/stars/unclesp1d3r/gold_digger?style=social)](https://github.com/unclesp1d3r/gold_digger/stargazers)
-[![Maintenance](https://img.shields.io/maintenance/yes/2025)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/maintenance/yes/unclesp1d3r/gold_digger)](https://github.com/unclesp1d3r/gold_digger/graphs/commit-activity)
 
-## Description
+## Features
 
-This tool is configurable using environmental variables, allowing you to set up your database connection details and other parameters without modifying the source code. It accepts parameters such as output file path, database connection URL, and SQL query string, making it easy to use in a variety of settings and on different systems.
-
-Overall, Gold Digger is a practical solution for managing and analyzing data in MySQL and MariaDB environments. With its headless design and configurable options, it's well-suited for regular use in any database administration workflow.
+- **CLI-first design** with environment variable fallbacks and comprehensive command-line interface
+- **Multiple output formats**: CSV (RFC 4180), JSON with pretty-printing, TSV
+- **Safe type handling**: Graceful NULL and type conversion without panics, with intelligent JSON type inference
+- **Secure TLS support**: Platform-native or pure Rust TLS implementations with detailed error handling
+- **Comprehensive error handling**: Structured exit codes, intelligent error categorization, and actionable error messages
+- **Shell completion**: Support for Bash, Zsh, Fish, and PowerShell with easy generation
+- **Configuration debugging**: JSON config dump with automatic credential redaction
+- **Query flexibility**: Support for inline queries or external query files
+- **Verbose logging**: Multi-level verbose output with security-aware credential redaction
+- **Empty result handling**: Configurable behavior for queries returning no data
+- **Cross-platform**: Linux, macOS, and Windows support with consistent behavior
 
 ### Why "Gold Digger"?
 
@@ -50,6 +58,7 @@ brew install unclesp1d3r/tap/gold-digger
 
 # MSI installer (Windows)
 # Download from releases page: gold_digger-x86_64-pc-windows-msvc.msi
+# Note: The MSI installer does not include license dialogs. The MIT license is available in the LICENSE file and project documentation.
 ```
 
 ### Build from Source
@@ -62,216 +71,104 @@ cd gold_digger
 cargo install --path .
 ```
 
+### Build Options
+
+Gold Digger supports multiple build configurations for different environments:
+
+```bash
+# Default build with native TLS (recommended)
+cargo build --release
+
+# Pure Rust TLS implementation (for containerized/static deployments)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+
+# Minimal build (no TLS, basic features only)
+cargo build --release --no-default-features --features "json csv"
+
+
+```
+
 ### TLS Support
 
 Gold Digger supports secure database connections through two TLS implementations:
 
-- **Default (native-tls)**: Uses platform-native TLS libraries without OpenSSL dependencies
+- **Default (`ssl` feature)**: Platform-native TLS libraries
   - **Windows**: SChannel (built-in Windows TLS)
   - **macOS**: SecureTransport (built-in macOS TLS)
-  - **Linux**: System TLS via native-tls (no OpenSSL dependency)
-- **Alternative (rustls)**: Pure Rust TLS implementation for environments requiring it
+  - **Linux**: System TLS via native-tls (commonly OpenSSL)
+- **Alternative (`ssl-rustls` feature)**: Pure Rust TLS implementation
+
+## Release Process
+
+Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for automated cross-platform releases:
+
+### Release Automation
+
+- **Triggered by Git Tags**: Push a version tag (e.g., `v1.0.0`) to trigger automated release
+- **Cross-Platform Builds**: 6 target platforms built natively (ARM64 & x86_64 for macOS/Linux/Windows)
+- **Multiple Installers**: Shell script, PowerShell, MSI, Homebrew formula, and npm package
+- **Security Integration**: GitHub attestation signing and CycloneDX SBOM generation
+- **Package Manager Integration**: Automatic Homebrew tap updates
+
+### Release Artifacts
+
+Each release includes:
+
+- **Platform-specific binaries** for all 6 target platforms
+- **Installers** for easy deployment (shell, PowerShell, MSI, Homebrew)
+- **Signed artifacts** with GitHub attestation
+- **SBOM files** in CycloneDX format for security auditing
+- **Checksums** for integrity verification
+
+### Development Testing
 
 ```bash
-# Build with default native TLS (recommended)
-cargo build --release
+# Test release workflow locally
+just act-release-dry v1.0.0-test
 
-# Build with pure Rust TLS implementation
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+# Plan cargo-dist release
+cargo dist plan
 
-# Build without TLS support
-cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
+# Build artifacts locally
+cargo dist build
 ```
+
+For detailed release documentation, see [DISTRIBUTION.md](DISTRIBUTION.md).
+
+#### TLS Configuration
+
+Gold Digger provides comprehensive TLS support with enhanced error handling and security features:
+
+**Current Implementation:**
+
+- TLS configuration is handled automatically when the `ssl` or `ssl-rustls` features are enabled
+- The mysql crate doesn't support URL-based SSL parameters (like `ssl-mode`, `ssl-ca`)
+- TLS configuration must be done programmatically via the mysql crate's `SslOpts`
+
+**TLS Error Handling:**
+Gold Digger provides detailed TLS error messages with actionable guidance:
+
+- Certificate validation failures with troubleshooting hints
+- TLS handshake failures with server configuration guidance
+- Unsupported TLS version warnings (only TLS 1.2+ supported)
+- Certificate file validation (existence, readability, format)
+
+**Security Features:**
+
+- Automatic credential redaction in all error messages and logs
+- URL sanitization to prevent credential leakage
+- Comprehensive TLS error categorization for proper exit codes
 
 #### Breaking Change: Vendored OpenSSL Feature Removed
 
-**v0.2.7+**: The `vendored` feature flag has been removed. This change affects how TLS is handled:
+**v0.2.7+**: The `vendored` feature flag has been removed to eliminate OpenSSL dependencies:
 
 - **Before**: `cargo build --features vendored` (static OpenSSL linking)
 - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
 
-> [!NOTE]
-> The `ssl` feature uses the platform's native TLS implementation, which may still be OpenSSL on Linux systems. Only the `ssl-rustls` feature completely avoids OpenSSL dependencies.
+**Migration**: Remove `vendored` from build scripts and use appropriate TLS feature.
 
-**Migration Required**: See [TLS.md](TLS.md) for detailed TLS configuration and migration guidance.
-
-## Development Setup
-
-For developers wanting to contribute to Gold Digger:
-
-### Prerequisites
-
-- Rust 1.70+ with `rustfmt` and `clippy` components
-- [just](https://github.com/casey/just) task runner
-- [pre-commit](https://pre-commit.com/) (optional but recommended)
-
-### Setup
-
-```bash
-# Clone and enter directory
-git clone git@github.com:unclesp1d3r/gold_digger.git
-cd gold_digger
-
-# Set up development environment
-just setup
-
-# Install pre-commit hooks (optional but recommended)
-pre-commit install
-
-# Run development checks
-just ci-check
-```
-
-### Distribution Testing
-
-Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for cross-platform distribution:
-
-```bash
-# Install cargo-dist
-just install-tools
-
-# Test distribution configuration
-just dist-check
-
-# Plan a release (dry-run)
-just dist-plan
-
-# Build distribution artifacts locally
-just dist-build
-
-# Generate installers
-just dist-generate
-```
-
-### Pre-commit Hooks
-
-Gold Digger uses pre-commit hooks to maintain code quality. The configuration includes:
-
-- **Code formatting**: Rust (`cargo fmt`), YAML (`prettier`), Markdown (`mdformat`)
-- **Linting**: Rust (`cargo clippy`), Shell scripts (`shellcheck`), GitHub Actions (`actionlint`)
-- **Security**: Dependency auditing (`cargo audit`), commit message validation (`commitizen`)
-
-### Conventional Commits
-
-Gold Digger uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and release management. All commit messages should follow this format:
-
-```text
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-#### Commit Types
-
-- **feat**: A new feature
-- **fix**: A bug fix
-- **docs**: Documentation only changes
-- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc)
-- **refactor**: A code change that neither fixes a bug nor adds a feature
-- **perf**: A code change that improves performance
-- **test**: Adding missing tests or correcting existing tests
-- **build**: Changes that affect the build system or external dependencies
-- **ci**: Changes to CI configuration files and scripts
-- **chore**: Other changes that don't modify src or test files
-
-#### Examples
-
-```bash
-# Feature
-git commit -m "feat: add new output format support"
-
-# Bug fix
-git commit -m "fix: resolve connection timeout issue"
-
-# Breaking change (note the !)
-git commit -m "feat!: migrate to new CLI interface"
-
-# With scope
-git commit -m "feat(cli): add --version flag"
-
-# With body
-git commit -m "feat: add TLS support
-
-This adds comprehensive TLS support for secure database connections.
-Includes both native-tls and rustls implementations."
-```
-
-#### Automated Releases
-
-Release Please automatically:
-
-- Analyzes conventional commits to determine version bumps
-- Creates release PRs with updated CHANGELOG.md
-- Generates semantic version tags (patch/minor/major)
-- Integrates with the existing release workflow for artifact generation
-
-You can test the Release Please workflow locally using the justfile:
-
-```bash
-# Test Release Please workflow (dry-run)
-just act-release-please-dry
-
-# Test Release Please integration with release workflow
-just act-release-integration v1.0.0
-```
-
-Install and run pre-commit hooks:
-
-```bash
-# Install pre-commit (if not already installed)
-pip install pre-commit
-
-# Install hooks for this repository
-pre-commit install
-
-# Run hooks on all files (optional)
-pre-commit run --all-files
-
-# Run hooks automatically on commit
-git commit -m "your commit message"
-```
-
-### Available Commands
-
-Use `just` to run common development tasks:
-
-```bash
-# Code Quality
-just fmt-check      # Check code formatting
-just lint           # Run clippy with zero warnings tolerance
-just test-nextest   # Run tests with nextest
-just coverage-llvm  # Generate coverage report
-just cover          # Alias for coverage-llvm (CI naming consistency)
-just ci-check       # Run all CI checks locally
-
-# Security Scanning
-just audit          # Run cargo audit for security vulnerabilities
-just deny           # Check licenses and security policies
-just security       # Comprehensive security scan (audit + deny + grype)
-just sbom           # Generate Software Bill of Materials (SBOM)
-
-# Building
-just build-release  # Build optimized release binary
-just build-rustls   # Build with pure Rust TLS
-just build-all      # Build all feature combinations
-
-# Local Testing
-just release-dry    # Simulate release process locally
-just act-setup      # Set up act for GitHub Actions testing
-just act-ci-dry     # Test CI workflow locally (requires act)
-just act-release-dry v1.0.0  # Test release workflow locally
-
-# Development
-just setup          # Set up development environment
-just docs-serve     # Serve documentation locally
-just validate-deps  # Validate TLS dependency tree
-```
-
-See `just help` for a complete list of available commands, including GitHub Actions testing with `act`.
-
-## Usage (CLI-first with env fallback)
+## Usage
 
 Gold Digger supports CLI-first configuration with environment variable fallbacks. CLI flags take precedence over environment variables.
 
@@ -280,12 +177,12 @@ Gold Digger supports CLI-first configuration with environment variable fallbacks
 ```bash
 # Basic usage with CLI flags
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results.json
 
 # Pretty-print JSON output
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results.json --pretty
 
 # Use query file instead of inline query
@@ -294,34 +191,68 @@ gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
 
 # Force output format regardless of file extension
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
-  --query "SELECT CAST(id AS CHAR) as id FROM users LIMIT 10" \
+  --query "SELECT id, name FROM users LIMIT 10" \
   --output /tmp/results --format csv
+
+# Verbose logging
+gold_digger -v --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT COUNT(*) as total FROM users" --output stats.json
+
+# Exit successfully on empty result sets
+gold_digger --allow-empty --db-url "mysql://user:pass@localhost:3306/mydb" \
+  --query "SELECT * FROM users WHERE id = 999999" --output empty.json
 
 # Generate shell completions
 gold_digger completion bash > ~/.bash_completion.d/gold_digger
+gold_digger completion zsh > ~/.zsh/completions/_gold_digger
+gold_digger completion fish > ~/.config/fish/completions/gold_digger.fish
+gold_digger completion powershell > $PROFILE
 
 # Debug configuration (credentials redacted)
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT 1" --output test.json --dump-config
 ```
 
+### CLI Options
+
+| Flag                  | Short | Environment Variable | Description                                            |
+| --------------------- | ----- | -------------------- | ------------------------------------------------------ |
+| `--db-url <URL>`      | -     | `DATABASE_URL`       | Database connection string                             |
+| `--query <SQL>`       | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
+| `--query-file <FILE>` | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
+| `--output <FILE>`     | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
+| `--format <FORMAT>`   | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
+| `--pretty`            | -     | -                    | Pretty-print JSON output                               |
+| `--verbose`           | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
+| `--quiet`             | -     | -                    | Suppress non-error output                              |
+| `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
+| `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+
+### Subcommands
+
+| Command              | Description                       |
+| -------------------- | --------------------------------- |
+| `completion <SHELL>` | Generate shell completion scripts |
+
+#### Completion Shells
+
+Supported shells for completion generation:
+
+- `bash` - Bash shell completion
+- `zsh` - Zsh shell completion
+- `fish` - Fish shell completion
+- `powershell` - PowerShell completion
+
 ### Environment Variables (Fallback)
 
-When CLI flags are not provided, Gold Digger falls back to environment variables (no dotenv support). You must export these variables or set them when running the command:
-
-- `OUTPUT_FILE`: Path to output file. Extension determines format:
-
-  - `.csv` → CSV output with RFC 4180-ish formatting
-  - `.json` → JSON output with `{"data": [...]}` structure
-  - `.txt` or any other extension → TSV (tab-separated values)
+When CLI flags are not provided, Gold Digger falls back to environment variables:
 
 - `DATABASE_URL`: MySQL/MariaDB connection URL in standard format: `mysql://username:password@host:port/database`
-
-- `DATABASE_QUERY`: SQL query to execute. **Important:** Due to current limitations, cast all columns to strings to avoid panics:
-
-  ```sql
-  SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users;
-  ```
+- `DATABASE_QUERY`: SQL query to execute
+- `OUTPUT_FILE`: Path to output file. Extension determines format:
+  - `.csv` → CSV output with RFC 4180 formatting
+  - `.json` → JSON output with `{"data": [...]}` structure
+  - `.txt` or any other extension → TSV (tab-separated values)
 
 ### Example Usage
 
@@ -329,68 +260,49 @@ When CLI flags are not provided, Gold Digger falls back to environment variables
 # Linux/macOS
 OUTPUT_FILE=/tmp/results.json \
 DATABASE_URL="mysql://user:pass@localhost:3306/mydb" \
-DATABASE_QUERY="SELECT CAST(id AS CHAR) as id, CAST(name AS CHAR) as name FROM users LIMIT 10" \
+DATABASE_QUERY="SELECT id, name FROM users LIMIT 10" \
 gold_digger
 
 # Windows PowerShell
 $env:OUTPUT_FILE="C:\temp\results.json"
 $env:DATABASE_URL="mysql://user:pass@localhost:3306/mydb"
-$env:DATABASE_QUERY="SELECT CAST(id AS CHAR) as id FROM users LIMIT 10"
+$env:DATABASE_QUERY="SELECT id, name FROM users LIMIT 10"
 gold_digger
 
 # Using justfile for development
 just run /tmp/out.json "mysql://user:pass@host:3306/db" "SELECT 1 as test"
 ```
 
-## CI/CD Policy
+### Exit Codes
 
-Gold Digger follows strict quality gates and security practices:
+Gold Digger uses structured exit codes for better automation and error handling:
 
-### Quality Gates
+- **0**: Success with results (or empty with `--allow-empty`)
+- **1**: Success but no rows returned (use `--allow-empty` to get exit code 0)
+- **2**: Configuration error (missing/invalid parameters, mutually exclusive flags, TLS configuration issues)
+- **3**: Database connection/authentication failure (access denied, connection refused, TLS handshake failures)
+- **4**: Query execution failure (SQL syntax errors, type conversion errors, database-level errors)
+- **5**: File I/O operation failure (cannot read query file, cannot write output file, permission errors)
 
-- **Formatting:** Code must pass `cargo fmt --check` (zero tolerance)
-- **Linting:** Code must pass `cargo clippy -- -D warnings` (zero tolerance)
-- **Testing:** All tests must pass on Ubuntu 22.04, macOS 13, and Windows 2022
-- **Coverage:** Code coverage tracked via Codecov
+The exit code mapping includes intelligent error detection based on error message patterns, providing consistent behavior across different failure scenarios.
 
-### Security Scanning
+## Security & Quality Assurance
 
-- **CodeQL:** Static analysis for security vulnerabilities
-- **SBOM Generation:** Software Bill of Materials for all releases
-- **Vulnerability Scanning:** Grype scanning of dependencies
-- **Supply Chain Security:** `cargo-audit` and `cargo-deny` checks
+Gold Digger maintains high security and quality standards for all releases:
 
 ### Release Security
 
-- **Keyless Signing:** All release artifacts signed with Cosign using OIDC
-- **SLSA Attestation:** Level 3 provenance for supply chain integrity
-- **Multi-Platform:** Automated builds for Linux, macOS, and Windows
-- **Comprehensive Artifacts:** Binaries, SBOMs, signatures, and attestations
+- **Signed Artifacts:** All release binaries are cryptographically signed using GitHub attestation
+- **Supply Chain Security:** Automated security scanning of all dependencies
+- **Software Bill of Materials (SBOM):** Complete dependency information in CycloneDX format included with each release
+- **Cross-Platform Distribution:** 6 target platforms (ARM64 & x86_64 for macOS/Linux/Windows) via cargo-dist
 
-### Local Release Testing
+### Quality Standards
 
-Before creating an actual release, you can simulate the entire release process locally:
-
-```bash
-# Test the complete release pipeline locally
-just release-dry
-
-# Test GitHub Actions workflows locally (requires act)
-just act-setup      # Set up act and pull Docker images
-just act-ci-dry     # Test CI workflow (dry-run)
-just act-release-dry v1.0.0  # Test release workflow (dry-run)
-
-# Test Release Please workflow
-just act-release-please-dry  # Test automated versioning
-```
-
-The `release-dry` command creates test artifacts (`sbom-test.json`, `checksums-test.txt`) that mirror what the actual CI/CD pipeline produces. The `act-*` commands require [act](https://github.com/nektos/act) to be installed and allow you to test GitHub Actions workflows locally in Docker containers.
-
-### Testing Recommendations
-
-- Use [criterion](https://crates.io/crates/criterion) for benchmarking
-- Use [insta](https://crates.io/crates/insta) for snapshot testing
-- Run `cargo-llvm-cov` for coverage analysis
+- **Cross-Platform Testing:** All releases tested on Linux, macOS, and Windows
+- **Code Coverage:** Comprehensive test coverage tracked and maintained
+- **Static Analysis:** Automated security analysis with CodeQL
+- **Zero-Warning Policy:** All code passes strict linting standards
 
 ## Authors
 
