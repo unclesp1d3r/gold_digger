@@ -1,327 +1,230 @@
 # Gold Digger Justfile
 # Task runner for the MySQL/MariaDB query tool
 
-# Default recipe
+# Use PowerShell for Windows targets
+set windows-shell := ["powershell.exe", "-c"]
+
+# Default recipe (runs linting)
 default: lint
 
 # Variables
 export RUST_BACKTRACE := "1"
 export CARGO_TERM_COLOR := "always"
 
+# =============================================================================
+# SETUP & INSTALLATION
+# =============================================================================
+
 # Development setup
 setup:
-    @echo "🔧 Setting up development environment..."
-    rustup component add rustfmt clippy
+    cd {{justfile_dir()}}
+    rustup component add rustfmt clippy llvm-tools-preview rust-src
     cargo install cargo-nextest --locked || echo "cargo-nextest already installed"
-    @echo "✅ Setup complete!"
 
 # Install development tools (extended setup)
 install-tools:
-    @echo "🛠️ Installing additional development tools..."
-    cargo install cargo-tarpaulin --locked || echo "cargo-tarpaulin already installed"
+    cargo install cargo-llvm-cov --locked || echo "cargo-llvm-cov already installed"
     cargo install cargo-audit --locked || echo "cargo-audit already installed"
     cargo install cargo-deny --locked || echo "cargo-deny already installed"
     cargo install cargo-dist --locked || echo "cargo-dist already installed"
-    @echo "✅ Tools installed!"
+
+# Install mdBook and plugins for documentation
+docs-install:
+    cargo install mdbook mdbook-admonish mdbook-mermaid mdbook-linkcheck mdbook-toc mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+format: fmt
 
 # Format code
-format:
-    @echo "📝 Formatting code..."
+fmt:
+    cd {{justfile_dir()}}
     pre-commit run -a || true
     cargo fmt
-    # Format YAML and JavaScript files with prettier
-    prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" || echo "prettier not installed - run 'npm install -g prettier'"
+    prettier --write "**/*.{yml,yaml,js,jsx,ts,tsx}" 2>/dev/null || echo "prettier not installed - run 'npm install -g prettier'"
 
 # Check formatting
 fmt-check:
-    @echo "🔍 Checking code formatting..."
+    cd {{justfile_dir()}}
     cargo fmt --check
 
 # Run clippy linting
 lint:
-    @echo "🔍 Running clippy linting..."
-    @echo "Testing native-tls features..."
+    cd {{justfile_dir()}}
     cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
-    @echo "Testing rustls features..."
     cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings
-    @echo "Testing minimal features (no TLS)..."
     cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
 
 # Run clippy with fixes
 fix:
-    @echo "🔧 Running clippy with automatic fixes..."
     cargo clippy --fix --allow-dirty --allow-staged
+
+# Quick development check
+check:
+    pre-commit run -a
+    just lint
+    just test-no-docker
+
+# Quality gates (CI equivalent)
+ci-check:
+    cd {{justfile_dir()}}
+    just fmt-check
+    just lint
+    just test
+    just validate-deps
+
+# Comprehensive full checks (all non-destructive validation)
+full-checks:
+    cd {{justfile_dir()}}
+    just fmt-check
+    just lint
+    just test
+    just validate-deps
+    just audit
+    just deny
+    just docs-check
+    just coverage-llvm
+    just build-all
+    just validate-cargo-dist
+
+# =============================================================================
+# BUILD
+# =============================================================================
 
 # Build debug version
 build:
-    @echo "🔨 Building debug version..."
+    cd {{justfile_dir()}}
     cargo build
 
 # Build release version
 build-release:
-    @echo "🔨 Building release version..."
     cargo build --release
 
 # Build with pure Rust TLS (alternative to native TLS)
 build-rustls:
-    @echo "🔨 Building with pure Rust TLS..."
     cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
 
-# Build with vendored dependencies (legacy compatibility - now uses rustls)
-build-vendored:
-    @echo "🔨 Building with vendored dependencies (using rustls)..."
-    @echo "⚠️  Note: Vendored feature is deprecated, using rustls instead"
-    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+
 
 # Build minimal version (no default features)
 build-minimal:
-    @echo "🔨 Building minimal version..."
     cargo build --release --no-default-features --features "csv,json"
 
 # Build all feature combinations
 build-all: build build-release build-rustls build-minimal
-    @echo "✅ All builds completed!"
 
 # Install locally from workspace
 install:
-    @echo "📦 Installing locally from workspace..."
     cargo install --path .
 
-# Run tests
-test:
-    @echo "🧪 Running tests..."
-    cargo test
+# =============================================================================
+# TESTING
+# =============================================================================
 
-# Run tests with nextest (if available)
-test-nextest:
-    @echo "🧪 Running tests with nextest..."
+# Run tests (prefer nextest, fallback to cargo test)
+test:
+    cd {{justfile_dir()}}
+    cargo nextest run --run-ignored all || cargo test -- --include-ignored
+
+# Run tests without Docker tests (non-ignored only)
+test-no-docker:
+    cd {{justfile_dir()}}
     cargo nextest run || cargo test
 
-# Run tests with coverage (tarpaulin)
+# Run tests with coverage (llvm-cov)
 coverage:
-    @echo "📊 Running tests with coverage..."
-    cargo tarpaulin --out Html --output-dir target/tarpaulin
+    cd {{justfile_dir()}}
+    cargo llvm-cov --package gold_digger --html
 
 # Run tests with coverage (llvm-cov for CI)
 coverage-llvm:
-    @echo "📊 Running tests with llvm-cov..."
+    cd {{justfile_dir()}}
     cargo llvm-cov --workspace --lcov --output-path lcov.info
-
-# Security audit
-audit:
-    @echo "🔒 Running security audit..."
-    cargo audit
-
-# Check for license/security issues
-deny:
-    @echo "🚫 Checking licenses and security..."
-    cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
-
-# Comprehensive security scanning (combines audit, deny, and grype)
-security:
-    @echo "🔒 Running comprehensive security scanning..."
-    @echo "Step 1: Security audit..."
-    just audit
-    @echo ""
-    @echo "Step 2: License and security policy checks..."
-    just deny
-    @echo ""
-    @echo "Step 3: Vulnerability scanning with grype..."
-    @if command -v grype >/dev/null 2>&1; then \
-        echo "Running grype vulnerability scan..."; \
-        grype . --fail-on critical --fail-on high || echo "❌ Critical or high vulnerabilities found"; \
-    else \
-        echo "⚠️  grype not installed - install with:"; \
-        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"; \
-    fi
-    @echo "✅ Security scanning complete!"
 
 # Coverage alias for CI naming consistency
 cover: coverage-llvm
 
-# Generate Software Bill of Materials (SBOM) for local inspection
-sbom:
-    @echo "📋 Generating Software Bill of Materials (SBOM)..."
-    @if command -v syft >/dev/null 2>&1; then \
-        echo "Generating SBOM with syft..."; \
-        syft packages . -o cyclonedx-json=sbom.json; \
-        syft packages . -o table; \
-        echo ""; \
-        echo "✅ SBOM generated:"; \
-        echo "  📄 sbom.json (CycloneDX format)"; \
-        echo "  📊 Table output displayed above"; \
-        echo ""; \
-        echo "To inspect SBOM:"; \
-        echo "  cat sbom.json | jq ."; \
-        echo "  syft packages . -o json | jq '.artifacts[] | .name'"; \
+# Run coverage with threshold check (for CI)
+coverage-ci:
+    cd {{justfile_dir()}}
+    cargo llvm-cov --package gold_digger --json --output-path coverage.json
+
+# Benchmark (when criterion tests exist)
+bench:
+    cargo bench || echo "No benchmarks found"
+
+# Profile release build
+profile:
+    cargo build --release
+
+# =============================================================================
+# SECURITY
+# =============================================================================
+
+# Security audit
+audit:
+    cargo audit
+
+# Check for license/security issues
+deny:
+    cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
+
+# Comprehensive security scanning (combines audit, deny, and grype)
+security:
+    just audit
+    just deny
+    @if command -v grype >/dev/null 2>&1; then \
+    grype . --fail-on high || echo "High or critical vulnerabilities found"; \
     else \
-        echo "⚠️  syft not installed - install with:"; \
-        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
-        echo ""; \
-        echo "Alternative: Use cargo tree for dependency inspection:"; \
-        cargo tree --format "{p} {f}"; \
+    echo "grype not installed - install with:"; \
+    echo "   curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin"; \
     fi
 
-# Initialize cargo-dist configuration
-dist-init:
-    @echo "🚀 Initializing cargo-dist configuration..."
-    @if command -v cargo-dist >/dev/null 2>&1; then \
-        echo "Running cargo-dist init..."; \
-        cargo dist init --yes; \
-        echo "✅ cargo-dist initialized successfully"; \
-        echo "📋 Configuration written to cargo-dist.toml"; \
-    else \
-        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
-        exit 1; \
-    fi
-
-# Plan cargo-dist release (dry-run)
-dist-plan:
-    @echo "📋 Planning cargo-dist release..."
-    @if command -v cargo-dist >/dev/null 2>&1; then \
-        echo "Running cargo-dist plan..."; \
-        cargo dist plan; \
-        echo ""; \
-        echo "✅ Release plan generated"; \
-        echo "📊 This shows what would be built and distributed"; \
-    else \
-        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
-        exit 1; \
-    fi
-
-# Build cargo-dist artifacts locally
-dist-build:
-    @echo "🔨 Building cargo-dist artifacts locally..."
-    @if command -v cargo-dist >/dev/null 2>&1; then \
-        echo "Running cargo-dist build..."; \
-        cargo dist build; \
-        echo ""; \
-        echo "✅ Local distribution artifacts built"; \
-        echo "📦 Check target/distrib/ for generated artifacts"; \
-        echo "🔍 Artifacts include:"; \
-        find target/distrib -type f -name "*" | head -10 || echo "  (no artifacts found)"; \
-    else \
-        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
-        exit 1; \
-    fi
-
-# Generate cargo-dist installers
-dist-generate:
-    @echo "📦 Generating cargo-dist installers..."
-    @if command -v cargo-dist >/dev/null 2>&1; then \
-        echo "Running cargo-dist generate..."; \
-        cargo dist generate; \
-        echo ""; \
-        echo "✅ Installers generated"; \
-        echo "📋 Generated files:"; \
-        echo "  🐚 Shell installer script"; \
-        echo "  🪟 PowerShell installer script"; \
-        echo "  🍺 Homebrew formula (if configured)"; \
-        echo "  📦 MSI installer (if configured)"; \
-    else \
-        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
-        exit 1; \
-    fi
-
-# Validate cargo-dist configuration
-dist-check:
-    @echo "🔍 Validating cargo-dist configuration..."
-    @if command -v cargo-dist >/dev/null 2>&1; then \
-        echo "Checking cargo-dist.toml configuration..."; \
-        cargo dist plan --check; \
-        echo ""; \
-        echo "✅ cargo-dist configuration is valid"; \
-        echo "📋 Configuration summary:"; \
-        echo "  📁 Config file: cargo-dist.toml"; \
-        echo "  🎯 Targets: $(grep -A 10 'targets = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
-        echo "  📦 Installers: $(grep -A 5 'installers = \[' cargo-dist.toml | grep -o '"[^"]*"' | tr '\n' ' ' || echo 'not configured')"; \
-    else \
-        echo "❌ cargo-dist not installed - run 'just install-tools' first"; \
-        exit 1; \
-    fi
+# =============================================================================
+# DEPENDENCIES & VALIDATION
+# =============================================================================
 
 # Validate TLS dependency tree (for rustls migration)
 validate-deps:
-    @echo "🔍 Validating TLS dependency tree..."
-    @echo ""
-    @echo "Testing ssl feature (native-tls)..."
     @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-        echo "❌ ERROR: native-tls not found with ssl feature"; \
-        cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
-        exit 1; \
+    echo "ERROR: native-tls not found with ssl feature"; \
+    cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
+    exit 1; \
     fi
-    @echo "✅ ssl feature validation passed"
-    @echo ""
-    @echo "Testing ssl-rustls feature (rustls)..."
     @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-        echo "❌ ERROR: native-tls found with ssl-rustls feature"; \
-        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
-        exit 1; \
+    echo "ERROR: native-tls found with ssl-rustls feature"; \
+    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
+    exit 1; \
     fi
     @if ! cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
-        echo "❌ ERROR: rustls not found with ssl-rustls feature"; \
-        cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
-        exit 1; \
+    echo "ERROR: rustls not found with ssl-rustls feature"; \
+    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
+    exit 1; \
     fi
-    @echo "✅ ssl-rustls feature validation passed"
-    @echo ""
-    @echo "Testing no TLS features..."
     @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|rustls"; then \
-        echo "❌ ERROR: TLS dependencies found without TLS features"; \
-        cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}"; \
-        exit 1; \
+    echo "ERROR: TLS dependencies found without TLS features"; \
+    cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}"; \
+    exit 1; \
     fi
-    @echo "✅ no TLS features validation passed"
-    @echo ""
-    @echo "🎉 All dependency validations passed!"
 
-# Quality gates (CI equivalent)
-ci-check: fmt-check lint test-nextest validate-deps
-    @echo "✅ All CI checks passed!"
+# Check for outdated dependencies
+outdated:
+    cargo outdated || echo "Install cargo-outdated: cargo install cargo-outdated"
 
-# Quick development check
-check:
-    @echo "🔍 Running development checks..."
-    pre-commit run -a
-    just lint
-    just test
-    @echo "✅ Quick development checks passed!"
+# Update dependencies
+update:
+    cargo update
 
-# Clean build artifacts
-clean:
-    @echo "🧹 Cleaning build artifacts..."
-    cargo clean
-
-# Run with example environment variables
-run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
-    @echo "🚀 Running Gold Digger..."
-    @echo "Output: {{OUTPUT_FILE}}"
-    @echo "Database: *** (credentials hidden)"
-    @echo "Query: {{DATABASE_QUERY}}"
-    # Load credentials securely from environment (not visible in process args)
-    cargo run --release
-
-# Run with safe example (casting to avoid panics)
-run-safe:
-    @echo "🚀 Running Gold Digger with safe example..."
-    @echo "Setting environment variables for safe testing..."
-    DB_URL=sqlite://dummy.db API_KEY=dummy NODE_ENV=testing APP_ENV=safe cargo run --release
-
-# Development server (watch for changes) - requires cargo-watch
-watch:
-    @echo "👀 Watching for changes..."
-    cargo watch -x "run --release" || echo "Install cargo-watch: cargo install cargo-watch"
-
-# Install mdBook and plugins for documentation
-docs-install:
-    @echo "📚 Installing mdBook and plugins..."
-    cargo install mdbook mdbook-admonish mdbook-mermaid mdbook-linkcheck mdbook-toc mdbook-open-on-gh mdbook-tabs mdbook-i18n-helpers
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
 
 # Build complete documentation (mdBook + rustdoc)
 docs-build:
     #!/usr/bin/env bash
     set -euo pipefail
-    @echo "📚 Building complete documentation..."
     # Build rustdoc
     cargo doc --no-deps --document-private-items --target-dir docs/book/api-temp
     # Move rustdoc output to final location
@@ -333,53 +236,49 @@ docs-build:
 
 # Serve documentation locally with live reload
 docs-serve:
-    @echo "📚 Starting documentation server..."
     cd docs && mdbook serve --open
 
 # Clean documentation artifacts
 docs-clean:
-    @echo "🧹 Cleaning documentation artifacts..."
     rm -rf docs/book target/doc
 
 # Check documentation (build + link validation + formatting)
 docs-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    @echo "🔍 Checking documentation..."
-    cd docs
-    mdbook build
-    # Check formatting of markdown files
-    find src -name "*.md" -exec mdformat --check {} \;
+    cd docs && mdbook build
+    @just fmt-check
 
-# Generate rustdoc only
+# Generate and serve documentation
+[unix]
 docs:
-    @echo "📚 Generating rustdoc documentation..."
-    cargo doc --open --no-deps
+    cd docs && mdbook serve --open
 
-# Check for outdated dependencies
-outdated:
-    @echo "📅 Checking for outdated dependencies..."
-    cargo outdated || echo "Install cargo-outdated: cargo install cargo-outdated"
+[windows]
+docs:
+    @echo "mdbook requires a Unix-like environment to serve"
 
-# Update dependencies
-update:
-    @echo "⬆️ Updating dependencies..."
-    cargo update
+# =============================================================================
+# RUNNING & DEVELOPMENT
+# =============================================================================
 
-# Benchmark (when criterion tests exist)
-bench:
-    @echo "⚡ Running benchmarks..."
-    cargo bench || echo "No benchmarks found"
+# Run with example environment variables
+run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
+    OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
 
-# Profile release build
-profile:
-    @echo "📊 Profiling release build..."
-    cargo build --release
-    @echo "Use 'perf record target/release/gold_digger' or similar profiling tools"
+# Run with safe example (casting to avoid panics)
+run-safe:
+    DB_URL=sqlite://dummy.db API_KEY=dummy NODE_ENV=testing APP_ENV=safe cargo run --release
+
+# Development server (watch for changes) - requires cargo-watch
+watch:
+    cargo watch -x "run --release" || echo "Install cargo-watch: cargo install cargo-watch"
+
+# =============================================================================
+# UTILITIES & INFORMATION
+# =============================================================================
 
 # Show feature matrix
 features:
-    @echo "🎛️ Available feature combinations:"
+    @echo "Available feature combinations:"
     @echo ""
     @echo "Default features:"
     @echo "  cargo build --release"
@@ -395,287 +294,275 @@ features:
 
 # Check current version
 version:
-    @echo "📋 Current version information:"
+    @echo "Current version information:"
     @echo "Cargo.toml version: $(grep '^version' Cargo.toml | cut -d'"' -f2)"
     @echo "CHANGELOG.md version: $(grep -m1 '## \[v' CHANGELOG.md | sed 's/.*\[v/v/' | sed 's/\].*//')"
     @echo ""
-    @echo "⚠️  Note: Versions may be out of sync - check WARP.md for details"
+    @echo "Note: Versions may be out of sync - check WARP.md for details"
 
 # Show project status
 status:
-    @echo "📊 Gold Digger Project Status:"
+    @echo "Gold Digger Project Status:"
     @echo ""
-    @echo "🏗️  Architecture: Environment variable driven, structured output"
-    @echo "🎯 Current: v0.2.6 (check version discrepancy)"
-    @echo "🚀 Target: v1.0 with CLI interface"
-    @echo "🧑‍💻 Maintainer: UncleSp1d3r"
+    @echo "Architecture: Environment variable driven, structured output"
+    @echo "Current: v0.2.6 (check version discrepancy)"
+    @echo "Target: v1.0 with CLI interface"
+    @echo "Maintainer: UncleSp1d3r"
     @echo ""
-    @echo "🚨 Critical Issues:"
+    @echo "Critical Issues:"
     @echo "  • Type conversion panics on NULL/non-string values"
     @echo "  • No dotenv support (use exported env vars)"
     @echo "  • Non-deterministic JSON output"
     @echo "  • Pattern matching bug in src/main.rs:59"
     @echo ""
-    @echo "🔄 Release Please: Automated versioning enabled"
-    @echo "📖 See WARP.md for detailed information"
+    @echo "cargo-dist: Automated versioning and distribution enabled"
+    @echo "See WARP.md for detailed information"
 
-# Validate Release Please configuration
-validate-release-please:
-    @echo "🔍 Validating Release Please configuration..."
-    @test -f .github/workflows/release-please.yml && echo "✅ .github/workflows/release-please.yml exists" || echo "❌ Missing: .github/workflows/release-please.yml"
-    @test -f .release-please-manifest.json && echo "✅ .release-please-manifest.json exists" || echo "❌ Missing: .release-please-manifest.json"
-    @test -f .release-please-config.json && echo "✅ .release-please-config.json exists" || echo "❌ Missing: .release-please-config.json"
-    @python3 -c "import json; json.load(open('.release-please-manifest.json'))" && echo "✅ .release-please-manifest.json is valid JSON" || echo "❌ Invalid JSON in .release-please-manifest.json"
-    @python3 -c "import json; json.load(open('.release-please-config.json'))" && echo "✅ .release-please-config.json is valid JSON" || echo "❌ Invalid JSON in .release-please-config.json"
-    @python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release-please.yml'))" && echo "✅ .github/workflows/release-please.yml is valid YAML" || echo "❌ Invalid YAML in .github/workflows/release-please.yml"
-    @echo "🎉 Release Please configuration validation complete!"
+# Clean build artifacts
+clean:
+    cargo clean
+
+# =============================================================================
+# SBOM & SECURITY
+# =============================================================================
+
+# Generate Software Bill of Materials (SBOM) for local inspection
+sbom:
+    @if command -v cargo-cyclonedx >/dev/null 2>&1 || cargo cyclonedx --help >/dev/null 2>&1; then \
+    cargo cyclonedx --override-filename sbom.json; \
+    cargo tree --format "{p} {f}" | head -20; \
+    elif command -v syft >/dev/null 2>&1; then \
+    syft packages . -o cyclonedx-json=sbom.json; \
+    syft packages . -o table; \
+    else \
+    echo "Neither cargo-cyclonedx nor syft installed"; \
+    echo ""; \
+    echo "Install cargo-cyclonedx (preferred):"; \
+    echo "   cargo install cargo-cyclonedx"; \
+    echo ""; \
+    echo "Or install syft:"; \
+    echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"; \
+    echo ""; \
+    echo "Alternative: Use cargo tree for dependency inspection:"; \
+    cargo tree --format "{p} {f}"; \
+    fi
+
+# =============================================================================
+# CARGO-DIST & DISTRIBUTION
+# =============================================================================
+
+# Initialize cargo-dist configuration
+dist-init:
+    @echo "Initializing cargo-dist configuration..."
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    echo "Running cargo-dist init..."; \
+    cargo dist init --yes; \
+    echo "cargo-dist initialized successfully"; \
+    echo "Configuration written to cargo-dist.toml"; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    exit 1; \
+    fi
+
+# Plan cargo-dist release (dry-run)
+dist-plan:
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    cargo dist plan; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    exit 1; \
+    fi
+
+# Build cargo-dist artifacts locally
+dist-build:
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    cargo dist build; \
+    find target/distrib -type f -name "*" | head -10 || echo "  (no artifacts found)"; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    exit 1; \
+    fi
+
+# Generate cargo-dist installers
+dist-generate:
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    cargo dist generate; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    exit 1; \
+    fi
+
+# Validate cargo-dist configuration
+dist-check:
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    if cargo dist plan >/dev/null 2>&1; then \
+    echo "cargo-dist configuration check passed"; \
+    else \
+    echo "cargo-dist configuration check failed"; \
+    exit 1; \
+    fi; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    exit 1; \
+    fi
+
+# Validate cargo-dist configuration
+validate-cargo-dist:
+    @test -f dist-workspace.toml && echo "dist-workspace.toml exists" || echo "Missing: dist-workspace.toml"
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    if cargo dist plan >/dev/null 2>&1; then \
+    echo "cargo-dist configuration is valid"; \
+    else \
+    echo "cargo-dist configuration is invalid"; \
+    exit 1; \
+    fi; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    fi
+
+# =============================================================================
+# ACT & GITHUB ACTIONS TESTING
+# =============================================================================
 
 # Local GitHub Actions Testing (requires act)
 act-setup:
-    @echo "📦 Setting up act for local GitHub Actions testing..."
-    @echo "Checking if act is installed..."
-    @which act || echo "❌ Please install act: brew install act (or see https://github.com/nektos/act)"
-    @echo "✅ Act configuration already exists in .actrc"
-    @echo "🐳 Pulling Docker images (this may take a while the first time)..."
-    docker pull catthehacker/ubuntu:act-22.04 || echo "⚠️  Could not pull Docker image - act may not work without it"
-    @echo "✅ Act setup complete!"
+    @which act || echo "Please install act: brew install act (or see https://github.com/nektos/act)"
+    docker pull catthehacker/ubuntu:act-22.04 || echo "Could not pull Docker image - act may not work without it"
 
 # Run CI workflow locally (dry-run)
 act-ci-dry:
-    @echo "🧪 Running CI workflow dry-run with act..."
-    @echo "This simulates the GitHub Actions CI without actually executing commands"
-    act -j ci --dryrun
+    act -W .github/workflows/ci.yml --dryrun
 
 # Run CI workflow locally (full execution)
 act-ci:
-    @echo "🧪 Running CI workflow locally with act..."
-    @echo "⚠️  This will execute the full CI pipeline in Docker containers"
-    @echo "📋 This includes: Rust setup, pre-commit, linting, testing, coverage"
-    act -j ci
+    act -W .github/workflows/ci.yml
+
+# Run push workflow locally (dry-run)
+act-push-dry:
+    act push --dryrun
+
+# Run push workflow locally (full execution)
+act-push:
+    act push
 
 # Run release workflow dry-run (requires tag parameter)
 act-release-dry TAG:
-    @echo "🚀 Running release workflow dry-run for tag: {{TAG}}"
+    @echo "Running release workflow dry-run for tag: {{TAG}}"
     @echo "This simulates the full release pipeline without actually creating releases"
-    act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
+    act push --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
 
-# Run Release Please workflow dry-run
-act-release-please-dry:
-    @echo "🔄 Running Release Please workflow dry-run..."
-    @echo "This simulates the Release Please workflow without creating PRs or releases"
-    act workflow_dispatch -W .github/workflows/release-please.yml --dryrun
+# Test cargo-dist workflow locally
+act-cargo-dist-dry:
+    @echo "Running cargo-dist workflow dry-run..."
+    @echo "This simulates the cargo-dist workflow without creating releases"
+    @if command -v cargo-dist >/dev/null 2>&1; then \
+    echo "Running cargo-dist plan..."; \
+    cargo dist plan; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    fi
 
-# Run Release Please workflow locally (full execution)
-act-release-please:
-    @echo "🔄 Running Release Please workflow locally..."
-    @echo "⚠️  This will execute the Release Please workflow in Docker containers"
-    @echo "📋 This includes: Conventional commit analysis, version bumping, changelog generation"
-    act workflow_dispatch -W .github/workflows/release-please.yml
-
-# Test Release Please with specific commit messages
-act-release-please-test:
-    @echo "🧪 Testing Release Please with sample conventional commits..."
-    @echo "This creates test commits and runs Release Please workflow"
+# Test cargo-dist with sample conventional commits
+act-cargo-dist-test:
     #!/usr/bin/env bash
     set -euo pipefail
-
-    echo "Creating test conventional commits..."
-
-    # Create test commits with different types
     echo "feat: add new output format support" > test-commit-feat.txt
     echo "fix: resolve connection timeout issue" > test-commit-fix.txt
     echo "docs: update README with new examples" > test-commit-docs.txt
     echo "feat!: migrate to new CLI interface" > test-commit-breaking.txt
 
-    echo "✅ Test commit messages created:"
-    echo "  📄 test-commit-feat.txt (feature)"
-    echo "  📄 test-commit-fix.txt (bug fix)"
-    echo "  📄 test-commit-docs.txt (documentation)"
-    echo "  📄 test-commit-breaking.txt (breaking change)"
-    echo ""
-    echo "To test Release Please workflow:"
-    echo "  1. Use these commit messages in your actual commits"
-    echo "  2. Push to main branch"
-    echo "  3. Check GitHub Actions for Release Please workflow execution"
-    echo "  4. Review generated release PRs and changelog updates"
-
-# Test Release Please integration with release workflow
-act-release-integration TAG:
-    @echo "🔗 Testing Release Please integration with release workflow..."
-    @echo "This tests the complete flow from Release Please to release creation"
+# Test cargo-dist integration with release workflow
+act-cargo-dist-integration TAG:
     #!/usr/bin/env bash
     set -euo pipefail
-
-    echo "Step 1: Simulating Release Please workflow..."
-    act workflow_dispatch -W .github/workflows/release-please.yml --dryrun
-
-    echo ""
-    echo "Step 2: Simulating manual release workflow..."
+    if command -v cargo-dist >/dev/null 2>&1; then \
+    cargo dist plan; \
+    else \
+    echo "cargo-dist not installed - run 'just install-tools' first"; \
+    fi
     act workflow_dispatch --input tag={{TAG}} -W .github/workflows/release.yml --dryrun
-
-    echo ""
-    echo "✅ Integration test simulation complete!"
-    echo "📋 This verifies that:"
-    echo "  • Release Please workflow can be triggered"
-    echo "  • Manual release workflow still works"
-    echo "  • All workflows have proper permissions and configurations"
-    echo "  • Release workflow will be triggered by Release Please completion in production"
 
 # List all available GitHub Actions workflows
 act-list:
-    @echo "📋 Available GitHub Actions workflows:"
     act --list
 
 # Test specific workflow job
 act-job JOB:
-    @echo "🎯 Running specific job: {{JOB}}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd {{justfile_dir()}}
     act -j {{JOB}} --dryrun
 
 # Clean act cache and containers
 act-clean:
-    @echo "🧹 Cleaning act cache and containers..."
-    @echo "Removing act containers..."
     -docker ps -a | grep "act-" | awk '{print $1}' | xargs docker rm -f
-    @echo "Removing act images cache..."
     -docker images | grep "act-" | awk '{print $3}' | xargs docker rmi -f
-    @echo "✅ Act cleanup complete!"
+
+# =============================================================================
+# RELEASE & VALIDATION
+# =============================================================================
 
 # Release preparation checklist
 release-check:
-    @echo "🚀 Pre-release checklist:"
-    @echo ""
-    @echo "1. Version sync check:"
-    @echo "2. Running quality checks..."
     just ci-check
-    @echo ""
-    @echo "3. Security checks..."
     just audit
-    @echo ""
-    @echo "4. Build matrix test..."
     just build-all
-    @echo ""
-    @echo "5. Local CI validation..."
     just act-ci-dry
-    @echo ""
-    @echo "6. Release Please workflow validation..."
-    just act-release-please-dry
-    @echo ""
-    @echo "7. Release integration test..."
-    just act-release-integration v0.2.7
-    @echo ""
-    @echo "📋 Manual checklist:"
-    @echo "   □ Update CHANGELOG.md if needed"
-    @echo "   □ Review project_spec/requirements.md for completeness"
-    @echo "   □ Test with real database connections"
-    @echo "   □ Verify all feature flag combinations work"
-    @echo "   □ Check that credentials are never logged"
-    @echo "   □ Run 'just act-release-dry vX.Y.Z' to test release workflow"
-    @echo "   □ Verify conventional commit format in recent commits"
-    @echo "   □ Check Release Please configuration files are valid"
+    just dist-plan
+    just act-cargo-dist-integration v0.2.7
 
 # Release simulation for local testing
+[unix]
 release-dry:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "🔍 Simulating release process..."
-
-    # Check if we're in a clean git state
     if ! git diff-index --quiet HEAD --; then
-        echo "⚠️  Warning: Working directory has uncommitted changes"
-        echo "   This is normal for testing, but releases should be from clean state"
+    echo "Warning: Working directory has uncommitted changes"
     fi
-
-    echo ""
-    echo "📦 Step 1: Building release binary..."
-    echo "Building with rustls (pure Rust TLS)..."
     just build-rustls
-
-    echo ""
-    echo "📋 Step 2: Checking binary..."
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-        BINARY_PATH="target/release/gold_digger.exe"
-    else
-        BINARY_PATH="target/release/gold_digger"
-    fi
-
+    BINARY_PATH="target/release/gold_digger"
     if [[ ! -f "$BINARY_PATH" ]]; then
-        echo "❌ Binary not found at $BINARY_PATH"
-        exit 1
+    echo "Binary not found at $BINARY_PATH"
+    exit 1
     fi
-
-    BINARY_SIZE=$(stat -c%s "$BINARY_PATH" 2>/dev/null || stat -f%z "$BINARY_PATH" 2>/dev/null || echo "unknown")
-    echo "✅ Binary found: $BINARY_PATH ($BINARY_SIZE bytes)"
-
-    echo ""
-    echo "🔐 Step 3: Simulating SBOM generation..."
-    # Check if syft is available
     if command -v syft >/dev/null 2>&1; then
-        echo "Generating SBOM with syft..."
-        syft packages . -o cyclonedx-json=sbom-test.json
-        echo "✅ SBOM generated: sbom-test.json"
+    syft packages . -o cyclonedx-json=sbom-test.json
     else
-        echo "⚠️  syft not installed - install with:"
-        echo "   curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin"
-        echo "   Creating placeholder SBOM..."
-        echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > sbom-test.json
-        echo "📄 Placeholder SBOM created: sbom-test.json"
+    echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > sbom-test.json
     fi
-
-    echo ""
-    echo "🔢 Step 4: Generating checksums..."
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$BINARY_PATH" > checksums-test.txt
-        sha256sum sbom-test.json >> checksums-test.txt
+    sha256sum "$BINARY_PATH" > checksums-test.txt
+    sha256sum sbom-test.json >> checksums-test.txt
     elif command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$BINARY_PATH" > checksums-test.txt
-        shasum -a 256 sbom-test.json >> checksums-test.txt
+    shasum -a 256 "$BINARY_PATH" > checksums-test.txt
+    shasum -a 256 sbom-test.json >> checksums-test.txt
     else
-        echo "⚠️  No SHA256 utility found, skipping checksums"
-        touch checksums-test.txt
-    fi
-    echo "✅ Checksums generated: checksums-test.txt"
-
-    echo ""
-    echo "🔐 Step 5: Simulating signing process..."
-    if command -v cosign >/dev/null 2>&1; then
-        echo "Note: In actual release, Cosign would sign with OIDC keyless authentication"
-        echo "Local signing simulation would require additional setup"
-        echo "✅ Cosign available for signing simulation"
-    else
-        echo "ℹ️  cosign not installed locally (not required for simulation)"
-        echo "   Release workflow will use sigstore/cosign-installer@v3.9.2"
-        echo "   with GitHub OIDC keyless authentication"
+    touch checksums-test.txt
     fi
 
-    echo ""
-    echo "📊 Step 6: Release simulation summary..."
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🎯 Release Simulation Complete!"
-    echo ""
-    echo "Generated artifacts:"
-    echo "  📦 Binary:    $BINARY_PATH"
-    echo "  📋 SBOM:      sbom-test.json"
-    echo "  🔢 Checksums: checksums-test.txt"
-    echo ""
-    echo "Current version: $(grep '^version' Cargo.toml | cut -d'"' -f2)"
-    echo ""
-    echo "🚀 To create an actual release:"
-    echo "   git tag -a v0.test.1 -m 'Test release'"
-    echo "   git push origin v0.test.1"
-    echo ""
-    echo "🔍 To verify release workflow:"
-    echo "   Check: https://github.com/unclesp1d3r/gold_digger/actions/workflows/release.yml"
-    echo ""
-    echo "✨ The actual release workflow includes:"
-    echo "   • Cross-platform builds (Ubuntu, macOS, Windows)"
-    echo "   • Cosign keyless signing with GitHub OIDC"
-    echo "   • Comprehensive SBOM generation per artifact"
-    echo "   • Automated GitHub release creation"
-    echo "   • Complete supply chain security attestation"
+[windows]
+release-dry:
+    just build-rustls
+    $BINARY_PATH = "target\release\gold_digger.exe"
+    if (-not (Test-Path $BINARY_PATH)) {
+        Write-Error "Binary not found at $BINARY_PATH"
+        exit 1
+    }
+    if (Get-Command syft -ErrorAction SilentlyContinue) {
+        syft packages . -o cyclonedx-json=sbom-test.json
+    } else {
+        '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' | Out-File -FilePath sbom-test.json -Encoding UTF8
+    }
+    (Get-FileHash -Path $BINARY_PATH -Algorithm SHA256).Hash | Out-File -FilePath checksums-test.txt
+    (Get-FileHash -Path sbom-test.json -Algorithm SHA256).Hash | Add-Content -Path checksums-test.txt
+
+# =============================================================================
+# HELP & DOCUMENTATION
+# =============================================================================
 
 # Show help
 help:
-    @echo "🛠️  Gold Digger Justfile Commands:"
+    @echo "Gold Digger Justfile Commands:"
     @echo ""
     @echo "Development:"
     @echo "  setup          Set up development environment"
@@ -692,10 +579,11 @@ help:
     @echo "  fix           Run clippy with automatic fixes"
     @echo "  check         Quick development checks"
     @echo "  ci-check      Full CI equivalent checks"
+    @echo "  full-checks   Comprehensive validation (all non-destructive checks)"
     @echo ""
     @echo "Testing:"
-    @echo "  test          Run tests"
-    @echo "  test-nextest  Run tests with nextest"
+    @echo "  test          Run tests with nextest (including ignored Docker tests)"
+    @echo "  test-no-docker Run tests with nextest (excluding Docker tests)"
     @echo "  coverage      Run tests with coverage report"
     @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
     @echo "  cover         Alias for coverage-llvm (CI naming consistency)"
@@ -718,10 +606,9 @@ help:
     @echo "  act-ci-dry    Run CI workflow dry-run (simulation)"
     @echo "  act-ci        Run CI workflow locally (full execution)"
     @echo "  act-release-dry TAG  Simulate release workflow for tag"
-    @echo "  act-release-please-dry  Simulate Release Please workflow"
-    @echo "  act-release-please  Run Release Please workflow locally"
-    @echo "  act-release-please-test  Test with sample conventional commits"
-    @echo "  act-release-integration TAG  Test Release Please + release integration"
+    @echo "  act-cargo-dist-dry  Simulate cargo-dist workflow"
+    @echo "  act-cargo-dist-test  Test with sample conventional commits"
+    @echo "  act-cargo-dist-integration TAG  Test cargo-dist + release integration"
     @echo "  act-list      List all available workflows"
     @echo "  act-job JOB   Test specific workflow job"
     @echo "  act-clean     Clean act cache and containers"
@@ -745,7 +632,7 @@ help:
     @echo "Release:"
     @echo "  release-check Pre-release checklist and validation"
     @echo "  release-dry   Simulate release process locally"
-    @echo "  validate-release-please  Validate Release Please configuration"
+    @echo "  validate-cargo-dist  Validate cargo-dist configuration"
     @echo ""
     @echo "Distribution (cargo-dist):"
     @echo "  dist-init     Initialize cargo-dist configuration"
@@ -754,4 +641,4 @@ help:
     @echo "  dist-generate Generate cargo-dist installers"
     @echo "  dist-check    Validate cargo-dist configuration"
     @echo ""
-    @echo "📖 For detailed project information, see WARP.md, AGENTS.md, or .cursor/rules/"
+    @echo "For detailed project information, see WARP.md, AGENTS.md, or .cursor/rules/"

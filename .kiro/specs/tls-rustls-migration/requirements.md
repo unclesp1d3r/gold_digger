@@ -2,90 +2,130 @@
 
 ## Introduction
 
-This feature migrates Gold Digger's TLS implementation from OpenSSL/native-tls to Rust native TLS (rustls) to reduce cross-platform build complexity, improve CI reliability, and minimize the native dependency footprint while maintaining full TLS functionality and backward compatibility.
+This feature simplifies Gold Digger's TLS implementation by eliminating the native-tls dependency and standardizing on rustls-tls with platform certificate trust. The change reduces complexity while adding granular security controls for different deployment scenarios, from strict production environments to development setups with self-signed certificates.
 
 ## Requirements
 
 ### Requirement 1
 
-**User Story:** As a developer building Gold Digger, I want TLS support without OpenSSL dependencies, so that I can build consistently across platforms without complex native library setup.
+**User Story:** As a DevOps engineer, I want Gold Digger to use a single, consistent TLS implementation across all platforms, so that I have predictable behavior and fewer dependency conflicts.
 
 #### Acceptance Criteria
 
-1. WHEN building Gold Digger with TLS support THEN the build SHALL NOT require OpenSSL system libraries
-2. WHEN building on Windows THEN the build SHALL NOT require vcpkg OpenSSL installation
-3. WHEN building on Linux THEN the build SHALL NOT require system OpenSSL packages
-4. WHEN building on macOS THEN the build SHALL NOT require Homebrew OpenSSL or similar native dependencies
-5. WHEN examining the dependency tree THEN openssl-sys SHALL NOT appear as a dependency
+1. WHEN Gold Digger is built THEN it SHALL use only rustls-tls for TLS connections
+2. WHEN Gold Digger connects to a TLS-enabled database THEN it SHALL use rustls with native certificate store integration
+3. WHEN Gold Digger is deployed on any platform THEN it SHALL have consistent TLS behavior without platform-specific TLS libraries
 
 ### Requirement 2
 
-**User Story:** As a Gold Digger user, I want TLS connections to MySQL/MariaDB to work identically after the migration, so that my existing configurations and workflows remain functional.
+**User Story:** As a system administrator, I want Gold Digger to automatically trust my platform's certificate store, so that connections to databases with valid certificates work without additional configuration.
 
 #### Acceptance Criteria
 
-1. WHEN connecting to a TLS-enabled MySQL server THEN the connection SHALL succeed using rustls backend
-2. WHEN using programmatic TLS configuration via mysql::SslOpts THEN the configuration SHALL work with rustls
-3. WHEN connecting to servers requiring TLS 1.2 or higher THEN the connection SHALL succeed
-4. WHEN connecting without TLS THEN the connection SHALL work as before
-5. IF a server requires TLS 1.0 or 1.1 THEN the system SHALL provide clear error messaging about unsupported protocol versions
+1. WHEN Gold Digger connects to a database with a certificate signed by a CA in the platform trust store THEN it SHALL establish the connection successfully
+2. WHEN Gold Digger runs on Windows THEN it SHALL use the Windows certificate store for trust validation
+3. WHEN Gold Digger runs on macOS THEN it SHALL use the macOS keychain for trust validation
+4. WHEN Gold Digger runs on Linux THEN it SHALL use the system CA bundle for trust validation
 
 ### Requirement 3
 
-**User Story:** As a CI/CD maintainer, I want simplified build processes across all platforms, so that builds are faster, more reliable, and require less maintenance.
+**User Story:** As a developer working with internal infrastructure, I want to specify a custom CA file for trust anchor pinning, so that I can connect to databases with self-signed or internal CA certificates while maintaining security checks.
 
 #### Acceptance Criteria
 
-1. WHEN running CI builds on Windows THEN the build SHALL NOT require OpenSSL vcpkg setup steps
-2. WHEN running CI builds on any platform THEN OpenSSL-related environment variables SHALL NOT be required
-3. WHEN CI builds complete THEN the build time SHALL be reduced compared to OpenSSL-based builds
-4. WHEN validating dependencies THEN CI SHALL verify no OpenSSL dependencies are present in the final binary
-5. WHEN cross-compiling THEN the process SHALL be simpler without OpenSSL cross-compilation requirements
+1. WHEN I provide the `--tls-ca-file <path>` flag THEN Gold Digger SHALL use only the specified CA file for certificate validation
+2. WHEN using `--tls-ca-file` THEN Gold Digger SHALL still perform hostname verification against the certificate's SAN/CN
+3. WHEN using `--tls-ca-file` THEN Gold Digger SHALL still perform certificate expiration checks
+4. WHEN the specified CA file does not exist or is invalid THEN Gold Digger SHALL exit with error code 2 (configuration error)
 
 ### Requirement 4
 
-**User Story:** As a Gold Digger maintainer, I want to preserve existing feature flags and configuration patterns, so that users experience minimal disruption during the migration.
+**User Story:** As a developer connecting to databases with certificates that have incorrect hostnames, I want to skip hostname verification while keeping other security checks, so that I can connect to development databases with mismatched certificates.
 
 #### Acceptance Criteria
 
-1. WHEN the `ssl` feature is enabled THEN TLS functionality SHALL be available via native-tls
-2. WHEN the `ssl-rustls` feature is enabled THEN TLS functionality SHALL be available via rustls
-3. WHEN existing code uses mysql::SslOpts THEN the programmatic TLS configuration SHALL continue to work
-4. WHEN users upgrade Gold Digger THEN existing TLS configurations SHALL remain compatible
-5. IF legacy OpenSSL support is needed THEN an optional fallback feature SHALL be available
+1. WHEN I provide the `--insecure-skip-hostname-verify` flag THEN Gold Digger SHALL skip hostname/SAN verification
+2. WHEN using `--insecure-skip-hostname-verify` THEN Gold Digger SHALL still validate the certificate chain against trusted CAs
+3. WHEN using `--insecure-skip-hostname-verify` THEN Gold Digger SHALL still perform certificate expiration checks
+4. WHEN using `--insecure-skip-hostname-verify` THEN Gold Digger SHALL log a warning about the security implications
 
 ### Requirement 5
 
-**User Story:** As a security-conscious user, I want TLS certificate validation to work correctly with modern standards, so that my database connections remain secure.
+**User Story:** As a developer working in a test environment, I want to disable certificate validation entirely, so that I can connect to databases with completely invalid or self-signed certificates for testing purposes.
 
 #### Acceptance Criteria
 
-1. WHEN connecting to servers with valid certificates THEN certificate validation SHALL succeed
-2. WHEN connecting to servers with invalid certificates THEN validation SHALL fail with clear error messages
-3. WHEN using custom CA certificates THEN rustls SHALL support the configuration
-4. WHEN certificate validation fails THEN the error messages SHALL be informative and actionable
-5. WHEN using self-signed certificates in development THEN appropriate configuration options SHALL be available
+1. WHEN I provide the `--allow-invalid-certificate` flag THEN Gold Digger SHALL disable all certificate validation
+2. WHEN using `--allow-invalid-certificate` THEN Gold Digger SHALL accept any certificate without validation
+3. WHEN using `--allow-invalid-certificate` THEN Gold Digger SHALL log a prominent warning about the security risk
+4. WHEN using `--allow-invalid-certificate` THEN Gold Digger SHALL still attempt to establish a TLS connection
 
 ### Requirement 6
 
-**User Story:** As a developer creating static binaries, I want self-contained executables without runtime TLS library dependencies, so that deployment is simplified in containerized and air-gapped environments.
+**User Story:** As a user, I want the TLS security flags to be mutually exclusive, so that I cannot accidentally combine conflicting security settings.
 
 #### Acceptance Criteria
 
-1. WHEN building with static linking THEN the binary SHALL NOT require runtime OpenSSL libraries
-2. WHEN deploying to minimal container images THEN TLS functionality SHALL work without additional packages
-3. WHEN running in air-gapped environments THEN TLS certificate validation SHALL work with embedded root certificates
-4. WHEN distributing binaries THEN they SHALL be portable across systems without TLS library version concerns
-5. WHEN examining binary dependencies THEN no dynamic OpenSSL library links SHALL be present
+1. WHEN I provide multiple TLS security flags THEN Gold Digger SHALL exit with error code 2 and display a clear error message
+2. WHEN I provide `--tls-ca-file` and `--insecure-skip-hostname-verify` THEN Gold Digger SHALL reject the configuration
+3. WHEN I provide `--tls-ca-file` and `--allow-invalid-certificate` THEN Gold Digger SHALL reject the configuration
+4. WHEN I provide `--insecure-skip-hostname-verify` and `--allow-invalid-certificate` THEN Gold Digger SHALL reject the configuration
 
 ### Requirement 7
 
-**User Story:** As a Gold Digger contributor, I want clear documentation about the TLS migration, so that I understand the changes and can troubleshoot any issues.
+**User Story:** As a system administrator, I want Gold Digger to maintain backward compatibility with existing DATABASE_URL configurations, so that my existing automation scripts continue to work without modification.
 
 #### Acceptance Criteria
 
-1. WHEN reading project documentation THEN the rustls migration SHALL be clearly documented
-2. WHEN troubleshooting TLS issues THEN migration-specific guidance SHALL be available
-3. WHEN configuring TLS programmatically THEN examples SHALL show rustls-compatible patterns
-4. WHEN legacy OpenSSL support is needed THEN fallback options SHALL be documented
-5. WHEN updating from previous versions THEN migration notes SHALL explain any breaking changes
+1. WHEN Gold Digger connects using an existing DATABASE_URL with SSL parameters THEN it SHALL establish the connection using the new rustls implementation
+2. WHEN Gold Digger processes a DATABASE_URL without SSL parameters THEN it SHALL attempt a non-TLS connection as before
+3. WHEN Gold Digger encounters URL-based SSL configuration THEN it SHALL ignore unsupported URL parameters and use CLI flags for TLS configuration
+4. WHEN Gold Digger connects to a database THEN existing connection behavior SHALL remain unchanged except for the underlying TLS implementation
+
+### Requirement 8
+
+**User Story:** As a security-conscious user, I want clear feedback about TLS security settings, so that I understand the security implications of my configuration choices.
+
+#### Acceptance Criteria
+
+1. WHEN Gold Digger uses `--insecure-skip-hostname-verify` THEN it SHALL display a warning: "WARNING: Hostname verification disabled. Connection is vulnerable to man-in-the-middle attacks."
+2. WHEN Gold Digger uses `--allow-invalid-certificate` THEN it SHALL display a warning: "WARNING: Certificate validation disabled. Connection is not secure."
+3. WHEN Gold Digger uses `--tls-ca-file` THEN it SHALL log the CA file being used for validation (if verbose mode is enabled)
+4. WHEN Gold Digger establishes a TLS connection THEN it SHALL log the TLS version and cipher suite (if verbose mode is enabled)
+
+### Requirement 9
+
+**User Story:** As a developer, I want the TLS implementation to be feature-gated, so that I can build minimal versions of Gold Digger without TLS support if needed.
+
+#### Acceptance Criteria
+
+1. WHEN Gold Digger is built without TLS features THEN it SHALL compile successfully without rustls dependencies
+2. WHEN Gold Digger without TLS support encounters a TLS-required connection THEN it SHALL exit with a clear error message
+3. WHEN Gold Digger is built with TLS features THEN it SHALL include rustls-tls and rustls-native-certs by default
+4. WHEN Gold Digger is built THEN the TLS feature SHALL be enabled by default in the default feature set
+
+### Requirement 10
+
+**User Story:** As a user migrating from native-tls behavior, I want Gold Digger to handle certificate validation edge cases that worked with native-tls, so that my existing database connections continue to work despite rustls being more strict about certificate validation.
+
+#### Acceptance Criteria
+
+1. WHEN connecting to a database with an old/weak certificate that native-tls accepted THEN Gold Digger SHALL provide clear guidance on which override flag to use
+2. WHEN connecting to a database using an IP address where the certificate only has hostname SANs THEN `--insecure-skip-hostname-verify` SHALL allow the connection
+3. WHEN connecting to a database with a self-signed certificate THEN `--allow-invalid-certificate` SHALL allow the connection
+4. WHEN connecting to a database with default/placeholder certificates (e.g., "localhost" certificates on production servers) THEN the appropriate override flag SHALL allow the connection
+5. WHEN connecting to a database with expired certificates THEN `--allow-invalid-certificate` SHALL allow the connection while `--insecure-skip-hostname-verify` SHALL reject it
+6. WHEN connecting to a database with certificates using deprecated signature algorithms THEN `--allow-invalid-certificate` SHALL allow the connection
+7. WHEN a TLS connection fails due to certificate validation THEN Gold Digger SHALL suggest the appropriate override flag based on the specific validation failure
+
+### Requirement 11
+
+**User Story:** As a maintainer, I want all documentation and CI processes updated to reflect the TLS simplification, so that users and contributors understand the new TLS model and build processes work correctly.
+
+#### Acceptance Criteria
+
+1. WHEN the TLS migration is complete THEN all README.md documentation SHALL reflect the rustls-only implementation
+2. WHEN the TLS migration is complete THEN the TLS.md documentation SHALL be updated with new CLI flag usage examples
+3. WHEN the TLS migration is complete THEN CI workflows SHALL test the new TLS flags and configurations
+4. WHEN the TLS migration is complete THEN Cargo.toml feature documentation SHALL reflect the simplified TLS feature set
+5. WHEN the TLS migration is complete THEN build instructions SHALL remove references to native-tls alternatives

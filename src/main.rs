@@ -13,6 +13,33 @@ use gold_digger::rows_to_strings;
 #[cfg(feature = "ssl")]
 use gold_digger::tls::{TlsConfig, create_tls_connection};
 
+/// Redacts sensitive information from SQL error messages
+#[cfg(feature = "verbose")]
+fn redact_sql_error(message: &str) -> String {
+    // Simple redaction using string replacement for common sensitive patterns
+    let mut redacted = message.to_string();
+    let lower_msg = message.to_lowercase();
+
+    // Redact common sensitive patterns
+    if lower_msg.contains("password") {
+        redacted = redacted.replace("password", "***REDACTED***");
+    }
+    if lower_msg.contains("identified by") {
+        redacted = redacted.replace("identified by", "***REDACTED***");
+    }
+    if lower_msg.contains("token") {
+        redacted = redacted.replace("token", "***REDACTED***");
+    }
+    if lower_msg.contains("secret") {
+        redacted = redacted.replace("secret", "***REDACTED***");
+    }
+    if lower_msg.contains("key") && lower_msg.contains("=") {
+        redacted = redacted.replace("key", "***REDACTED***");
+    }
+
+    redacted
+}
+
 /// Main entry point for the gold_digger CLI tool.
 ///
 /// Parses CLI arguments and environment variables, executes a database query, and writes the output in the specified format.
@@ -64,9 +91,54 @@ fn main() {
         println!("Connecting to database...");
     }
 
-    let result: Vec<mysql::Row> = match conn.query(database_query) {
+    let result: Vec<mysql::Row> = match conn.query(&database_query) {
         Ok(result) => result,
-        Err(e) => exit_with_error(anyhow::anyhow!("Query execution failed: {}", e), None),
+        Err(e) => {
+            // Structured error matching on mysql::Error variants
+            let (context, _should_show_details) = match &e {
+                mysql::Error::MySqlError(mysql_err) => {
+                    // Map known MySQL error codes to contextual messages
+                    let context = match mysql_err.code {
+                        1064 => "SQL syntax error in query",                   // ER_PARSE_ERROR
+                        1146 => "Table does not exist",                        // ER_NO_SUCH_TABLE
+                        1054 => "Column does not exist or is ambiguous",       // ER_BAD_FIELD_ERROR
+                        1045 => "Access denied - invalid credentials",         // ER_ACCESS_DENIED_ERROR
+                        1044 => "Access denied to database",                   // ER_DBACCESS_DENIED_ERROR
+                        1142 => "Insufficient privileges for query execution", // ER_TABLEACCESS_DENIED_ERROR
+                        1143 => "Insufficient column privileges",              // ER_COLUMNACCESS_DENIED_ERROR
+                        1049 => "Unknown database",                            // ER_BAD_DB_ERROR
+                        2002 => "Connection failed - server not reachable",    // CR_CONNECTION_ERROR
+                        2003 => "Connection failed - server not responding",   // CR_CONN_HOST_ERROR
+                        2006 => "Connection lost - server has gone away",      // CR_SERVER_GONE_ERROR
+                        2013 => "Connection lost during query",                // CR_SERVER_LOST
+                        _ => "Query execution failed",
+                    };
+                    (context, true)
+                },
+                mysql::Error::IoError(_) => ("Network I/O error during query execution", false),
+                mysql::Error::UrlError(_) => ("Invalid database URL format", false),
+                mysql::Error::DriverError(_) => ("Database driver error", false),
+                _ => ("Query execution failed", false),
+            };
+
+            // Create error message with appropriate level of detail
+            let error_message = {
+                #[cfg(feature = "verbose")]
+                {
+                    if cli.verbose > 0 && _should_show_details {
+                        format!("{}: {}", context, redact_sql_error(&e.to_string()))
+                    } else {
+                        context.to_string()
+                    }
+                }
+                #[cfg(not(feature = "verbose"))]
+                {
+                    context.to_string()
+                }
+            };
+
+            exit_with_error(anyhow::anyhow!("{}", error_message), Some("Database query failed"));
+        },
     };
 
     if cli.verbose > 0 && !cli.quiet {
@@ -219,24 +291,44 @@ fn generate_completion(shell: Shell) {
     }
 }
 
-/// Dumps current configuration as JSON
+/// Dumps current configuration as JSON with proper credential redaction
 fn dump_configuration(cli: &Cli) -> Result<()> {
     use serde_json::json;
 
+    // Safely redact query content that might contain sensitive data
+    let query_from_env = env::var("DATABASE_QUERY").ok();
+    let redacted_query = cli
+        .query
+        .as_ref()
+        .or(query_from_env.as_ref())
+        .map(|q| {
+            // Redact potential passwords in SQL queries
+            if q.to_lowercase().contains("password") || q.to_lowercase().contains("identified by") {
+                "***QUERY_WITH_CREDENTIALS_REDACTED***".to_string()
+            } else {
+                q.clone()
+            }
+        })
+        .unwrap_or_default();
+
     let config = json!({
-        "database_url": if cli.db_url.is_some() {
-            "***REDACTED***".to_string()
-        } else {
-            env::var("DATABASE_URL").map(|_| "***REDACTED***".to_string()).unwrap_or("null".to_string())
-        },
-        "query": cli.query.as_ref().unwrap_or(&env::var("DATABASE_QUERY").unwrap_or_default()),
+        "database_url": "***REDACTED***", // Always redact database URLs
+        "query": redacted_query,
         "query_file": cli.query_file.as_ref().map(|p| p.display().to_string()),
         "output": cli.output.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| env::var("OUTPUT_FILE").unwrap_or_default()),
         "format": cli.format.as_ref().map(|f| f.as_str()),
         "verbose": cli.verbose,
         "quiet": cli.quiet,
         "pretty": cli.pretty,
-        "allow_empty": cli.allow_empty
+        "allow_empty": cli.allow_empty,
+        "features": {
+            "ssl": cfg!(feature = "ssl"),
+            "ssl_rustls": cfg!(feature = "ssl-rustls"),
+            "json": cfg!(feature = "json"),
+            "csv": cfg!(feature = "csv"),
+            "verbose": cfg!(feature = "verbose"),
+            "additional_mysql_types": cfg!(feature = "additional_mysql_types")
+        }
     });
 
     println!("{}", serde_json::to_string_pretty(&config)?);
@@ -279,5 +371,24 @@ mod tests {
         let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());
+    }
+
+    #[cfg(feature = "verbose")]
+    #[test]
+    fn test_redact_sql_error() {
+        // Test that sensitive information is redacted from error messages
+        let error_with_password = "Error: Access denied for user 'test' (using password: YES)";
+        let redacted = redact_sql_error(error_with_password);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("password"));
+
+        let error_with_identified_by = "Error: CREATE USER failed with identified by 'secret123'";
+        let redacted = redact_sql_error(error_with_identified_by);
+        assert!(redacted.contains("***REDACTED***"));
+        assert!(!redacted.contains("identified by"));
+
+        let normal_error = "Error: Table 'test.users' doesn't exist";
+        let redacted = redact_sql_error(normal_error);
+        assert_eq!(redacted, normal_error); // Should be unchanged
     }
 }

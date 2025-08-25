@@ -23,6 +23,50 @@ alwaysApply: true
 - Public functions in modules should be documented with doc comments (`///`).
 - Use `pub mod` in [`lib.rs`](mdc:src/lib.rs) to expose modules.
 
+## 🚨 Critical Safety Rules
+
+### Database Value Conversion (PANIC RISK)
+
+```rust
+// ❌ NEVER - causes panics on NULL/non-string types
+from_value::<String>(row[column.name_str().as_ref()])
+
+// ✅ ALWAYS - safe NULL handling
+match &row[column.name_str().as_ref()] {
+    mysql::Value::NULL => "".to_string(),
+    val => from_value_opt::<String>(val)
+        .unwrap_or_else(|_| format!("{:?}", val))
+}
+```
+
+### Security (NEVER VIOLATE)
+
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
+
+## Configuration Architecture
+
+### CLI-First Resolution Pattern
+
+```rust
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone())                    // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value)                           // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration")  // Error if neither
+    }
+}
+```
+
+### Configuration Precedence
+
+1. CLI flags (highest priority)
+2. Environment variables (fallback)
+3. Error if neither provided
+
 ## Error Handling Patterns
 
 - Use `anyhow::Result<T>` for application binaries and `thiserror` (or library-specific error types) for library crates
@@ -33,34 +77,43 @@ alwaysApply: true
 - Avoid panics in production code; prefer returning errors. Only use `panic!` for unrecoverable, truly exceptional cases
 - Library crates must return Result-based errors instead of panicking (including in tests) to avoid surprising consumers
 
-## Code Quality Standards (Zero Tolerance)
+## Project File Organization
 
-### Quality Gates (Required Before Commits)
+### Configuration Files
 
-```bash
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit + cargo deny + grype (comprehensive security scanning)
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
+
+### Development Automation
+
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
+
+### Documentation Standards
+
+Required for all public functions using `///`:
+
+```rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
 ```
-
-All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
-
-### Commit Standards
-
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`, `(ci)`, `(infra/security)`
-- **Note:** For the complete and up-to-date list of scopes, see [`CONTRIBUTING.md`](mdc:CONTRIBUTING.md#commit-messages) which serves as the canonical source of truth for commit conventions.
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
-
-### Code Quality Requirements
-
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin` (see coverage guidelines below)
 
 ### Code Style
 

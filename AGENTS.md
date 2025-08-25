@@ -14,25 +14,87 @@ Gold Digger is a Rust-based MySQL/MariaDB query tool that outputs results in CSV
 - Single-maintainer project by UncleSp1d3r
 - Under active development toward v1.0
 
-## Critical Knowledge for AI Assistants
+## 🚨 Critical Safety Rules
 
-### 🚨 Critical Issues to Know
+### Database Value Conversion (PANIC RISK)
 
-1. **Type Conversion Panics:** `rows_to_strings()` uses `mysql::from_value::<String>()` which will panic on NULL values or non-string types (numbers, dates, binary data). Always recommend casting in SQL: `CAST(column AS CHAR)`
+```rust
+// ❌ NEVER - causes panics on NULL/non-string types
+// from_value::<String>(row[column.name_str().as_ref()])
+// Use mysql_value_to_string() for CSV/TSV or mysql_value_to_json() for JSON instead
 
-2. **No Dotenv Support:** Despite README implications, there is no `.env` file support in the code. Use exported environment variables only.
+// ✅ ALWAYS - safe NULL handling with dedicated helpers
 
-3. **Non-Standard Exit Codes:** `exit(-1)` becomes exit code 255, not the standard codes specified in requirements.
+/// Converts MySQL value to String for CSV/TSV output
+fn mysql_value_to_string(mysql_value: &mysql::Value) -> String {
+    match mysql_value {
+        mysql::Value::NULL => "".to_string(),
+        val => from_value_opt::<String>(val.clone()).unwrap_or_else(|_| format!("{:?}", val)),
+    }
+}
 
-4. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
+/// Converts MySQL value to serde_json::Value for JSON output
+fn mysql_value_to_json(mysql_value: &mysql::Value) -> serde_json::Value {
+    match mysql_value {
+        mysql::Value::NULL => serde_json::Value::Null,
+        val => from_value_opt::<String>(val.clone())
+            .map(serde_json::Value::String)
+            .unwrap_or_else(|_| serde_json::Value::String(format!("{:?}", val))),
+    }
+}
 
-5. **Pattern Matching Bug:** In `src/main.rs`, the `if let Some(url) = &cli.db_url` pattern (and similar patterns in the resolve functions) uses `Some(&_)` which should be `Some(_)` in the match arm. This pattern appears in the option value matching constructs throughout the resolve functions.
+// Usage per output format:
+// - CSV/TSV: mysql_value_to_string(&mysql_value)
+// - JSON: mysql_value_to_json(&mysql_value)
+```
 
-### Environment Variables (Required)
+### Security (NEVER VIOLATE)
 
-- `OUTPUT_FILE`: Path to output file (extension determines format: .csv, .json, or defaults to TSV)
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
+
+### Other Critical Issues
+
+1. **No Dotenv Support:** Despite README implications, there is no `.env` file support in the code. Use exported environment variables only.
+
+2. **Non-Standard Exit Codes:** `exit(-1)` becomes exit code 255, not the standard codes specified in requirements.
+
+3. **JSON Output:** Uses BTreeMap for deterministic key ordering as required.
+
+4. **Pattern Matching Bug:** In `src/main.rs`, the `if let Some(url) = &cli.db_url` pattern (and similar patterns in the resolve functions) uses `Some(&_)` which should be `Some(_)` in the match arm.
+
+### Configuration Architecture
+
+Gold Digger uses CLI-first configuration with environment variable fallbacks:
+
+**CLI Flags (Highest Priority):**
+
+- `--db-url <URL>`: Database connection (overrides `DATABASE_URL`)
+- `--query <SQL>`: Inline SQL (mutually exclusive with `--query-file`)
+- `--query-file <FILE>`: SQL from file (mutually exclusive with `--query`)
+- `--output <FILE>`: Output path (overrides `OUTPUT_FILE`)
+- `--format <FORMAT>`: Force format (csv|json|tsv)
+
+**Environment Variables (Fallback):**
+
 - `DATABASE_URL`: MySQL/MariaDB connection string with optional SSL parameters
 - `DATABASE_QUERY`: SQL query string to execute
+- `OUTPUT_FILE`: Path to output file (extension determines format: .csv, .json, or defaults to TSV)
+
+**Resolution Pattern:**
+
+```rust
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone()) // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value) // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration") // Error if neither
+    }
+}
+```
 
 ### Current Architecture
 
@@ -82,7 +144,6 @@ cargo run --release
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
 - `ssl`: MySQL native TLS support using platform-native libraries (SChannel on Windows, SecureTransport on macOS, may use OpenSSL on Linux)
 - `ssl-rustls`: Pure Rust TLS implementation (alternative to native TLS)
-- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
 
@@ -105,34 +166,43 @@ The project has detailed requirements in `project_spec/requirements.md` but sign
 - **F008:** Structured logging with credential redaction
 - **F010:** JSON output uses BTreeMap for deterministic ordering, pretty-print option
 
-## Code Quality Standards
+## Project File Organization
 
-### Quality Gates (Required Before Commits)
+### Configuration Files
 
-```bash
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit (advisory)
-```
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
 
-All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+### Development Automation
 
-### Commit Standards
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
+### Documentation Standards
 
-### Code Quality Requirements
+All public functions require comprehensive doc comments:
 
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
-- **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
+````rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
+````
 
 ### Security Requirements
 

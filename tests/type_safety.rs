@@ -1,15 +1,21 @@
 use gold_digger::rows_to_strings;
 use mysql::prelude::Queryable;
 use std::time::Instant;
-use testcontainers::runners::SyncRunner;
-use testcontainers_modules::mysql::Mysql;
+use testcontainers_modules::{mysql::Mysql, testcontainers::runners::SyncRunner};
+
+/// Check if running in CI environment
+fn is_ci() -> bool {
+    std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok()
+}
 
 /// Test type conversion safety with real MySQL data types
 /// This test verifies that the rows_to_strings function handles all MySQL data types safely
 /// without panicking on NULL values or non-string types
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_type_conversion_safety_with_real_database() {
+    if is_ci() {
+        return;
+    }
     // Start a MySQL container for testing
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
@@ -125,8 +131,10 @@ fn test_type_conversion_safety_with_real_database() {
 
 /// Test edge cases with special characters and unicode
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_special_characters_and_unicode() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -190,8 +198,10 @@ fn test_special_characters_and_unicode() {
 
 /// Test large numbers and precision
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_large_numbers_and_precision() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -255,8 +265,10 @@ fn test_large_numbers_and_precision() {
 
 /// Test that the function handles empty result sets gracefully
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_empty_result_set() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -278,8 +290,10 @@ fn test_empty_result_set() {
 
 /// Test that the function handles single row results correctly
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_single_row_result() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -302,8 +316,10 @@ fn test_single_row_result() {
 /// This test specifically validates that NULL values and type conversions are handled gracefully
 /// and that the dangerous `row[column.name_str().as_ref()]` pattern has been eliminated
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_null_and_type_conversion_safety() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -397,8 +413,10 @@ fn test_null_and_type_conversion_safety() {
 /// Test memory efficiency and performance characteristics
 /// This test validates that the function doesn't have excessive memory overhead
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_memory_efficiency_with_large_dataset() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -450,8 +468,10 @@ fn test_memory_efficiency_with_large_dataset() {
 /// Test that specifically validates the fix for the dangerous indexed access pattern
 /// This test creates scenarios that would cause the old `row[column.name_str().as_ref()]` to panic
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_indexed_access_safety_fix() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)
@@ -535,8 +555,10 @@ fn test_indexed_access_safety_fix() {
 
 /// Test error handling and edge cases that could cause panics
 #[test]
-#[ignore = "requires Docker and MySQL image"]
 fn test_error_handling_edge_cases() {
+    if is_ci() {
+        return;
+    }
     let mysql_container = Mysql::default().start().expect("Failed to start MySQL container");
     let host_port = mysql_container
         .get_host_port_ipv4(3306)

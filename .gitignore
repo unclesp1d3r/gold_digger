@@ -83,6 +83,12 @@ Cargo.lock
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,macos,visualstudiocode,rider
 
+# SBOM files - generated during CI/release, not committed to source
+sbom.json.xml
+*.cdx.xml
+cyclonedx*.xml
+target/sbom*
+
 # Coverage files
 lcov.info
 coverage/
@@ -97,3 +103,14 @@ node_modules/
 
 # Generated documentation
 docs/book/
+
+# Environment files for local development
+# Ignore all .env files except example templates
+.env
+.env.*
+!.env.example
+!.env.sample
+.env.local
+.env.*.local
+.envrc
+.direnv/

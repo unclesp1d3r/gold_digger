@@ -4,21 +4,23 @@
 
 Gold Digger is a Rust MySQL/MariaDB query tool that outputs structured data (CSV/JSON/TSV) via environment variables. It's designed for headless database automation workflows.
 
-## Critical Code Patterns to Follow
+## 🚨 Critical Safety Rules
 
-### 🚨 CRITICAL: Type Conversion Safety
+### Database Value Conversion (PANIC RISK)
 
 The current `rows_to_strings()` function in `src/lib.rs` uses `mysql::from_value::<String>()` which **WILL PANIC** on NULL values or non-string types. When suggesting code or queries:
 
 ```rust
-// ❌ NEVER suggest this - will panic on NULL/numeric values
-from_value::<String>(row[column_name])
+// ❌ NEVER - causes panics on NULL/non-string types
+from_value::<String>(row[column.name_str().as_ref()])
 
-// ✅ Always implement safe conversion or recommend SQL casting
-match row[column_name] {
-    mysql::Value::NULL => "".to_string(),
+// ✅ ALWAYS - safe NULL handling
+match mysql_value {
+    mysql::Value::NULL => match output_format {
+        OutputFormat::Json => serde_json::Value::Null,
+        _ => "".to_string()
+    },
     val => from_value_opt::<String>(val)
-        .map(|s| s)
         .unwrap_or_else(|_| format!("{:?}", val))
 }
 ```
@@ -26,14 +28,25 @@ match row[column_name] {
 For SQL queries, always suggest casting:
 
 ```sql
--- ✅ Safe approach
+-- ✅ Safe approach - always recommend SQL CAST(column AS CHAR) for type safety
 SELECT CAST(id AS CHAR) as id, CAST(created_at AS CHAR) as created_at FROM users;
 ```
 
-### Environment Variable Patterns
+### Configuration Resolution Pattern
 
 ```rust
-// ✅ Current pattern for required env vars
+// ✅ Recommended pattern for CLI-first configuration
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone())                    // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value)                           // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration")  // Error if neither
+    }
+}
+
+// ✅ Current legacy pattern (environment-only)
 let output_file = match env::var("OUTPUT_FILE") {
     Ok(val) => val,
     Err(_) => {
@@ -71,42 +84,51 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 2. **JSON Non-determinism:** Uses HashMap instead of BTreeMap
 3. **Exit Codes:** Uses `exit(-1)` instead of proper error codes
 
-## Code Quality Requirements (Zero Tolerance)
+## Project File Organization
 
-### Quality Gates (Required Before Commits)
+### Configuration Files
 
-```bash
-just fmt-check    # cargo fmt --check (100-char line limit)
-just lint         # cargo clippy -- -D warnings (zero tolerance)
-just test         # cargo nextest run (preferred) or cargo test
-just security     # cargo audit (advisory)
-```
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
 
-All recipes use `cd {{justfile_dir()}}` and support cross-platform execution.
+### Development Automation
 
-### Commit Standards
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
+### Documentation Standards
 
-### Code Quality Requirements
+- **Doc comments**: Required for all public functions using `///`
+- **Module documentation**: Each module should have a module-level doc comment
+- **Example usage**: Include examples in doc comments where helpful
 
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
+````rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
+````
 
-## Security Rules (Non-Negotiable)
+### Security (NEVER VIOLATE)
 
-### Critical Security Requirements
-
-1. **Never log credentials:** Implement redaction for `DATABASE_URL` and secrets
-2. **No hardcoded secrets:** Use environment variables or GitHub OIDC
-3. **Vulnerability policy:** Block releases with critical vulnerabilities
-4. **Airgap compatibility:** No telemetry or external calls in production
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
 
 ```rust
 // ❌ NEVER do this
@@ -115,6 +137,12 @@ println!("Connecting to {}", database_url);
 // ✅ Always redact
 println!("Connecting to database...");
 ```
+
+## 🚨 Critical Security Rules (NEVER VIOLATE)
+
+1. **No hardcoded secrets:** Use environment variables or GitHub OIDC
+2. **Vulnerability policy:** Block releases with critical vulnerabilities
+3. **Airgap compatibility:** No telemetry or external calls in production
 
 ### Error Handling Patterns
 
@@ -137,6 +165,15 @@ match get_extension_from_filename(&output_file) {
     None => { /* exits 255 */ }
 }
 ```
+
+### TLS Configuration
+
+Gold Digger supports two TLS implementations:
+
+- **Default: Native TLS** (`ssl` feature) - Uses platform-native TLS libraries (SChannel on Windows, SecureTransport on macOS, system TLS on Linux)
+- **Alternative: Pure Rust TLS** (`ssl-rustls` feature) - Pure Rust implementation for consistent cross-platform behavior
+
+**Important**: These features are mutually exclusive. The deprecated `vendored` feature has been removed.
 
 ### Adding Dependencies
 

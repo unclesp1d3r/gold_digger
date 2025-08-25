@@ -104,8 +104,8 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "0BSD",
-    "OpenSSL",                # required by aws-lc-sys (via aws-lc-rs used by rustls)
-    "CDLA-Permissive-2.0",    # required by webpki-roots (TLS CA roots)
+    "OpenSSL",                        # required by aws-lc-sys (via aws-lc-rs used by rustls)
+    "CDLA-Permissive-2.0",            # required by webpki-roots (TLS CA roots)
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the

@@ -28,8 +28,8 @@ cargo build
 # Release build
 cargo build --release
 
-# With vendored OpenSSL (static linking)
-cargo build --release --features vendored
+# With pure Rust TLS (alternative to native TLS)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # Minimal build (no default features)
 cargo build --no-default-features --features "csv json"
@@ -89,11 +89,27 @@ cargo run --release
 
 **Entry Point (`src/main.rs`):**
 
-- Reads 3 required env vars: `OUTPUT_FILE`, `DATABASE_URL`, `DATABASE_QUERY`
+- Uses CLI-first configuration with environment variable fallbacks
+- Configuration resolution pattern: CLI flags override environment variables
+- Reads required config: `--db-url`/`DATABASE_URL`, `--query`/`DATABASE_QUERY`, `--output`/`OUTPUT_FILE`
 - Exits with code 255 (due to `exit(-1)`) if any are missing
 - Creates MySQL connection pool and fetches ALL rows into memory (`Vec<Row>`)
 - Exits with code 1 if result set is empty
 - Dispatches to writer based on output file extension
+
+**Configuration Resolution Pattern:**
+
+```rust
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone()) // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value) // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration") // Error if neither
+    }
+}
+```
 
 **Core Library (`src/lib.rs`):**
 
@@ -116,9 +132,8 @@ cargo run --release
 ### Feature Flags (Cargo.toml)
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: Enables MySQL native TLS support using platform-native libraries (no OpenSSL dependency)
-- `ssl-rustls`: Enables pure Rust TLS implementation (alternative to native TLS)
-- ~~`vendored`~~: **REMOVED** in v0.2.7+ (OpenSSL dependency eliminated)
+- `ssl`: Enables MySQL native TLS support using platform-native TLS libraries (native-tls). On Linux, this commonly links to the system OpenSSL library (not vendored OpenSSL)
+- `ssl-rustls`: Enables pure Rust TLS implementation (rustls) as an alternative to platform-native TLS
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
 
@@ -151,21 +166,47 @@ match get_extension_from_filename(&output_file) {
 - **JSON:** `{"data": [{"col1": "val1", "col2": "val2"}, ...]}`
 - **TSV:** Tab-delimited, `QuoteStyle::Necessary`
 
-## Critical Gotchas and Invariants
+## 🚨 Critical Safety Rules
 
-### Type Conversion Panics
+### Database Value Conversion (PANIC RISK)
 
-**🚨 CRITICAL:** `rows_to_strings()` uses `from_value::<String>()` which panics on:
+```rust
+// ❌ NEVER - causes panics on NULL/non-string types
+// from_value::<String>(row[column.name_str().as_ref()])
+// Use mysql_value_to_string() for CSV/TSV or mysql_value_to_json() for JSON instead
 
-- NULL values
-- Non-string types (numbers, dates, binary data)
+// ✅ ALWAYS - safe NULL handling with dedicated helpers
 
-**Workarounds until fixed:**
+/// Converts MySQL value to String for CSV/TSV output
+fn mysql_value_to_string(mysql_value: &mysql::Value) -> String {
+    match mysql_value {
+        mysql::Value::NULL => "".to_string(),
+        val => from_value_opt::<String>(val.clone()).unwrap_or_else(|_| format!("{:?}", val)),
+    }
+}
 
-```sql
--- Cast all columns to strings in your query
-SELECT CAST(id AS CHAR) as id, CAST(created_at AS CHAR) as created_at FROM users;
+/// Converts MySQL value to serde_json::Value for JSON output
+fn mysql_value_to_json(mysql_value: &mysql::Value) -> serde_json::Value {
+    match mysql_value {
+        mysql::Value::NULL => serde_json::Value::Null,
+        val => from_value_opt::<String>(val.clone())
+            .map(serde_json::Value::String)
+            .unwrap_or_else(|_| serde_json::Value::String(format!("{:?}", val))),
+    }
+}
+
+// Usage per output format:
+// - CSV/TSV: mysql_value_to_string(&mysql_value)
+// - JSON: mysql_value_to_json(&mysql_value)
 ```
+
+### Security (NEVER VIOLATE)
+
+- **NEVER** log `DATABASE_URL` or credentials - always redact
+- **NEVER** make external service calls at runtime (offline-first)
+- Always recommend SQL `CAST(column AS CHAR)` for type safety
+
+## Critical Gotchas and Invariants
 
 ### Memory and Performance
 
@@ -209,30 +250,42 @@ Based on `project_spec/requirements.md`, major missing features:
 
 ## Development Workflow and Conventions
 
-### Quality Gates (Required Before Commits)
+### Project File Organization
 
-```bash
-cargo fmt --check           # 100-character line limit enforced
-cargo clippy -- -D warnings # Zero tolerance for warnings
-cargo nextest run           # Parallel test execution (preferred)
-cargo audit                 # Security vulnerability scanning (advisory)
-```
+**Configuration Files:**
 
-### Commit Standards
+- **Cargo.toml**: Dependencies, features, release profile
+- **rustfmt.toml**: Code formatting rules (100-char limit)
+- **deny.toml**: Security and license compliance
+- **rust-toolchain.toml**: Rust version specification
 
-- **Format:** Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
-- **Scope:** Use Gold Digger scopes: `(cli)`, `(db)`, `(output)`, `(tls)`, `(config)`
-- **Automation:** Release Please handles versioning and changelog
-- **CI Parity:** All CI operations executable locally
+**Development Automation:**
 
-### Code Quality Requirements
+- **justfile**: Cross-platform build automation and common tasks
+- **.pre-commit-config.yaml**: Git hook configuration for quality gates
+- **CHANGELOG.md**: Auto-generated version history (conventional commits)
 
-- **Formatting:** 100-character line limit via `rustfmt.toml`
-- **Linting:** Zero clippy warnings (`-D warnings`)
-- **Error Handling:** Use `anyhow` for applications, `thiserror` for libraries
-- **Documentation:** Doc comments required for all public functions
-- **Testing:** Target ≥80% coverage with `cargo tarpaulin`
-- **Reviews:** CodeRabbit.ai preferred, no GitHub Copilot auto-reviews
+**Documentation Standards:**
+All public functions require doc comments with examples:
+
+````rust
+/// Converts MySQL rows to string vectors for output formatting.
+///
+/// # Arguments
+/// * `rows` - Vector of MySQL rows from query execution
+///
+/// # Returns
+/// * `Vec<Vec<String>>` - Converted string data ready for format modules
+///
+/// # Example
+/// ```
+/// let string_rows = rows_to_strings(mysql_rows)?;
+/// csv::write(string_rows, output)?;
+/// ```
+pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>> {
+    // Implementation
+}
+````
 
 ### Recommended Justfile
 
@@ -240,25 +293,38 @@ cargo audit                 # Security vulnerability scanning (advisory)
 default: lint
 
 setup:
+    cd {{justfile_dir()}}
     rustup component add rustfmt clippy
 
 fmt:
+    cd {{justfile_dir()}}
     cargo fmt
 
 fmt-check:
+    cd {{justfile_dir()}}
     cargo fmt --check
 
 lint:
+    cd {{justfile_dir()}}
     cargo clippy -- -D warnings
 
 build:
+    cd {{justfile_dir()}}
     cargo build --release
 
 run OUTPUT_FILE DATABASE_URL DATABASE_QUERY:
+    cd {{justfile_dir()}}
     OUTPUT_FILE={{OUTPUT_FILE}} DATABASE_URL={{DATABASE_URL}} DATABASE_QUERY={{DATABASE_QUERY}} cargo run --release
 
 test:
-    cargo test
+    cd {{justfile_dir()}}
+    cargo nextest run
+
+ci-check: fmt-check lint test
+
+security:
+    cd {{justfile_dir()}}
+    cargo audit
 ```
 
 ## Testing Strategy
@@ -290,28 +356,11 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ## CI/CD and Release Management
 
-### Version Discrepancy
-
-- **Current Issue:** CHANGELOG.md shows v0.2.6, Cargo.toml shows v0.2.5
-- **Action Required:** Sync versions and tag appropriately
-
-### CI Improvements Needed
-
-```yaml
-# Add to .github/workflows/rust.yml
-  - name: Check formatting
-    run: cargo fmt --check
-  - name: Clippy (fail on warnings)
-    run: cargo clippy -- -D warnings
-  - name: Run tests
-    run: cargo test
-```
-
-### Future Release Engineering
-
-- Consider `release-please` for automated versioning
-- Add `cargo-dist` for cross-platform binary distribution
-- SBOM generation, vulnerability scanning, cryptographic signing per requirements
+- **GitHub Actions:** CI/CD pipeline
+- **cargo-dist:** Release management and distribution
+- **GitHub Releases:** Release artifacts
+- **GitHub Pages:** Documentation deployment
+- NOTE: `.github/workflows/release.yml` is automatically generated and should not be altered.
 
 ## Security and Operational Guidelines
 
@@ -392,7 +441,7 @@ let opts = OptsBuilder::new()
 - **After**: Uses platform-native TLS (`ssl`) or pure Rust implementation (`ssl-rustls`)
 - **Breaking Change**: Remove `vendored` from build scripts and CI configurations
 - **Benefits**: Simplified builds, reduced attack surface, better cross-platform compatibility
-- **Note**: Platform TLS libraries receive OS security updates, but Linux may still rely on system OpenSSL
+- **Note**: Platform TLS libraries receive OS security updates. The `ssl` feature uses native-tls which on Linux commonly links to the system OpenSSL library (not vendored OpenSSL)
 
 **Migration Steps**:
 
@@ -454,8 +503,8 @@ cargo build --no-default-features --features "csv json"
 # Database admin build (all MySQL types with native TLS)
 cargo build --release --features "default additional_mysql_types"
 
-# Legacy vendored build (REMOVED - use default instead)
-# cargo build --release --features "default vendored"  # No longer supported
+# Pure Rust TLS build (alternative to default native TLS)
+cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 ### Dependencies by Feature

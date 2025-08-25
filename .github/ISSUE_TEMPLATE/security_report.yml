@@ -92,7 +92,7 @@ body:
     attributes:
       label: Enabled Features
       description: Features enabled during testing
-      placeholder: e.g., "default", "ssl vendored", "csv json ssl"
+      placeholder: e.g., "default", "ssl-rustls", "csv json ssl"
 
   - type: textarea
     id: steps-to-reproduce

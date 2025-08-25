@@ -62,7 +62,7 @@ just setup
 # Or install manually:
 rustup component add rustfmt clippy
 cargo install cargo-nextest --locked
-cargo install cargo-tarpaulin --locked
+cargo install cargo-llvm-cov --locked
 cargo install cargo-audit --locked
 cargo install cargo-deny --locked
 ```
@@ -122,13 +122,13 @@ pre-commit run --all-files
 
 ### Essential Tools
 
-| Tool              | Purpose                                 | Installation                    |
-| ----------------- | --------------------------------------- | ------------------------------- |
-| `cargo-nextest`   | Fast parallel test runner               | `cargo install cargo-nextest`   |
-| `cargo-tarpaulin` | Code coverage analysis                  | `cargo install cargo-tarpaulin` |
-| `cargo-audit`     | Security vulnerability scanning         | `cargo install cargo-audit`     |
-| `cargo-deny`      | License and security policy enforcement | `cargo install cargo-deny`      |
-| `just`            | Task runner (like make)                 | `cargo install just`            |
+| Tool             | Purpose                                 | Installation                   |
+| ---------------- | --------------------------------------- | ------------------------------ |
+| `cargo-nextest`  | Fast parallel test runner               | `cargo install cargo-nextest`  |
+| `cargo-llvm-cov` | Code coverage analysis (cross-platform) | `cargo install cargo-llvm-cov` |
+| `cargo-audit`    | Security vulnerability scanning         | `cargo install cargo-audit`    |
+| `cargo-deny`     | License and security policy enforcement | `cargo install cargo-deny`     |
+| `just`           | Task runner (like make)                 | `cargo install just`           |
 
 ### Optional Tools
 
@@ -467,20 +467,52 @@ just act-ci-dry
 just act-ci
 ```
 
+### Environment Configuration
+
+Create a `.env.local` file in the project root to store tokens and secrets for local testing:
+
+```bash
+# .env.local
+GITHUB_TOKEN=ghp_your_github_token_here
+CODECOV_TOKEN=your_codecov_token_here
+DATABASE_URL=mysql://user:pass@localhost:3306/testdb
+```
+
+**Important**: Never commit `.env.local` to version control. It's already added to `.gitignore`.
+
+### Running Workflows with Environment Files
+
+```bash
+# Test CI workflow with environment file
+act --env-file .env.local
+
+# Test specific job
+act -j validate --env-file .env.local
+
+# Test with secrets
+act --env-file .env.local -s GITHUB_TOKEN=ghp_xxx -s CODECOV_TOKEN=xxx
+
+# Dry run (simulation only)
+act --dryrun --env-file .env.local
+
+# Test release workflow
+act workflow_dispatch --env-file .env.local -s GITHUB_TOKEN=ghp_xxx --input tag=v0.test.1
+```
+
 ### Workflow Testing
 
 ```bash
 # Test specific job
-just act-job ci
+just act-job validate
 
 # Test release workflow
 just act-release-dry v1.0.0
 
-# Test Release Please workflow
-just act-release-please-dry
+# Test cargo-dist workflow
+just dist-plan
 
-# Test Release Please integration with release workflow
-just act-release-please-test
+# Build cargo-dist artifacts locally
+just dist-build
 
 # Clean up act containers
 just act-clean

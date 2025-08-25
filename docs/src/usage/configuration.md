@@ -37,6 +37,8 @@ gold_digger \
 | `--quiet`             | -     | -                    | Suppress non-error output                              |
 | `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
 | `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+| `--help`              | `-h`  | -                    | Print help information                                 |
+| `--version`           | `-V`  | -                    | Print version information                              |
 
 ### Subcommands
 
@@ -168,14 +170,72 @@ gold_digger --db-url "mysql://user:pass@host:3306/db" \
 
 # Example output:
 {
-  "database_url": "mysql://user:***@host:3306/db",
+  "database_url": "***REDACTED***",
   "query": "SELECT 1",
-  "output_file": "test.json",
+  "query_file": null,
+  "output": "test.json",
   "format": "json",
   "verbose": 0,
   "quiet": false,
   "pretty": false,
-  "allow_empty": false
+  "allow_empty": false,
+  "features": {
+    "ssl": true,
+    "ssl_rustls": false,
+    "json": true,
+    "csv": true,
+    "verbose": true,
+    "additional_mysql_types": true
+  }
+}
+```
+
+### Shell Completion Setup
+
+Generate and install shell completions for improved CLI experience:
+
+```bash
+# Bash completion
+gold_digger completion bash > ~/.bash_completion.d/gold_digger
+source ~/.bash_completion.d/gold_digger
+
+# Zsh completion
+gold_digger completion zsh > ~/.zsh/completions/_gold_digger
+# Add to ~/.zshrc: fpath=(~/.zsh/completions $fpath)
+
+# Fish completion
+gold_digger completion fish > ~/.config/fish/completions/gold_digger.fish
+
+# PowerShell completion
+gold_digger completion powershell >> $PROFILE
+```
+
+### Pretty JSON Output
+
+Enable pretty-printed JSON for better readability:
+
+```bash
+# Compact JSON (default)
+gold_digger --query "SELECT id, name FROM users LIMIT 3" --output compact.json
+
+# Pretty-printed JSON
+gold_digger --query "SELECT id, name FROM users LIMIT 3" --output pretty.json --pretty
+```
+
+**Example:**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Alice"
+    },
+    {
+      "id": 2,
+      "name": "Bob"
+    }
+  ]
 }
 ```
 

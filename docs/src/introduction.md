@@ -21,10 +21,13 @@ Gold Digger is a command-line tool designed for extracting data from MySQL and M
 
 ## Key Features
 
-- **Fast Performance**: Efficient Rust implementation with connection pooling
+- **CLI-First Design**: Command-line flags with environment variable fallbacks
+- **Safe Type Handling**: Automatic NULL and type conversion without panics
+- **Multiple Output Formats**: CSV (RFC 4180), JSON with type inference, TSV
 - **Secure by Default**: Automatic credential redaction and TLS support
-- **Flexible Output**: Choose between CSV, JSON, or TSV formats
-- **Type Safe**: Proper handling of NULL values and type conversions
+- **Structured Exit Codes**: Proper error codes for automation and scripting
+- **Shell Integration**: Completion support for Bash, Zsh, Fish, PowerShell
+- **Configuration Debugging**: JSON config dump with credential protection
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Getting Help
