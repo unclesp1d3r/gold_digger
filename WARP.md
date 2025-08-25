@@ -28,8 +28,8 @@ cargo build
 # Release build
 cargo build --release
 
-# With pure Rust TLS (alternative to native TLS)
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+# Standard build with rustls TLS (default)
+cargo build --release
 
 # Minimal build (no default features)
 cargo build --no-default-features --features "csv json"
@@ -85,7 +85,7 @@ cargo run --release
 
 ## Architecture and Data Flow
 
-### Current Implementation (v0.2.5)
+### Current Implementation (v0.2.6)
 
 **Entry Point (`src/main.rs`):**
 
@@ -132,12 +132,9 @@ fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
 ### Feature Flags (Cargo.toml)
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: Enables MySQL native TLS support using platform-native TLS libraries (native-tls). On Linux, this commonly links to the system OpenSSL library (not vendored OpenSSL)
-- `ssl-rustls`: Enables pure Rust TLS implementation (rustls) as an alternative to platform-native TLS
+- `ssl`: Enables rustls-based TLS support with platform certificate store integration
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
-
-**Note**: `ssl` and `ssl-rustls` are mutually exclusive. Use one or the other, not both.
 
 ## Output Format Dispatch and Edge Cases
 
@@ -381,32 +378,21 @@ testcontainers = "0.15"                                      # For real MySQL/Ma
 
 ### TLS Configuration
 
-Gold Digger supports two TLS implementations to eliminate OpenSSL dependencies while maintaining secure database connections:
+Gold Digger uses a simplified, rustls-only TLS implementation with platform certificate store integration:
 
-#### Default: Native TLS (Recommended)
+#### Single TLS Implementation
 
 - **Feature flag**: `ssl` (enabled by default)
-- **Implementation**: `mysql/native-tls` using platform-native TLS libraries
-- **No OpenSSL dependency**: Uses system-provided TLS implementations
-  - **Windows**: SChannel (built-in Windows TLS stack)
-  - **macOS**: SecureTransport (built-in macOS TLS stack)
-  - **Linux**: System's native TLS implementation (typically GnuTLS or similar)
-
-#### Alternative: Pure Rust TLS
-
-- **Feature flag**: `ssl-rustls` (opt-in)
-- **Implementation**: `mysql/rustls-tls` using pure Rust TLS
-- **Benefits**: Consistent behavior across platforms, no native dependencies
-- **Use cases**: Containerized environments, static binaries, airgapped deployments
+- **Implementation**: Pure Rust TLS via rustls with native certificate store support
+- **Platform Integration**: Automatically uses system certificate stores on Windows, macOS, and Linux
+- **Enhanced Security Controls**: Granular TLS validation options for different deployment scenarios
+- **Benefits**: Consistent behavior across platforms, no native dependencies, simplified configuration
 
 #### Build Options
 
 ```bash
-# Default build with native TLS (recommended)
+# Default build with rustls TLS (recommended)
 cargo build --release
-
-# Pure Rust TLS build
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # No TLS support (insecure connections only)
 cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
@@ -433,21 +419,21 @@ let opts = OptsBuilder::new()
     .ssl_opts(ssl_opts);
 ```
 
-#### Migration from OpenSSL (Breaking Change)
+#### Migration to Rustls-Only (Breaking Change)
 
-**v0.2.7+**: The `vendored` feature flag has been **removed**. Gold Digger has eliminated vendored OpenSSL dependencies:
+**v0.2.7+**: Gold Digger has migrated to a simplified, rustls-only TLS implementation:
 
-- **Before**: Required OpenSSL system libraries or `--features vendored` for static linking
-- **After**: Uses platform-native TLS (`ssl`) or pure Rust implementation (`ssl-rustls`)
-- **Breaking Change**: Remove `vendored` from build scripts and CI configurations
-- **Benefits**: Simplified builds, reduced attack surface, better cross-platform compatibility
-- **Note**: Platform TLS libraries receive OS security updates. The `ssl` feature uses native-tls which on Linux commonly links to the system OpenSSL library (not vendored OpenSSL)
+- **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls)
+- **After**: Single rustls-based implementation with platform certificate store integration
+- **Breaking Change**: Remove `ssl-rustls` feature references from build scripts
+- **Benefits**: Simplified configuration, consistent cross-platform behavior, enhanced security controls
+- **Platform Integration**: Automatic system certificate store usage on all platforms
 
 **Migration Steps**:
 
-1. Remove `vendored` from any `cargo build` commands
-2. Use default `ssl` feature for native TLS (recommended)
-3. Use `ssl-rustls` feature for pure Rust TLS if needed
+1. Remove `ssl-rustls` feature references from build commands
+2. Use default `ssl` feature for rustls-based TLS (recommended)
+3. Update documentation to reflect simplified TLS model
 
 ## GitHub Interactions
 
@@ -491,29 +477,22 @@ Before submitting any changes:
 ### Feature Combinations
 
 ```bash
-# Default build with native TLS (recommended)
+# Default build with rustls TLS (recommended)
 cargo build --release
-
-# Pure Rust TLS build (for containerized/static deployments)
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 
 # Minimal build (no TLS, no extra types)
 cargo build --no-default-features --features "csv json"
 
-# Database admin build (all MySQL types with native TLS)
+# Database admin build (all MySQL types with rustls TLS)
 cargo build --release --features "default additional_mysql_types"
-
-# Pure Rust TLS build (alternative to default native TLS)
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
 ```
 
 ### Dependencies by Feature
 
 - **Base:** `mysql`, `anyhow`, `csv`, `serde_json`, `clap`
-- **Native TLS:** `mysql/native-tls` (uses platform TLS libraries)
-- **Rust TLS:** `mysql/rustls-tls`, `rustls`, `webpki-roots` (pure Rust implementation)
+- **Rustls TLS:** `mysql/rustls-tls-ring`, `rustls`, `rustls-native-certs`, `rustls-pemfile` (pure Rust implementation with platform certificate store integration)
 - **Types:** `mysql_common` with bigdecimal, rust_decimal, time, frunk
-- **No OpenSSL dependencies** in any configuration
+- **No native TLS dependencies** in any configuration
 
 ---
 

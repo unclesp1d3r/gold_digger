@@ -142,12 +142,9 @@ cargo run --release
 ### Feature Flags
 
 - `default`: `["json", "csv", "ssl", "additional_mysql_types", "verbose"]`
-- `ssl`: MySQL native TLS support using platform-native libraries (SChannel on Windows, SecureTransport on macOS, may use OpenSSL on Linux)
-- `ssl-rustls`: Pure Rust TLS implementation (alternative to native TLS)
+- `ssl`: Rustls-based TLS support with platform certificate store integration
 - `additional_mysql_types`: Support for BigDecimal, Decimal, Time, Frunk
 - `verbose`: Conditional logging via println!/eprintln!
-
-**Important**: `ssl` and `ssl-rustls` are mutually exclusive features.
 
 ## Requirements Gap Analysis
 
@@ -213,7 +210,7 @@ pub fn rows_to_strings(rows: Vec<mysql::Row>) -> anyhow::Result<Vec<Vec<String>>
 - **Vulnerability policy:** Block releases with critical vulnerabilities
 - **Airgap compatibility:** No telemetry or external calls in production
 - **Configure TLS programmatically:** Use `mysql::OptsBuilder` and `SslOpts` instead of URL parameters
-- **TLS Implementation:** Supports both platform-native TLS via the `ssl` feature and pure Rust TLS via the `ssl-rustls` feature
+- **TLS Implementation:** Uses simplified rustls-only implementation with platform certificate store integration via the `ssl` feature (migrated from previous dual TLS approach)
 
 #### Error Handling Patterns
 
@@ -273,7 +270,7 @@ SELECT CAST(id AS CHAR) as id, CAST(created_at AS CHAR) as created_at FROM users
 
 ### Version Management
 
-- Current discrepancy: CHANGELOG.md shows v0.2.6, Cargo.toml shows v0.2.5
+- Current version: v0.2.6 (synchronized across CHANGELOG.md and Cargo.toml)
 - Sync versions before any releases
 - Use semantic versioning with conventional commits
 
