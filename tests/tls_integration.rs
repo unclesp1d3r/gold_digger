@@ -402,17 +402,17 @@ mod integration_tests {
             return Ok(());
         }
 
-        // Start MySQL container using testcontainers
-        // Note: The MySQL module has built-in wait strategies that wait for MySQL to be ready
+        // Start MariaDB container using testcontainers
+        // Note: The MariaDB module has built-in wait strategies that wait for MariaDB to be ready
         // before returning from .start(). This is different from GenericImage which requires
         // explicit wait strategies with .with_wait_for().
-        let mysql_container = testcontainers_modules::mysql::Mysql::default()
+        let mariadb_container = testcontainers_modules::mariadb::Mariadb::default()
             .start()
-            .expect("Failed to start MySQL container");
+            .expect("Failed to start MariaDB container");
 
         // Get the connection URL from the running container
-        let host = mysql_container.get_host().expect("Failed to get container host");
-        let port = mysql_container
+        let host = mariadb_container.get_host().expect("Failed to get container host");
+        let port = mariadb_container
             .get_host_port_ipv4(3306)
             .expect("Failed to get container port");
         let connection_string = format!("mysql://test:test@{}:{}", host, port);
@@ -442,16 +442,16 @@ mod integration_tests {
             return Ok(());
         }
 
-        // Start MySQL container for testing
-        // Note: The MySQL module has built-in wait strategies that wait for MySQL to be ready
+        // Start MariaDB container for testing
+        // Note: The MariaDB module has built-in wait strategies that wait for MariaDB to be ready
         // before returning from .start(). This is different from GenericImage which requires
         // explicit wait strategies with .with_wait_for().
-        let mysql_container = testcontainers_modules::mysql::Mysql::default()
+        let mariadb_container = testcontainers_modules::mariadb::Mariadb::default()
             .start()
-            .expect("Failed to start MySQL container");
+            .expect("Failed to start MariaDB container");
 
-        let host = mysql_container.get_host().expect("Failed to get container host");
-        let port = mysql_container
+        let host = mariadb_container.get_host().expect("Failed to get container host");
+        let port = mariadb_container
             .get_host_port_ipv4(3306)
             .expect("Failed to get container port");
         let connection_string = format!("mysql://test:test@{}:{}", host, port);
@@ -490,8 +490,8 @@ mod integration_tests {
     /// Requirement: 10.4 - Skip hostname verification
     ///
     /// NOTE: This test validates configuration setup but does not test actual TLS functionality
-    /// because the MySQL container is not TLS-enabled. To properly test skip hostname verification,
-    /// we would need a TLS-enabled MySQL container with certificates valid for specific hostnames.
+    /// because the MariaDB container is not TLS-enabled. To properly test skip hostname verification,
+    /// we would need a TLS-enabled MariaDB container with certificates valid for specific hostnames.
     #[test]
     #[ignore]
     fn test_tls_connection_skip_hostname() -> Result<()> {
@@ -500,16 +500,16 @@ mod integration_tests {
             return Ok(());
         }
 
-        // Start MySQL container for testing
-        // Note: The MySQL module has built-in wait strategies that wait for MySQL to be ready
+        // Start MariaDB container for testing
+        // Note: The MariaDB module has built-in wait strategies that wait for MariaDB to be ready
         // before returning from .start(). This is different from GenericImage which requires
         // explicit wait strategies with .with_wait_for().
-        let mysql_container = testcontainers_modules::mysql::Mysql::default()
+        let mariadb_container = testcontainers_modules::mariadb::Mariadb::default()
             .start()
-            .expect("Failed to start MySQL container");
+            .expect("Failed to start MariaDB container");
 
-        let host = mysql_container.get_host().expect("Failed to get container host");
-        let port = mysql_container
+        let host = mariadb_container.get_host().expect("Failed to get container host");
+        let port = mariadb_container
             .get_host_port_ipv4(3306)
             .expect("Failed to get container port");
 
@@ -531,7 +531,7 @@ mod integration_tests {
         config.display_security_warnings();
 
         // Test configuration setup for hostname verification scenarios
-        // Note: We cannot test actual TLS hostname verification because the MySQL container
+        // Note: We cannot test actual TLS hostname verification because the MariaDB container
         // is not TLS-enabled. This test validates that the configuration is properly set up.
 
         // Create connection strings for different hostname scenarios
@@ -559,10 +559,10 @@ mod integration_tests {
         eprintln!("  - Container hostname connection: {}", container_connection_string);
         eprintln!("  - Skip hostname verification enabled: true");
         eprintln!("  - Configuration validation: PASSED");
-        eprintln!("  - Note: Actual TLS hostname verification not tested (MySQL not TLS-enabled)");
+        eprintln!("  - Note: Actual TLS hostname verification not tested (MariaDB not TLS-enabled)");
 
         // TODO: To properly test skip hostname verification, we would need:
-        // 1. A TLS-enabled MySQL container with certificates valid for "localhost"
+        // 1. A TLS-enabled MariaDB container with certificates valid for "localhost"
         // 2. Test that connecting to "127.0.0.1" fails without skip hostname verification
         // 3. Test that connecting to "127.0.0.1" succeeds with skip hostname verification
 
@@ -573,8 +573,8 @@ mod integration_tests {
     /// Requirement: 10.4 - Accept invalid certificates
     ///
     /// NOTE: This test validates configuration setup but does not test actual TLS functionality
-    /// because the MySQL container is not TLS-enabled. To properly test accept invalid certificates,
-    /// we would need a TLS-enabled MySQL container with invalid/self-signed certificates.
+    /// because the MariaDB container is not TLS-enabled. To properly test accept invalid certificates,
+    /// we would need a TLS-enabled MariaDB container with invalid/self-signed certificates.
     #[test]
     #[ignore]
     fn test_tls_connection_accept_invalid() -> Result<()> {
@@ -660,16 +660,16 @@ mod integration_tests {
             return Ok(());
         }
 
-        // Start MySQL container for testing
-        // Note: The MySQL module has built-in wait strategies that wait for MySQL to be ready
+        // Start MariaDB container for testing
+        // Note: The MariaDB module has built-in wait strategies that wait for MariaDB to be ready
         // before returning from .start(). This is different from GenericImage which requires
         // explicit wait strategies with .with_wait_for().
-        let mysql_container = testcontainers_modules::mysql::Mysql::default()
+        let mariadb_container = testcontainers_modules::mariadb::Mariadb::default()
             .start()
-            .expect("Failed to start MySQL container");
+            .expect("Failed to start MariaDB container");
 
-        let host = mysql_container.get_host().expect("Failed to get container host");
-        let port = mysql_container
+        let host = mariadb_container.get_host().expect("Failed to get container host");
+        let port = mariadb_container
             .get_host_port_ipv4(3306)
             .expect("Failed to get container port");
         let valid_connection_string = format!("mysql://test:test@{}:{}", host, port);
@@ -699,16 +699,16 @@ mod integration_tests {
             return Ok(());
         }
 
-        // Start MySQL container for testing
-        // Note: The MySQL module has built-in wait strategies that wait for MySQL to be ready
+        // Start MariaDB container for testing
+        // Note: The MariaDB module has built-in wait strategies that wait for MariaDB to be ready
         // before returning from .start(). This is different from GenericImage which requires
         // explicit wait strategies with .with_wait_for().
-        let mysql_container = testcontainers_modules::mysql::Mysql::default()
+        let mariadb_container = testcontainers_modules::mariadb::Mariadb::default()
             .start()
-            .expect("Failed to start MySQL container");
+            .expect("Failed to start MariaDB container");
 
-        let host = mysql_container.get_host().expect("Failed to get container host");
-        let port = mysql_container
+        let host = mariadb_container.get_host().expect("Failed to get container host");
+        let port = mariadb_container
             .get_host_port_ipv4(3306)
             .expect("Failed to get container port");
         let connection_string = format!("mysql://test:test@{}:{}", host, port);
