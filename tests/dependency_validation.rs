@@ -1,8 +1,8 @@
 use std::process::Command;
 
-/// Test to verify that native-tls is present when using ssl feature
+/// Test to verify that rustls is present when using ssl feature (rustls-only implementation)
 #[test]
-fn test_native_tls_with_ssl_feature() {
+fn test_rustls_with_ssl_feature() {
     let output = Command::new("cargo")
         .args(["tree", "-f", "{p} {f}", "--no-default-features", "--features", "ssl"])
         .output()
@@ -10,17 +10,23 @@ fn test_native_tls_with_ssl_feature() {
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
 
-    // Verify native-tls is present (expected with ssl feature)
+    // Verify rustls is present (expected with ssl feature in rustls-only implementation)
+    assert!(tree_output.contains("rustls"), "rustls dependency not found in tree with ssl feature: {}", tree_output);
+
+    // Verify rustls-native-certs is present for platform certificate store integration
     assert!(
-        tree_output.contains("native-tls"),
-        "native-tls dependency not found in tree with ssl feature: {}",
+        tree_output.contains("rustls-native-certs"),
+        "rustls-native-certs dependency not found in tree with ssl feature: {}",
         tree_output
     );
+
+    // Verify native-tls is NOT present (rustls-only implementation)
+    assert!(!tree_output.contains("native-tls"), "native-tls found in rustls-only implementation: {}", tree_output);
 }
 
-/// Test to verify that native-tls is not present when using rustls
+/// Test to verify that no TLS dependencies are present without ssl feature
 #[test]
-fn test_no_native_tls_with_rustls() {
+fn test_no_tls_without_ssl_feature() {
     let output = Command::new("cargo")
         .args([
             "tree",
@@ -28,32 +34,24 @@ fn test_no_native_tls_with_rustls() {
             "{p} {f}",
             "--no-default-features",
             "--features",
-            "ssl-rustls",
+            "json,csv",
         ])
         .output()
         .expect("Failed to run cargo tree");
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
 
-    // Verify native-tls is not in the dependency tree when using rustls
-    assert!(
-        !tree_output.contains("native-tls"),
-        "native-tls dependency found in tree with ssl-rustls feature: {}",
-        tree_output
-    );
+    // Verify neither native-tls nor rustls is present without ssl feature
+    assert!(!tree_output.contains("native-tls"), "native-tls dependency found without ssl feature: {}", tree_output);
 
-    // Verify rustls is present (expected with ssl-rustls feature)
-    assert!(
-        tree_output.contains("rustls"),
-        "rustls dependency not found in tree with ssl-rustls feature: {}",
-        tree_output
-    );
+    // Note: rustls might still be present through other dependencies (like testcontainers)
+    // but it should not be directly included by our ssl feature
 }
 
-/// Test to verify correct feature flag behavior for ssl feature
+/// Test to verify correct feature flag behavior for ssl feature (rustls-only implementation)
 #[test]
 fn test_ssl_feature_flag_behavior() {
-    // Test with ssl feature enabled
+    // Test with ssl feature enabled (rustls-only implementation)
     let output_ssl = Command::new("cargo")
         .args(["tree", "-f", "{p} {f}", "--no-default-features", "--features", "ssl"])
         .output()
@@ -61,33 +59,25 @@ fn test_ssl_feature_flag_behavior() {
 
     let tree_output_ssl = String::from_utf8(output_ssl.stdout).unwrap();
 
-    // Should contain mysql with native-tls
+    // Should contain mysql with rustls (rustls-only implementation)
     assert!(
-        tree_output_ssl.contains("mysql") && tree_output_ssl.contains("native-tls"),
-        "mysql with native-tls not found with ssl feature: {}",
+        tree_output_ssl.contains("mysql") && tree_output_ssl.contains("rustls"),
+        "mysql with rustls not found with ssl feature: {}",
         tree_output_ssl
     );
 
-    // Test with ssl-rustls feature enabled
-    let output_rustls = Command::new("cargo")
-        .args([
-            "tree",
-            "-f",
-            "{p} {f}",
-            "--no-default-features",
-            "--features",
-            "ssl-rustls",
-        ])
-        .output()
-        .expect("Failed to run cargo tree with ssl-rustls feature");
-
-    let tree_output_rustls = String::from_utf8(output_rustls.stdout).unwrap();
-
-    // Should contain mysql with rustls
+    // Should contain rustls-native-certs for platform certificate store integration
     assert!(
-        tree_output_rustls.contains("mysql") && tree_output_rustls.contains("rustls"),
-        "mysql with rustls not found with ssl-rustls feature: {}",
-        tree_output_rustls
+        tree_output_ssl.contains("rustls-native-certs"),
+        "rustls-native-certs not found with ssl feature: {}",
+        tree_output_ssl
+    );
+
+    // Should NOT contain native-tls (rustls-only implementation)
+    assert!(
+        !tree_output_ssl.contains("native-tls"),
+        "native-tls found in rustls-only implementation: {}",
+        tree_output_ssl
     );
 }
 
@@ -161,7 +151,7 @@ fn test_dependency_tree_parsing() {
     assert!(dependencies.contains(&"serde".to_string()));
 }
 
-/// Test to verify feature combinations work correctly
+/// Test to verify feature combinations work correctly (rustls-only implementation)
 #[test]
 fn test_feature_combinations() {
     // Test ssl + json + csv (common combination)
@@ -179,8 +169,11 @@ fn test_feature_combinations() {
 
     let tree_output = String::from_utf8(output.stdout).unwrap();
 
-    // Should have native-tls
-    assert!(tree_output.contains("native-tls"), "native-tls not found with ssl,json,csv features: {}", tree_output);
+    // Should have rustls (rustls-only implementation)
+    assert!(tree_output.contains("rustls"), "rustls not found with ssl,json,csv features: {}", tree_output);
+
+    // Should NOT have native-tls (rustls-only implementation)
+    assert!(!tree_output.contains("native-tls"), "native-tls found in rustls-only implementation: {}", tree_output);
 
     // Should have serde_json and csv dependencies
     assert!(

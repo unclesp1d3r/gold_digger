@@ -1,121 +1,126 @@
 # TLS/SSL Configuration
 
-Configure secure connections to your MySQL/MariaDB database with Gold Digger's comprehensive TLS support.
+Configure secure connections to your MySQL/MariaDB database with Gold Digger's flexible TLS security controls.
 
 ## TLS Implementation
 
-Gold Digger provides two TLS implementations:
+Gold Digger uses a single, consistent TLS implementation with platform certificate store integration:
 
-### Platform-Native TLS (Default)
-
-Enabled with the `ssl` feature (default):
-
-- **Windows**: SChannel (built-in Windows TLS)
-- **macOS**: SecureTransport (built-in macOS TLS)
-- **Linux**: System TLS via native-tls (commonly OpenSSL)
+- **Pure Rust TLS**: Uses rustls for consistent cross-platform behavior
+- **Platform Integration**: Automatically uses system certificate stores (Windows, macOS, Linux)
+- **Enhanced Security Controls**: Four distinct TLS security modes via CLI flags
+- **Smart Error Messages**: Provides specific guidance when certificate validation fails
 
 ```bash
-# Build with platform-native TLS (default)
+# Build with TLS support (default)
 cargo build --release
 ```
 
-### Pure Rust TLS (Alternative)
+## TLS Security Modes
 
-Enabled with the `ssl-rustls` feature:
+Gold Digger provides four TLS security modes via mutually exclusive CLI flags:
 
-- **Cross-platform**: Pure Rust implementation
-- **Static linking**: No system TLS dependencies
-- **Containerized deployments**: Ideal for Docker/static builds
+### 1. Platform Trust (Default)
+
+Uses your system's certificate store with full validation:
 
 ```bash
-# Build with pure Rust TLS
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+# Default behavior - uses platform certificate store
+gold_digger \
+  --db-url "mysql://user:pass@prod.db:3306/mydb" \
+  --query "SELECT * FROM users" \
+  --output users.json
 ```
 
-## Current TLS Configuration
+### 2. Custom CA Trust
 
-**Important**: The mysql crate doesn't support URL-based SSL parameters like `ssl-mode`, `ssl-ca`, etc. TLS configuration must be done programmatically.
-
-### Automatic TLS Behavior
-
-When TLS features are enabled, Gold Digger automatically:
-
-1. Attempts TLS connection when available
-2. Provides detailed error messages for TLS failures
-3. Redacts credentials from all TLS error output
-
-### Connection Examples
+Use a custom CA certificate file for trust anchor pinning:
 
 ```bash
-# Basic connection (TLS attempted automatically if available)
+# Use custom CA certificate
 gold_digger \
-  --db-url "mysql://user:pass@localhost:3306/db" \
-  --query "SELECT 1" \
+  --db-url "mysql://user:pass@internal.db:3306/mydb" \
+  --tls-ca-file /etc/ssl/certs/internal-ca.pem \
+  --query "SELECT * FROM sensitive_data" \
+  --output data.json
+```
+
+### 3. Skip Hostname Verification
+
+Skip hostname verification while keeping other security checks:
+
+```bash
+# Skip hostname verification for development
+gold_digger \
+  --db-url "mysql://user:pass@192.168.1.100:3306/mydb" \
+  --insecure-skip-hostname-verify \
+  --query "SELECT * FROM test_data" \
   --output test.json
-
-# Connection to TLS-enabled server
-gold_digger \
-  --db-url "mysql://user:pass@secure-db.example.com:3306/db" \
-  --query "SELECT 1" \
-  --output secure_test.json
 ```
+
+**⚠️ Security Warning**: Displays warning about man-in-the-middle attack vulnerability.
+
+### 4. Accept Invalid Certificates
+
+Disable all certificate validation (DANGEROUS - testing only):
+
+```bash
+# Accept any certificate for testing (DANGEROUS)
+gold_digger \
+  --db-url "mysql://user:pass@test.db:3306/mydb" \
+  --allow-invalid-certificate \
+  --query "SELECT * FROM test_table" \
+  --output test.csv
+```
+
+**🚨 Security Warning**: Displays prominent warning about insecure connection.
 
 ## TLS Error Handling
 
-Gold Digger provides comprehensive TLS error handling with actionable guidance:
+Gold Digger provides intelligent error messages with specific CLI flag suggestions:
 
-### Certificate Validation Errors
-
-```text
-Certificate validation failed: unable to get local issuer certificate.
-```
-
-**Solutions:**
-
-- Ensure CA certificates are properly installed in your system trust store
-- Verify certificate chain completeness
-- Check certificate expiration dates
-- For testing only: use a local proxy or trusted self-signed CA in development environments
-- Verify your system's CA certificate installation and trust store configuration
-
-**Note**: Gold Digger automatically handles TLS configuration based on your build features. For current configuration capabilities and limitations, see the [Current Limitations](#current-limitations) section below.
-
-### TLS Handshake Failures
+### Certificate Validation Failures
 
 ```text
-TLS handshake failed: protocol version mismatch.
-Check server TLS configuration and certificate validity
+Error: Certificate validation failed: certificate has expired
+Suggestion: Use --allow-invalid-certificate for testing environments
 ```
 
-**Solutions:**
+**Solutions by error type:**
 
-- Verify server supports TLS 1.2 or 1.3
-- Check cipher suite compatibility
-- Ensure server certificate is valid
+- **Expired certificates**: Use `--allow-invalid-certificate` (testing only)
+- **Self-signed certificates**: Use `--allow-invalid-certificate` or `--tls-ca-file` with custom CA
+- **Internal CA certificates**: Use `--tls-ca-file /path/to/internal-ca.pem`
 
-### Connection Failures
+### Hostname Verification Failures
 
 ```text
-TLS connection failed: connection refused
+Error: Hostname verification failed for 192.168.1.100: certificate is for db.company.com
+Suggestion: Use --insecure-skip-hostname-verify to bypass hostname checks
 ```
 
-**Solutions:**
+**Common causes:**
 
-- Verify server is running and accessible
-- Check firewall and network connectivity
-- Confirm TLS port is correct (usually 3306)
+- Connecting to servers by IP address
+- Certificates with mismatched hostnames
+- Development environments with generic certificates
 
-### Unsupported TLS Versions
+### Custom CA File Issues
 
 ```text
-Unsupported TLS version: 1.0. Only TLS 1.2 and 1.3 are supported
+Error: CA certificate file not found: /path/to/ca.pem
+Solution: Ensure the file exists and is readable
+
+Error: Invalid CA certificate format in /path/to/ca.pem: not valid PEM
+Solution: Ensure the file contains valid PEM-encoded certificates
 ```
 
-**Solutions:**
+### Mutually Exclusive Flag Errors
 
-- Upgrade server to support TLS 1.2+
-- Update server TLS configuration
-- Check client-server TLS compatibility
+```text
+Error: Mutually exclusive TLS flags provided: --tls-ca-file, --insecure-skip-hostname-verify
+Solution: Use only one TLS security option at a time
+```
 
 ## Security Features
 
@@ -163,20 +168,22 @@ TLS error messages are scrubbed of sensitive information:
 # Cargo.toml features
 [features]
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["mysql/native-tls"]                                            # Platform-native TLS
-ssl-rustls = ["mysql/rustls-tls"]                                     # Pure Rust TLS
+ssl = [
+  "mysql/rustls-tls-ring",
+  "rustls",
+  "rustls-native-certs",
+  "rustls-pemfile",
+]
 ```
 
-### Mutually Exclusive TLS Features
-
-**Important**: `ssl` and `ssl-rustls` are mutually exclusive. Choose one:
+### Build Options
 
 ```bash
-# Platform-native TLS (recommended for most users)
+# Default build with TLS support
 cargo build --release
 
-# Pure Rust TLS (for static/containerized deployments)
-cargo build --release --no-default-features --features "ssl-rustls json csv additional_mysql_types verbose"
+# Minimal build without TLS
+cargo build --release --no-default-features --features "json csv"
 ```
 
 ## Production Recommendations
@@ -259,30 +266,71 @@ gold_digger -v \
   --db-url "mysql://user:pass@host:3306/db" \
   --query "SELECT 1" \
   --output debug.json
+
+# Example verbose output
+Using platform certificate store for TLS validation
+TLS connection established: TLS 1.3, cipher: TLS_AES_256_GCM_SHA384
+```
+
+### Security Warnings
+
+Gold Digger displays security warnings for insecure modes:
+
+```bash
+# Hostname verification disabled
+WARNING: Hostname verification disabled. Connection is vulnerable to man-in-the-middle attacks.
+
+# Certificate validation disabled  
+WARNING: Certificate validation disabled. Connection is NOT secure.
+This should ONLY be used for testing. Never use in production.
 ```
 
 ### Exit Codes for TLS Errors
 
 TLS-related errors map to specific exit codes:
 
-- **Exit 2**: TLS configuration errors (feature not enabled, invalid certificates)
+- **Exit 2**: TLS configuration errors (mutually exclusive flags, invalid CA files)
 - **Exit 3**: TLS connection failures (handshake, validation, network issues)
 
-## Future Enhancements
+## Deployment Recommendations
 
-### Planned TLS Features
+### Production Environments
 
-The current implementation provides a foundation for future TLS enhancements:
+Use default platform trust mode:
 
-- URL-based TLS parameter support
-- Custom certificate authority configuration
-- Client certificate authentication
-- Advanced TLS options (cipher suites, protocol versions)
+```bash
+gold_digger --db-url "mysql://app:secure@prod.db:3306/app" \
+  --query "SELECT * FROM orders" --output orders.json
+```
 
-### Current Limitations
+### Internal Infrastructure
 
-- No URL-based SSL parameter support (mysql crate limitation)
-- TLS configuration is automatic rather than configurable
-- No custom CA certificate path support in current version
+Use custom CA trust mode:
 
-These limitations are documented and will be addressed in future releases as the underlying mysql crate adds support for these features.
+```bash
+gold_digger --db-url "mysql://service:token@internal.db:3306/data" \
+  --tls-ca-file /etc/pki/internal-ca.pem \
+  --query "SELECT * FROM metrics" --output metrics.csv
+```
+
+### Development Environments
+
+Use hostname skip for development servers:
+
+```bash
+gold_digger --db-url "mysql://dev:devpass@192.168.1.100:3306/dev" \
+  --insecure-skip-hostname-verify \
+  --query "SELECT * FROM test_data" --output dev_data.json
+```
+
+### Testing Environments Only
+
+Accept invalid certificates for testing:
+
+```bash
+gold_digger --db-url "mysql://test:test@localhost:3306/test" \
+  --allow-invalid-certificate \
+  --query "SELECT COUNT(*) FROM test_table" --output count.json
+```
+
+**⚠️ Security Warning**: Never use `--allow-invalid-certificate` in production.

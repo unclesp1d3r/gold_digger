@@ -2,23 +2,23 @@
 ## [Unreleased]
 
 ### BREAKING CHANGES
-- **TLS Migration**: Removed `vendored` feature flag (OpenSSL dependency eliminated)
-  - **Before**: `cargo build --features vendored` for static OpenSSL linking
-  - **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS) features
-  - **Migration**: Remove `vendored` from any build scripts or CI configurations
+- **TLS Migration**: Simplified to rustls-only implementation with platform certificate store integration
+  - **Before**: Dual TLS implementations (`ssl` with native-tls, `ssl-rustls` with rustls)
+  - **After**: Single rustls-based implementation via `ssl` feature
+  - **Migration**: Update build scripts to use simplified `ssl` feature
 
 ### Features
-- **TLS Implementation**: Added platform-native TLS support (removed vendored OpenSSL dependency)
-  - Default `ssl` feature now uses `mysql/native-tls` with platform TLS libraries
-  - Windows: Uses SChannel (built-in)
-  - macOS: Uses SecureTransport (built-in)
-  - Linux: Uses system native TLS libraries (may link to system OpenSSL)
-  - Added `ssl-rustls` feature for pure Rust TLS implementation that avoids any OpenSSL linkage across all platforms
+- **TLS Implementation**: Migrated to rustls-only implementation with enhanced security controls
+  - Single `ssl` feature now uses `mysql/rustls-tls-ring` with platform certificate store integration
+  - Automatic system certificate store usage on Windows, macOS, and Linux
+  - Enhanced TLS validation modes: Platform, CustomCa, SkipHostnameVerification, AcceptInvalid
+  - Intelligent error messages with specific CLI flag suggestions for TLS issues
+  - Security warnings for insecure TLS modes
 
 ### Documentation
-- Added comprehensive TLS configuration guide (TLS.md)
-- Updated README.md with TLS implementation details
-- Updated WARP.md and AGENTS.md with new TLS architecture
+- Updated comprehensive TLS configuration guide with new rustls-only model
+- Updated README.md with simplified TLS implementation details
+- Updated WARP.md, AGENTS.md, and GEMINI.md with new TLS architecture
 
 
 <a name="v0.2.6"></a>

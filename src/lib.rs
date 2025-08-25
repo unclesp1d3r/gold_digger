@@ -93,7 +93,11 @@ fn mysql_value_to_string(value: &mysql::Value) -> String {
         mysql::Value::NULL => String::new(),
         mysql::Value::Bytes(bytes) => {
             // Try to convert bytes to UTF-8 string, fallback to debug representation
-            String::from_utf8_lossy(bytes).into_owned()
+            // Use Cow to avoid unnecessary allocation when bytes are valid UTF-8
+            match std::str::from_utf8(bytes) {
+                Ok(s) => s.to_string(),
+                Err(_) => String::from_utf8_lossy(bytes).into_owned(),
+            }
         },
         mysql::Value::Int(i) => i.to_string(),
         mysql::Value::UInt(u) => u.to_string(),

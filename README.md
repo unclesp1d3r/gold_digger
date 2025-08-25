@@ -73,100 +73,22 @@ cargo install --path .
 
 ### Build Options
 
-Gold Digger supports multiple build configurations for different environments:
-
 ```bash
-# Default build with native TLS (recommended)
+# Standard build (recommended)
 cargo build --release
 
-# Pure Rust TLS implementation (for containerized/static deployments)
-cargo build --release --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
-
-# Minimal build (no TLS, basic features only)
+# Minimal build (no TLS support)
 cargo build --release --no-default-features --features "json csv"
-
-
 ```
 
 ### TLS Support
 
-Gold Digger supports secure database connections through two TLS implementations:
+Gold Digger supports secure database connections with flexible security controls:
 
-- **Default (`ssl` feature)**: Platform-native TLS libraries
-  - **Windows**: SChannel (built-in Windows TLS)
-  - **macOS**: SecureTransport (built-in macOS TLS)
-  - **Linux**: System TLS via native-tls (commonly OpenSSL)
-- **Alternative (`ssl-rustls` feature)**: Pure Rust TLS implementation
-
-## Release Process
-
-Gold Digger uses [cargo-dist](https://opensource.axo.dev/cargo-dist/) for automated cross-platform releases:
-
-### Release Automation
-
-- **Triggered by Git Tags**: Push a version tag (e.g., `v1.0.0`) to trigger automated release
-- **Cross-Platform Builds**: 6 target platforms built natively (ARM64 & x86_64 for macOS/Linux/Windows)
-- **Multiple Installers**: Shell script, PowerShell, MSI, Homebrew formula, and npm package
-- **Security Integration**: GitHub attestation signing and CycloneDX SBOM generation
-- **Package Manager Integration**: Automatic Homebrew tap updates
-
-### Release Artifacts
-
-Each release includes:
-
-- **Platform-specific binaries** for all 6 target platforms
-- **Installers** for easy deployment (shell, PowerShell, MSI, Homebrew)
-- **Signed artifacts** with GitHub attestation
-- **SBOM files** in CycloneDX format for security auditing
-- **Checksums** for integrity verification
-
-### Development Testing
-
-```bash
-# Test release workflow locally
-just act-release-dry v1.0.0-test
-
-# Plan cargo-dist release
-cargo dist plan
-
-# Build artifacts locally
-cargo dist build
-```
-
-For detailed release documentation, see [DISTRIBUTION.md](DISTRIBUTION.md).
-
-#### TLS Configuration
-
-Gold Digger provides comprehensive TLS support with enhanced error handling and security features:
-
-**Current Implementation:**
-
-- TLS configuration is handled automatically when the `ssl` or `ssl-rustls` features are enabled
-- The mysql crate doesn't support URL-based SSL parameters (like `ssl-mode`, `ssl-ca`)
-- TLS configuration must be done programmatically via the mysql crate's `SslOpts`
-
-**TLS Error Handling:**
-Gold Digger provides detailed TLS error messages with actionable guidance:
-
-- Certificate validation failures with troubleshooting hints
-- TLS handshake failures with server configuration guidance
-- Unsupported TLS version warnings (only TLS 1.2+ supported)
-- Certificate file validation (existence, readability, format)
-
-**Security Features:**
-
-- Automatic credential redaction in all error messages and logs
-- URL sanitization to prevent credential leakage
-- Comprehensive TLS error categorization for proper exit codes
-
-#### Breaking Change: Vendored OpenSSL Feature Removed
-
-**v0.2.7+**: The `vendored` feature flag has been removed to eliminate OpenSSL dependencies:
-
-- **Before**: `cargo build --features vendored` (static OpenSSL linking)
-- **After**: Use `ssl` (native TLS) or `ssl-rustls` (pure Rust TLS)
-
-**Migration**: Remove `vendored` from build scripts and use appropriate TLS feature.
+- **Automatic Certificate Validation**: Uses your system's certificate store by default
+- **Custom CA Support**: Use your own certificate authority files
+- **Development-Friendly**: Options to handle self-signed certificates and hostname mismatches
+- **Security Warnings**: Clear feedback about connection security levels
 
 ## Usage
 
@@ -211,22 +133,40 @@ gold_digger completion powershell > $PROFILE
 # Debug configuration (credentials redacted)
 gold_digger --db-url "mysql://user:pass@localhost:3306/mydb" \
   --query "SELECT 1" --output test.json --dump-config
+
+# TLS with custom CA certificate
+gold_digger --db-url "mysql://user:pass@internal.db:3306/mydb" \
+  --tls-ca-file /path/to/internal-ca.pem \
+  --query "SELECT id FROM users LIMIT 5" --output results.json
+
+# Skip hostname verification for development
+gold_digger --db-url "mysql://user:pass@dev.db:3306/mydb" \
+  --insecure-skip-hostname-verify \
+  --query "SELECT COUNT(*) FROM logs" --output count.json
+
+# Accept invalid certificates for testing (DANGEROUS)
+gold_digger --db-url "mysql://user:pass@test.db:3306/mydb" \
+  --allow-invalid-certificate \
+  --query "SELECT * FROM test_data" --output test.csv
 ```
 
 ### CLI Options
 
-| Flag                  | Short | Environment Variable | Description                                            |
-| --------------------- | ----- | -------------------- | ------------------------------------------------------ |
-| `--db-url <URL>`      | -     | `DATABASE_URL`       | Database connection string                             |
-| `--query <SQL>`       | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
-| `--query-file <FILE>` | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
-| `--output <FILE>`     | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
-| `--format <FORMAT>`   | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
-| `--pretty`            | -     | -                    | Pretty-print JSON output                               |
-| `--verbose`           | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
-| `--quiet`             | -     | -                    | Suppress non-error output                              |
-| `--allow-empty`       | -     | -                    | Exit with code 0 even if no results                    |
-| `--dump-config`       | -     | -                    | Print current configuration as JSON                    |
+| Flag                              | Short | Environment Variable | Description                                            |
+| --------------------------------- | ----- | -------------------- | ------------------------------------------------------ |
+| `--db-url <URL>`                  | -     | `DATABASE_URL`       | Database connection string                             |
+| `--query <SQL>`                   | `-q`  | `DATABASE_QUERY`     | SQL query to execute                                   |
+| `--query-file <FILE>`             | -     | -                    | Read SQL from file (mutually exclusive with `--query`) |
+| `--output <FILE>`                 | `-o`  | `OUTPUT_FILE`        | Output file path                                       |
+| `--format <FORMAT>`               | -     | -                    | Force output format: `csv`, `json`, or `tsv`           |
+| `--pretty`                        | -     | -                    | Pretty-print JSON output                               |
+| `--verbose`                       | `-v`  | -                    | Enable verbose logging (repeatable: `-v`, `-vv`)       |
+| `--quiet`                         | -     | -                    | Suppress non-error output                              |
+| `--allow-empty`                   | -     | -                    | Exit with code 0 even if no results                    |
+| `--dump-config`                   | -     | -                    | Print current configuration as JSON                    |
+| `--tls-ca-file <FILE>`            | -     | -                    | Use custom CA certificate file (mutually exclusive)    |
+| `--insecure-skip-hostname-verify` | -     | -                    | Skip hostname verification (mutually exclusive)        |
+| `--allow-invalid-certificate`     | -     | -                    | Accept invalid certificates (mutually exclusive)       |
 
 ### Subcommands
 

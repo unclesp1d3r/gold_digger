@@ -1,0 +1,5 @@
+---
+source: tests/tls_cli_integration.rs
+expression: stderr
+---
+Database connection pool creation failed: Invalid CA certificate format in /var/folders/3h/qkcjw3h92rvftf_wjjr4_t5w0000gn/T/.tmpFvBMv7/test_cert.pem: No valid certificates found in file. Ensure the file contains valid PEM certificates

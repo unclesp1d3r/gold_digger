@@ -420,7 +420,7 @@ git commit -m "feat(cli): add --version flag"
 git commit -m "feat: add TLS support
 
 This adds comprehensive TLS support for secure database connections.
-Includes both native-tls and rustls implementations."
+Uses rustls-only implementation with platform certificate store integration."
 ```
 
 #### Automated Releases

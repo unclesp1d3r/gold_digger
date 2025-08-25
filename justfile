@@ -54,7 +54,6 @@ fmt-check:
 lint:
     cd {{justfile_dir()}}
     cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
-    cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings
     cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
 
 # Run clippy with fixes
