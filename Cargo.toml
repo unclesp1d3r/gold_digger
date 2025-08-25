@@ -3,7 +3,6 @@ name = "gold_digger"
 version = "0.2.6"
 edition = "2024"
 rust-version = "1.89.0"
-build = "build.rs"
 authors = ["UncleSp1d3r <unclespider@protonmail.com>"]
 description = "A simple MySQL/MariaDB query tool that accepts parameters as environmental variables."
 readme = "README.md"
@@ -32,7 +31,7 @@ license = false
 eula = false
 
 [package.metadata.cargo-machete]
-ignored = ["mysql_common"]
+ignored = ["mysql_common", "rustls-native-certs"]
 
 [dependencies]
 mysql = { version = "26.0.1", features = ["minimal"], default-features = false }
@@ -44,10 +43,15 @@ clap_complete = "4.5"
 mysql_common = { version = "0.35.5", optional = true }
 thiserror = "2.0.16"
 url = "2.5.7"
+rustls = { version = "0.23", optional = true }
+rustls-native-certs = { version = "0.8.1", optional = true }
+rustls-pemfile = { version = "2.0", optional = true }
 
 [dev-dependencies]
-testcontainers-modules = { version = "0.12.1", features = ["mysql","blocking"] }
-tempfile = "3.21.0"
+testcontainers-modules = { version = "0.12", features = ["mariadb","blocking"] }
+tempfile = "3.21"
+assert_cmd = "2.0"
+insta = "1.43"
 
 [profile.release]
 lto = true
@@ -65,15 +69,30 @@ lto = "fat"  # Use fat LTO for maximum performance optimization in distribution 
 
 [features]
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-json = []
-csv = []
-ssl = ["mysql/native-tls"] # Platform native TLS (no OpenSSL dependency)
-ssl-rustls = ["mysql/rustls-tls-ring"] # Pure Rust TLS implementation
-additional_mysql_types = [
-  "mysql_common",
-  "mysql_common?/bigdecimal",
-  "mysql_common?/rust_decimal",
-  "mysql_common?/time",
-  "mysql_common?/frunk",
+
+# Output format support
+json = []  # Enable JSON output format with deterministic field ordering
+csv = []   # Enable CSV output format with RFC4180 compliance
+
+# TLS/SSL support - rustls-only implementation for consistent cross-platform behavior
+ssl = [
+  "mysql/rustls-tls",         # MySQL driver with rustls TLS backend using AWS-LC crypto
+  "rustls",                   # Pure Rust TLS implementation
+  "rustls-native-certs",      # Platform certificate store integration (Windows/macOS/Linux)
+  "rustls-pemfile"            # PEM certificate file parsing for custom CA support
 ]
-verbose = []
+
+# Extended MySQL type support for complex data types
+additional_mysql_types = [
+  "mysql_common",                    # Base MySQL type extensions
+  "mysql_common?/bigdecimal",        # High-precision decimal arithmetic
+  "mysql_common?/rust_decimal",      # Fixed-point decimal types
+  "mysql_common?/time",              # Enhanced date/time handling
+  "mysql_common?/frunk",             # Generic programming utilities
+]
+
+# Development and debugging support
+verbose = []  # Enable detailed logging and diagnostic output
+
+# Integration testing support
+integration_tests = []  # Enable heavy integration tests requiring external databases

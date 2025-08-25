@@ -44,10 +44,11 @@ default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
 
 ### TLS/SSL Implementation
 
-- **mysql/native-tls** - Platform-native TLS (default)
-  - Windows: SChannel, macOS: SecureTransport, Linux: OpenSSL
-- **mysql/rustls-tls** - Pure Rust TLS (opt-in alternative)
-- **Mutually exclusive**: Choose one TLS implementation
+- **mysql/rustls-tls** - Pure Rust TLS with platform certificate store integration (default)
+  - Consistent cross-platform behavior
+  - Enhanced security controls and validation options
+  - Automatic system certificate store usage on all platforms
+- **Simplified**: Single TLS implementation (previous dual approach consolidated)
 
 ### Extended MySQL Types
 
@@ -81,11 +82,11 @@ OutputFormat::Csv => anyhow::bail!("CSV support not compiled in"),
 ### Build Variations
 
 ```bash
-# Standard build (platform-native TLS)
+# Standard build (rustls TLS with platform certificate store integration)
 cargo build --release
 
-# Pure Rust TLS build
-cargo build --release --no-default-features --features ssl-rustls
+# No TLS support (insecure connections only)
+cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
 
 # Minimal feature build
 cargo build --no-default-features --features "csv json"
@@ -166,7 +167,7 @@ rustup component add llvm-tools-preview rust-src
 
 ### Cross-Platform Support
 
-- **Native dependencies**: Platform-specific TLS implementations
-- **Pure Rust option**: `ssl-rustls` feature for maximum portability
+- **Pure Rust TLS**: Single rustls-based implementation for consistent cross-platform behavior
+- **Platform Integration**: Automatic system certificate store usage (Windows/macOS/Linux)
 - **Minimal builds**: Feature flags allow targeted compilation
 - **Runtime dependencies**: System libraries only (no external services)

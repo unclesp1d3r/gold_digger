@@ -23,8 +23,8 @@ Contains testcontainers-based TLS integration tests that validate:
 # With native-tls (ssl feature)
 cargo test --test tls_integration --features ssl
 
-# With rustls (ssl-rustls feature)
-cargo test --test tls_integration --no-default-features --features ssl-rustls
+# With rustls TLS (default)
+cargo test --test tls_integration --release
 
 # Without TLS features (tests error handling)
 cargo test --test tls_integration --no-default-features --features json,csv
@@ -42,6 +42,22 @@ cargo test --test tls_integration --features ssl -- --ignored
 cargo test --test tls_integration --features ssl test_basic_tls_connection_establishment -- --ignored
 ```
 
+### Heavy Integration Tests
+
+For comprehensive testing with real database connections, enable the `integration_tests` feature:
+
+```bash
+# Run integration tests (requires Docker and integration_tests feature)
+cargo test --test tls_integration --features "ssl,integration_tests" -- --ignored
+
+# Run all tests including integration tests
+cargo test --test tls_integration --features "ssl,integration_tests" -- --include-ignored
+
+# Using justfile commands
+just test-integration  # Run only integration tests
+just test-all         # Run all tests including integration tests
+```
+
 ### Test Categories
 
 1. **Unit Tests** (`tls_unit_tests`): Test TLS configuration and validation without external
@@ -51,12 +67,14 @@ cargo test --test tls_integration --features ssl test_basic_tls_connection_estab
 4. **Performance Tests** (`tls_performance_tests`): Test connection pooling and concurrency (require
    Docker)
 5. **No-TLS Tests** (`no_tls_tests`): Test behavior when TLS features are disabled
+6. **Heavy Integration Tests** (`integration_tests`): Comprehensive database integration tests (require Docker, TEST_DATABASE_URL, and `integration_tests` feature)
 
 ## Requirements
 
 - **Rust**: Tests require the same Rust version as the main project
 - **Docker** (optional): Required only for tests marked with `#[ignore]`
 - **MySQL Image**: Docker tests will automatically pull `mysql:8.1` image
+- **integration_tests feature** (optional): Feature flag required for heavy integration tests
 
 ## Test Features
 
@@ -94,7 +112,7 @@ The tests are designed to work in CI environments:
 
 - Docker-dependent tests are ignored by default
 - Unit tests run without external dependencies
-- Tests work with both `ssl` and `ssl-rustls` features
+- Tests work with rustls-based `ssl` feature
 - Tests validate that TLS features are properly disabled when not compiled
 
 ## Troubleshooting
@@ -120,5 +138,5 @@ If certificate tests fail:
 If feature-related tests fail:
 
 1. Verify correct feature flags are enabled
-2. Check that both `ssl` and `ssl-rustls` features work
+2. Check that rustls-based `ssl` feature works correctly
 3. Ensure conditional compilation is working correctly

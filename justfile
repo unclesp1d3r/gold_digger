@@ -54,7 +54,6 @@ fmt-check:
 lint:
     cd {{justfile_dir()}}
     cargo clippy --all-targets --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
-    cargo clippy --all-targets --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose" -- -D warnings
     cargo clippy --all-targets --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
 
 # Run clippy with fixes
@@ -102,9 +101,9 @@ build:
 build-release:
     cargo build --release
 
-# Build with pure Rust TLS (alternative to native TLS)
+# Build with rustls TLS (consolidated implementation)
 build-rustls:
-    cargo build --release --no-default-features --features "json,csv,ssl-rustls,additional_mysql_types,verbose"
+    cargo build --release --no-default-features --features "json,csv,ssl,additional_mysql_types,verbose"
 
 
 
@@ -132,6 +131,16 @@ test:
 test-no-docker:
     cd {{justfile_dir()}}
     cargo nextest run || cargo test
+
+# Run integration tests (requires Docker)
+test-integration:
+    cd {{justfile_dir()}}
+    cargo test --features integration_tests -- --ignored
+
+# Run all tests including integration tests
+test-all:
+    cd {{justfile_dir()}}
+    cargo test --features integration_tests -- --include-ignored
 
 # Run tests with coverage (llvm-cov)
 coverage:
@@ -167,14 +176,18 @@ profile:
 audit:
     cargo audit
 
-# Check for license/security issues
+# Check for license/security issues (local development - tolerant)
 deny:
     cargo deny check || echo "cargo-deny not installed - run 'just install-tools'"
+
+# Check for license/security issues (CI strict enforcement)
+deny-ci:
+    cargo deny check --config deny.ci.toml || echo "cargo-deny not installed - run 'just install-tools'"
 
 # Comprehensive security scanning (combines audit, deny, and grype)
 security:
     just audit
-    just deny
+    just deny-ci
     @if command -v grype >/dev/null 2>&1; then \
     grype . --fail-on high || echo "High or critical vulnerabilities found"; \
     else \
@@ -186,21 +199,16 @@ security:
 # DEPENDENCIES & VALIDATION
 # =============================================================================
 
-# Validate TLS dependency tree (for rustls migration)
+# Validate TLS dependency tree (rustls-only implementation)
 validate-deps:
-    @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-    echo "ERROR: native-tls not found with ssl feature"; \
+    @if cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
+    echo "ERROR: native-tls found with ssl feature (should be rustls-only)"; \
     cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
     exit 1; \
     fi
-    @if cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "native-tls"; then \
-    echo "ERROR: native-tls found with ssl-rustls feature"; \
-    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
-    exit 1; \
-    fi
-    @if ! cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
-    echo "ERROR: rustls not found with ssl-rustls feature"; \
-    cargo tree --no-default-features --features ssl-rustls -e=no-dev -f "{p} {f}"; \
+    @if ! cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}" | grep -q "rustls"; then \
+    echo "ERROR: rustls not found with ssl feature"; \
+    cargo tree --no-default-features --features ssl -e=no-dev -f "{p} {f}"; \
     exit 1; \
     fi
     @if cargo tree --no-default-features --features json,csv -e=no-dev -f "{p} {f}" | grep -q "native-tls\|rustls"; then \
@@ -283,8 +291,8 @@ features:
     @echo "Default features:"
     @echo "  cargo build --release"
     @echo ""
-    @echo "Pure Rust TLS build:"
-    @echo "  cargo build --release --no-default-features --features \"json,csv,ssl-rustls,additional_mysql_types,verbose\""
+    @echo "Rustls TLS build:"
+    @echo "  cargo build --release --no-default-features --features \"json,csv,ssl,additional_mysql_types,verbose\""
     @echo ""
     @echo "Minimal build (no TLS, no extra types):"
     @echo "  cargo build --no-default-features --features \"csv json\""
@@ -584,6 +592,8 @@ help:
     @echo "Testing:"
     @echo "  test          Run tests with nextest (including ignored Docker tests)"
     @echo "  test-no-docker Run tests with nextest (excluding Docker tests)"
+    @echo "  test-integration Run integration tests (requires Docker)"
+    @echo "  test-all      Run all tests including integration tests"
     @echo "  coverage      Run tests with coverage report"
     @echo "  coverage-llvm Run tests with llvm-cov (CI compatible)"
     @echo "  cover         Alias for coverage-llvm (CI naming consistency)"

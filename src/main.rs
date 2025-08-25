@@ -78,7 +78,7 @@ fn main() {
         Err(e) => exit_with_error(e, Some("Output file resolution failed")),
     };
 
-    let pool = match create_database_connection(&database_url) {
+    let pool = match create_database_connection(&database_url, &cli) {
         Ok(pool) => pool,
         Err(e) => exit_with_error(anyhow::anyhow!("Database connection pool creation failed: {}", e), None),
     };
@@ -182,42 +182,89 @@ fn main() {
     exit_success(None);
 }
 
-/// Creates a database connection pool with optional TLS configuration
-fn create_database_connection(database_url: &str) -> Result<Pool> {
+/// Creates a database connection pool with rustls-only TLS configuration from CLI
+fn create_database_connection(database_url: &str, cli: &Cli) -> Result<Pool> {
     #[cfg(feature = "ssl")]
     {
-        // Parse TLS configuration from URL (placeholder for future enhancement)
-        let tls_config = parse_tls_config_from_url(database_url)?;
+        // Create TLS configuration from CLI options
+        let tls_config = if cli.tls_options.tls_ca_file.is_some()
+            || cli.tls_options.insecure_skip_hostname_verify
+            || cli.tls_options.allow_invalid_certificate
+        {
+            let config = TlsConfig::from_tls_options(&cli.tls_options)
+                .map_err(|e| anyhow::anyhow!("TLS configuration error: {}", e))?;
 
-        // Use TLS-aware connection creation
-        create_tls_connection(database_url, tls_config)
+            // Display security warnings for insecure modes
+            config.display_security_warnings();
+
+            Some(config)
+        } else {
+            // Use default TLS behavior when no explicit TLS flags are provided
+            // This will use platform certificate store with rustls
+            None
+        };
+
+        // Use rustls-only TLS connection creation with enhanced error handling
+        create_tls_connection(database_url, tls_config).map_err(|tls_error| {
+            // Convert TLS errors to anyhow errors with appropriate context
+            match &tls_error {
+                gold_digger::tls::TlsError::CertificateValidationFailed { .. }
+                | gold_digger::tls::TlsError::CertificateTimeInvalid { .. }
+                | gold_digger::tls::TlsError::InvalidSignature { .. }
+                | gold_digger::tls::TlsError::UnknownCertificateAuthority { .. }
+                | gold_digger::tls::TlsError::InvalidCertificatePurpose { .. }
+                | gold_digger::tls::TlsError::CertificateChainInvalid { .. }
+                | gold_digger::tls::TlsError::CertificateRevoked { .. } => {
+                    // Certificate validation errors - suggest appropriate CLI flag
+                    if let Some(suggestion) = tls_error.suggest_cli_flag() {
+                        anyhow::anyhow!("{}. Suggestion: {}", tls_error, suggestion)
+                    } else {
+                        anyhow::anyhow!("{}", tls_error)
+                    }
+                },
+                gold_digger::tls::TlsError::HostnameVerificationFailed { .. } => {
+                    // Hostname verification errors - suggest skip hostname flag
+                    anyhow::anyhow!(
+                        "{}. Suggestion: {}",
+                        tls_error,
+                        tls_error
+                            .suggest_cli_flag()
+                            .unwrap_or("--insecure-skip-hostname-verify")
+                    )
+                },
+                gold_digger::tls::TlsError::FeatureNotEnabled => {
+                    anyhow::anyhow!("TLS feature not enabled. Recompile with --features ssl to enable TLS support")
+                },
+                gold_digger::tls::TlsError::CaFileNotFound { .. }
+                | gold_digger::tls::TlsError::InvalidCaFormat { .. }
+                | gold_digger::tls::TlsError::MutuallyExclusiveFlags { .. } => {
+                    // Client configuration errors - no additional context needed
+                    anyhow::anyhow!("{}", tls_error)
+                },
+                _ => {
+                    // Other TLS errors (handshake, connection, server issues)
+                    anyhow::anyhow!("Database connection failed: {}", tls_error)
+                },
+            }
+        })
     }
 
     #[cfg(not(feature = "ssl"))]
     {
+        // Check if user tried to use TLS options without SSL feature
+        if cli.tls_options.tls_ca_file.is_some()
+            || cli.tls_options.insecure_skip_hostname_verify
+            || cli.tls_options.allow_invalid_certificate
+        {
+            return Err(anyhow::anyhow!(
+                "TLS options provided but SSL feature not enabled. Recompile with --features ssl to enable TLS support"
+            ));
+        }
+
         // Fallback to direct Pool creation when SSL feature is disabled
+        // This maintains backward compatibility for non-TLS builds
         Pool::new(database_url).map_err(|e| anyhow::anyhow!("Database connection failed: {}", e))
     }
-}
-
-/// Parses TLS configuration from database URL
-/// Currently returns None as the mysql crate doesn't support URL-based SSL configuration
-/// This function provides a foundation for future TLS URL parameter support
-#[cfg(feature = "ssl")]
-fn parse_tls_config_from_url(_database_url: &str) -> Result<Option<TlsConfig>> {
-    // The mysql crate doesn't support URL-based SSL configuration like ssl-mode, ssl-ca, etc.
-    // For now, we return None to use default TLS behavior when the ssl feature is enabled
-    // Future enhancement: Parse URL parameters and create appropriate TlsConfig
-
-    // Example of what this could look like in the future:
-    // if database_url.contains("ssl-mode=required") {
-    //     return Ok(Some(TlsConfig::new()));
-    // }
-    // if database_url.contains("ssl-ca=") {
-    //     // Extract CA path and create config
-    // }
-
-    Ok(None)
 }
 
 /// Resolves the database URL from CLI arguments or environment variables
@@ -323,7 +370,6 @@ fn dump_configuration(cli: &Cli) -> Result<()> {
         "allow_empty": cli.allow_empty,
         "features": {
             "ssl": cfg!(feature = "ssl"),
-            "ssl_rustls": cfg!(feature = "ssl-rustls"),
             "json": cfg!(feature = "json"),
             "csv": cfg!(feature = "csv"),
             "verbose": cfg!(feature = "verbose"),
@@ -339,27 +385,33 @@ fn dump_configuration(cli: &Cli) -> Result<()> {
 mod tests {
     use super::*;
 
+    /// Creates a CLI instance with common test arguments
+    fn build_test_cli() -> Cli {
+        Cli::parse_from([
+            "gold_digger",
+            "--db-url",
+            "mysql://test",
+            "--query",
+            "SELECT 1",
+            "--output",
+            "test.json",
+        ])
+    }
+
     #[test]
     fn test_create_database_connection_invalid_url() {
         // Test with invalid URL to ensure error handling works
-        let result = create_database_connection("invalid://url");
+        let cli = build_test_cli();
+        let result = create_database_connection("invalid://url", &cli);
         assert!(result.is_err());
-    }
-
-    #[cfg(feature = "ssl")]
-    #[test]
-    fn test_parse_tls_config_from_url() {
-        // Test the TLS config parsing function
-        let result = parse_tls_config_from_url("mysql://user:pass@localhost:3306/db");
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none()); // Currently returns None as documented
     }
 
     #[cfg(feature = "ssl")]
     #[test]
     fn test_create_database_connection_with_ssl_feature() {
         // Test that the function exists and handles errors properly when ssl feature is enabled
-        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
+        let cli = build_test_cli();
+        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test", &cli);
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());
     }
@@ -368,7 +420,8 @@ mod tests {
     #[test]
     fn test_create_database_connection_without_ssl_feature() {
         // Test that the function works without ssl feature
-        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test");
+        let cli = build_test_cli();
+        let result = create_database_connection("mysql://invalid:invalid@nonexistent:3306/test", &cli);
         // Should fail due to invalid connection details, but not panic
         assert!(result.is_err());
     }

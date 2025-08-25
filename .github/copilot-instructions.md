@@ -81,7 +81,7 @@ Some("csv") => gold_digger::csv::write(rows, output)?,
 ### Known Issues to Fix
 
 1. **Pattern Bug:** In `src/main.rs`, `Some(&_)` should be `Some(_)`
-2. **JSON Non-determinism:** Uses HashMap instead of BTreeMap
+2. **JSON Output:** Uses BTreeMap for deterministic key ordering (implemented)
 3. **Exit Codes:** Uses `exit(-1)` instead of proper error codes
 
 ## Project File Organization
@@ -168,12 +168,14 @@ match get_extension_from_filename(&output_file) {
 
 ### TLS Configuration
 
-Gold Digger supports two TLS implementations:
+Gold Digger uses a simplified, rustls-only TLS implementation:
 
-- **Default: Native TLS** (`ssl` feature) - Uses platform-native TLS libraries (SChannel on Windows, SecureTransport on macOS, system TLS on Linux)
-- **Alternative: Pure Rust TLS** (`ssl-rustls` feature) - Pure Rust implementation for consistent cross-platform behavior
+- **Single Implementation**: `ssl` feature uses pure Rust TLS via rustls with platform certificate store integration
+- **Platform Integration**: Automatically uses system certificate stores on Windows, macOS, and Linux
+- **Enhanced Security**: Granular TLS validation options for different deployment scenarios
+- **Benefits**: Consistent behavior across platforms, no native dependencies, simplified configuration
 
-**Important**: These features are mutually exclusive. The deprecated `vendored` feature has been removed.
+**Important**: The previous dual TLS implementation (native-tls vs rustls) has been simplified to rustls-only.
 
 ### Adding Dependencies
 

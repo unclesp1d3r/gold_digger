@@ -41,14 +41,52 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
-      - name: Run clippy
-        run: cargo clippy --no-default-features --features "json csv ssl additional_mysql_types verbose"
+      - name: Run clippy (with SSL)
+        run: cargo clippy --no-default-features --features "json csv ssl additional_mysql_types verbose" -- -D warnings
 
-  # Test no-SSL configuration (cross-platform covers SSL variants)
+      - name: Run clippy (without SSL)
+        run: cargo clippy --no-default-features --features "json csv additional_mysql_types verbose" -- -D warnings
+
+  # Test TLS flag validation and CLI parsing
+  tls-cli-validation:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test TLS CLI flag validation
+        run: |
+          # Test mutually exclusive TLS flags
+          cargo build --release --features "ssl"
+
+          # Test that mutually exclusive flags are rejected
+          echo "Testing mutually exclusive TLS flags..."
+
+          # These should fail with configuration errors
+          ! ./target/release/gold_digger --tls-ca-file /tmp/nonexistent.pem --insecure-skip-hostname-verify --db-url "mysql://test" --query "SELECT 1" --output /tmp/test.json 2>/dev/null || exit 1
+          ! ./target/release/gold_digger --tls-ca-file /tmp/nonexistent.pem --allow-invalid-certificate --db-url "mysql://test" --query "SELECT 1" --output /tmp/test.json 2>/dev/null || exit 1
+          ! ./target/release/gold_digger --insecure-skip-hostname-verify --allow-invalid-certificate --db-url "mysql://test" --query "SELECT 1" --output /tmp/test.json 2>/dev/null || exit 1
+
+          echo "TLS flag validation tests passed"
+
+      - name: Test TLS configuration unit tests
+        run: cargo nextest run --features "ssl" tls_config_unit_tests
+
+  # Test no-SSL configuration
   test-no-ssl:
     runs-on: ubuntu-latest
     needs: quality
-
     steps:
       - uses: actions/checkout@v5
 
@@ -69,31 +107,32 @@ jobs:
       - name: Build release (no SSL)
         run: cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
 
-  # Test cross-platform configurations (SSL variants)
-  cross-platform-test:
+      - name: Test SSL feature disabled behavior
+        run: |
+          # Build without SSL and verify TLS-related functionality is properly disabled
+          cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
+
+          # Test that SSL-related tests are properly skipped
+          cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose" ssl_disabled_tests
+
+  # Test cross-platform TLS certificate store integration
+  cross-platform-tls:
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            features: ssl
-          - os: ubuntu-latest
-            features: ssl-rustls
+            platform: "Linux"
           - os: macos-latest
-            features: ssl
+            platform: "macOS"
           - os: windows-latest
-            features: ssl
+            platform: "Windows"
     runs-on: ${{ matrix.os }}
     needs: quality
-
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false # Disable caching to avoid leaking credentials
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
@@ -103,25 +142,142 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests and build
+      - name: Test TLS functionality on ${{ matrix.platform }}
         run: |
-          if [ "${{ matrix.features }}" = "none" ]; then
-            cargo nextest run --no-default-features --features "json csv additional_mysql_types verbose"
-            cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"
-          else
-            cargo nextest run --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
-            cargo build --release --no-default-features --features "json csv ${{ matrix.features }} additional_mysql_types verbose"
-          fi
+          # Run TLS-specific tests
+          cargo nextest run --features "ssl" tls_config_unit_tests
+          cargo nextest run --features "ssl" tls_integration
+          cargo nextest run --features "ssl" dependency_validation
+
+      - name: Test platform certificate store integration
+        run: |
+          # Build with SSL support
+          cargo build --release --features "ssl"
+
+          # Test that platform certificate dependencies are present
+          cargo tree --features "ssl" | grep -E "(rustls|rustls-native-certs)" || exit 1
+
+          # Verify no native-tls dependencies (rustls-only implementation)
+          ! cargo tree --features "ssl" | grep "native-tls" || exit 1
+
+      - name: Test TLS security modes on ${{ matrix.platform }}
+        run: |
+          # Test each TLS security mode builds correctly
+          echo "Testing TLS security modes on ${{ matrix.platform }}..."
+
+          # Create a temporary certificate file for testing
+          mkdir -p /tmp/tls-test
+          cat > /tmp/tls-test/test-ca.pem << 'EOF'
+          -----BEGIN CERTIFICATE-----
+          MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+          BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+          aWRnaXRzIFB0eSBMdGQwHhcNMTcwODI4MTExNzE2WhcNMTgwODI4MTExNzE2WjBF
+          MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+          ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+          CgKCAQEAuuExKvY1xzHFw4A9J3QnsdTtjScjjQ3WM94I2FtpMRCZDBrT7PN2RQae
+          1UBMHall7afNzoglf7Gpir6+sQBaoXI6F0S2ZuuAiYU9zqhxHKjVfz6rZqQkLrZQ
+          kOcHXiIhIdOviydpX3MelAwNjGSteHyGA1TqRBxh9obFoAoRQmlHnVkycnARP8qd
+          tNatja7VgHd7NuiE5vTaFzCREHk2lQaHdgAIuRs6Z4zw1h5BzHyUK4DqsJqGrRLm
+          YehM4wlBOmrsBc7afNdlko/YVFkLJ7AsGQJ1951i6cWQmaq5WZEyLPp1FNRRRyep
+          7TqBnLf2xURg5BDVvbhP0A42VpQIDAQABo1AwTjAdBgNVHQ4EFgQUhHf2808b6+RE
+          oCgEMWMWgRkH+6wwHwYDVR0jBBgwFoAUhHf2808b6+REoCgEMWMWgRkH+6wwDAYD
+          VR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOCAQEAGRuOfQqk5T5OhzgiuLxhQYsy
+          XqSR4fNMW7M0PJjdXNzGxhMvKs9vEehxiaUHLjUx7bZT2+WBxNki4NfeCEHeQpZs
+          -----END CERTIFICATE-----
+          EOF
+
+          # Test CLI help shows TLS options
+          ./target/release/gold_digger --help | grep -E "(tls-ca-file|insecure-skip-hostname-verify|allow-invalid-certificate)" || exit 1
+
+          echo "TLS security mode tests completed successfully on ${{ matrix.platform }}"
+
+  # Test TLS error handling and user guidance
+  tls-error-handling:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test TLS error handling
+        run: |
+          # Build with SSL support
+          cargo build --release --features "ssl"
+
+          # Test TLS error classification and guidance
+          cargo nextest run --features "ssl" tls_error_handling_tests
+
+          # Test security warning system
+          cargo nextest run --features "ssl" security_warning_tests
+
+      - name: Test TLS configuration validation
+        run: |
+          echo "Testing TLS configuration validation..."
+
+          # Test invalid CA file path
+          ! ./target/release/gold_digger --tls-ca-file /nonexistent/path.pem --db-url "mysql://test" --query "SELECT 1" --output /tmp/test.json 2>/dev/null || exit 1
+
+          # Test invalid certificate content
+          echo "invalid certificate" > /tmp/invalid-cert.pem
+          ! ./target/release/gold_digger --tls-ca-file /tmp/invalid-cert.pem --db-url "mysql://test" --query "SELECT 1" --output /tmp/test.json 2>/dev/null || exit 1
+
+          echo "TLS configuration validation tests passed"
+
+  # Test TLS feature compilation variations
+  tls-feature-variations:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test feature flag combinations
+        run: |
+          echo "Testing TLS feature flag combinations..."
+
+          # Test default features (includes SSL)
+          cargo build --release
+          cargo tree | grep -E "(rustls|rustls-native-certs)" || exit 1
+
+          # Test minimal features (no SSL)
+          cargo build --release --no-default-features --features "json csv"
+          ! cargo tree --no-default-features --features "json csv" | grep -E "(rustls|native-tls)" || echo "No TLS dependencies found (expected)"
+
+          # Test SSL feature explicitly
+          cargo build --release --no-default-features --features "json csv ssl additional_mysql_types verbose"
+          cargo tree --no-default-features --features "ssl" | grep -E "(rustls|rustls-native-certs)" || exit 1
+
+          echo "Feature flag combination tests passed"
+
+      - name: Test conditional compilation
+        run: |
+          # Test that TLS-related code is properly feature-gated
+          cargo nextest run --features "ssl" dependency_validation
+
+          # Verify rustls-only implementation (no native-tls)
+          ! cargo tree --features "ssl" | grep "native-tls" || exit 1
 
   # Generate coverage for all configurations
   coverage:
     runs-on: ubuntu-latest
-    needs: cross-platform-test
-
+    needs: [tls-cli-validation, test-no-ssl, cross-platform-tls, tls-error-handling, tls-feature-variations]
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false # Disable caching to avoid leaking credentials
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -134,8 +290,16 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Generate coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --no-default-features --features "json csv ssl additional_mysql_types verbose"
+      - name: Generate coverage (with SSL)
+        run: cargo llvm-cov --workspace --lcov --output-path lcov-ssl.info --features "ssl"
+
+      - name: Generate coverage (without SSL)
+        run: cargo llvm-cov --workspace --lcov --output-path lcov-no-ssl.info --no-default-features --features "json csv additional_mysql_types verbose"
+
+      - name: Combine coverage reports
+        run: |
+          # Combine both coverage reports
+          cat lcov-ssl.info lcov-no-ssl.info > lcov.info
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

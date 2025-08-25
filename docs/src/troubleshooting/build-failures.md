@@ -186,10 +186,13 @@ error: conflicting requirements for `dependency`
 1. **OpenSSL Issues:**
 
    ```bash
-   # Recommended: Use rustls for pure Rust solution (no OpenSSL dependency)
-   cargo build --no-default-features --features "json csv ssl-rustls"
+   # Standard build with rustls TLS (recommended)
+   cargo build --release
 
-   # Alternative: Install vcpkg and OpenSSL (requires additional setup)
+   # Minimal build without TLS (if TLS dependencies cause issues)
+   cargo build --no-default-features --features "json csv"
+
+   # Alternative: Install system dependencies if needed
    set VCPKG_ROOT=C:\vcpkg
    vcpkg install openssl:x64-windows-static
    ```
@@ -242,8 +245,8 @@ error: conflicting requirements for `dependency`
    brew install openssl@3
    export OPENSSL_DIR=$(brew --prefix openssl@3)
 
-   # Or use rustls for pure Rust solution
-   cargo build --no-default-features --features "json csv ssl-rustls"
+   # Or use minimal build without TLS
+   cargo build --no-default-features --features "json csv"
    ```
 
    **Note:** Modern Homebrew installations use `openssl@3` as the default formula. If `brew --prefix openssl` fails, use `openssl@3` instead.
@@ -307,8 +310,7 @@ error: conflicting requirements for `dependency`
 **Error Pattern:**
 
 ```
-error: feature `ssl` and `ssl-rustls` cannot be used together
-error: native-tls and rustls dependencies conflict
+error: TLS feature not enabled. Recompile with --features ssl to enable TLS support
 ```
 
 **Solutions:**
@@ -319,9 +321,9 @@ error: native-tls and rustls dependencies conflict
    # Check TLS dependency conflicts
    just validate-deps
 
-   # Test individual TLS backends
-   cargo build --no-default-features --features "json csv ssl"
-   cargo build --no-default-features --features "json csv ssl-rustls"
+   # Test TLS and non-TLS builds
+   cargo build --release  # With TLS
+   cargo build --no-default-features --features "json csv"  # Without TLS
    ```
 
 2. **Choose TLS Backend:**
@@ -330,8 +332,8 @@ error: native-tls and rustls dependencies conflict
    # For native TLS (platform-specific)
    cargo build --no-default-features --features "json csv ssl additional_mysql_types verbose"
 
-   # For pure Rust TLS (portable)
-   cargo build --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+   # For standard TLS build (recommended)
+   cargo build --release
 
    # For no TLS (testing only)
    cargo build --no-default-features --features "json csv additional_mysql_types verbose"

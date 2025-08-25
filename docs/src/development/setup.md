@@ -218,9 +218,46 @@ just security
 
 # Generate Software Bill of Materials (SBOM)
 just sbom
+```
 
-# Coverage alias for CI consistency
-just cover
+### 3. Cargo-deny Configuration
+
+Gold Digger uses a dual cargo-deny configuration to balance local development flexibility with CI security enforcement:
+
+#### Local Development (Tolerant)
+
+- **File**: `deny.toml` (default)
+- **Yanked crates**: `warn` (shows warnings but doesn't fail)
+- **Purpose**: Allows local development to continue even with yanked dependencies
+
+#### CI Environment (Strict)
+
+- **File**: `deny.ci.toml`
+- **Yanked crates**: `error` (fails pipeline on yanked crates)
+- **Purpose**: Enforces strict security policies in CI
+
+#### Usage
+
+```bash
+# Local development (tolerant)
+just deny
+
+# CI enforcement (strict)
+just deny-ci
+
+# CI workflow automatically uses strict configuration
+# See .github/workflows/security.yml
+```
+
+#### Configuration Files
+
+- `deny.toml` - Local development configuration with tolerant settings
+- `deny.ci.toml` - CI-specific configuration with strict enforcement
+- Both files maintain the same license and security policies, differing only in yanked crate handling
+
+```
+
+### 3. Testing
 ```
 
 ### 3. Testing
@@ -255,7 +292,7 @@ just build-rustls
 just build-all
 ```
 
-### 5. Documentation
+### 4. Documentation
 
 ```bash
 # Build documentation
@@ -284,8 +321,12 @@ default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
 # Individual features
 json = ["serde_json"]
 csv = ["csv"]
-ssl = ["mysql/native-tls"]
-ssl-rustls = ["mysql/rustls-tls"]
+ssl = [
+  "mysql/rustls-tls",
+  "rustls",
+  "rustls-native-certs",
+  "rustls-pemfile",
+]
 additional_mysql_types = ["mysql_common?/bigdecimal", ...]
 verbose = []
 ```
@@ -299,8 +340,11 @@ cargo test
 # Test minimal features
 cargo test --no-default-features --features "csv json"
 
-# Test rustls TLS
-cargo test --no-default-features --features "json csv ssl-rustls additional_mysql_types verbose"
+# Test with TLS
+cargo test --release
+
+# Test without TLS
+cargo test --no-default-features --features "json csv additional_mysql_types verbose"
 ```
 
 ## Database Setup for Testing

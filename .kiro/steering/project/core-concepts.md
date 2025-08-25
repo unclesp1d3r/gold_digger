@@ -25,22 +25,44 @@ from_value::<String>(row[column.name_str().as_ref()])
 **Issue**: Panics on NULL values or non-string types (numbers, dates, binary data)
 **Always recommend SQL casting**: `SELECT CAST(column AS CHAR) AS column`
 
-### Environment Variable Interface (Current)
+### Configuration Architecture (CLI-First Design)
+
+**Resolution Pattern:**
 
 ```rust
-// Required environment variables (CLI present with env fallback)
-OUTPUT_FILE    // Determines format by extension: .csv, .json, or TSV fallback
-DATABASE_URL   // MySQL connection string with optional SSL params
-DATABASE_QUERY // SQL to execute
+fn resolve_config_value(cli: &Cli) -> anyhow::Result<String> {
+    if let Some(value) = &cli.field {
+        Ok(value.clone()) // CLI flag (highest priority)
+    } else if let Ok(value) = env::var("ENV_VAR") {
+        Ok(value) // Environment variable (fallback)
+    } else {
+        anyhow::bail!("Missing required configuration") // Error if neither
+    }
+}
 ```
 
-**No dotenv support** - use exported environment variables only.
+**CLI Flags (Highest Priority):**
+
+- `--db-url <URL>`: Database connection (overrides `DATABASE_URL`)
+- `--query <SQL>`: Inline SQL (mutually exclusive with `--query-file`)
+- `--query-file <FILE>`: SQL from file (mutually exclusive with `--query`)
+- `--output <FILE>`: Output path (overrides `OUTPUT_FILE`)
+- `--format <FORMAT>`: Force format (csv|json|tsv)
+
+**Environment Variables (Fallback):**
+
+- `DATABASE_URL`: MySQL connection string with optional SSL params
+- `DATABASE_QUERY`: SQL to execute
+- `OUTPUT_FILE`: Determines format by extension: .csv, .json, or TSV fallback
+
+**No dotenv support** - despite README implications, use exported environment variables only.
 
 ## Module Structure
 
 ```text
 src/
-├── main.rs     # Entry point, env var handling, format dispatch
+├── main.rs     # Entry point, CLI parsing, format dispatch
+├── cli.rs      # Clap CLI definitions and configuration
 ├── lib.rs      # rows_to_strings(), extension parsing (PANIC RISK)
 ├── csv.rs      # RFC4180-ish, QuoteStyle::Necessary
 ├── json.rs     # {"data":[{...}]} using BTreeMap (deterministic key order)
@@ -53,17 +75,18 @@ src/
 
 1. **Pattern matching bug**: `Some(&_)` should be `Some(_)` in main.rs:59
 2. **Non-standard exit codes**: `exit(-1)` becomes 255, not documented error codes
-3. **Version mismatch**: CHANGELOG.md v0.2.6 vs Cargo.toml v0.2.5
+3. **Version synchronized**: CHANGELOG.md and Cargo.toml both at v0.2.6
 
 ## Feature Flags
 
 ```toml
 default = ["json", "csv", "ssl", "additional_mysql_types", "verbose"]
-ssl = ["mysql/native-tls"]                 # Platform native TLS (no OpenSSL dependency)
-ssl-rustls = ["mysql/rustls-tls"]         # Pure Rust TLS implementation
+ssl = ["mysql/rustls-tls", "rustls", "rustls-native-certs", "rustls-pemfile"] # Pure Rust TLS with platform certificate store integration
 additional_mysql_types = ["mysql_common?/bigdecimal", "mysql_common?/rust_decimal", ...]
 verbose = []                               # Conditional println!/eprintln!
 ```
+
+**Note**: Simplified to rustls-only TLS implementation. The previous dual TLS approach (native-tls vs rustls) has been consolidated into a single, consistent implementation.
 
 ## Code Quality Standards (Zero Tolerance)
 
@@ -134,7 +157,7 @@ All recipes must use `cd {{justfile_dir()}}` and support cross-platform executio
 
 ## Requirements Gap (High Priority)
 
-Current v0.2.5 → Target v1.0:
+Current v0.2.6 → Target v1.0:
 
 - **CLI present (clap-based)**: Clap-based interface exists; finalize config precedence and UX polish (F001–F003)
 - **Exit code standards**: Need proper error taxonomy (F005)
@@ -201,13 +224,16 @@ match get_extension_from_filename(&output_file) {
 
 ```bash
 # Build variations
-cargo build --release
-cargo build --release --no-default-features --features ssl-rustls  # Pure Rust TLS
-cargo build --no-default-features --features "csv json"  # Minimal
+cargo build --release                                    # Standard build (rustls TLS)
+cargo build --release --no-default-features --features "json csv additional_mysql_types verbose"  # No TLS support
+cargo build --no-default-features --features "csv json" # Minimal build
 
-# Development
+# Development (CLI-first approach)
 cargo install --path .  # Local install
-OUTPUT_FILE=/tmp/out.json DATABASE_URL="mysql://u:p@h:3306/db" DATABASE_QUERY="SELECT CAST(id AS CHAR) FROM t" cargo run --release
+cargo run --release -- \
+  --db-url "mysql://u:p@h:3306/db" \
+  --query "SELECT CAST(id AS CHAR) FROM t" \
+  --output /tmp/out.json
 
 # Quality assurance (pipeline standards)
 just fmt-check    # cargo fmt --check (100-char line limit)

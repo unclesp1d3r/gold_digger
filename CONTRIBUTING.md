@@ -53,7 +53,7 @@ If you then still feel the need to ask a question and need clarification, we rec
 
 - Open an [Issue](https://github.com/unclesp1d3r/gold_digger/issues/new).
 - Provide as much context as you can about what you're running into.
-- Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
+- Provide project and platform versions (Rust toolchain version, Cargo version, OS and architecture, etc), depending on what seems relevant.
 
 We will then take care of the issue as soon as possible.
 
@@ -420,7 +420,7 @@ git commit -m "feat(cli): add --version flag"
 git commit -m "feat: add TLS support
 
 This adds comprehensive TLS support for secure database connections.
-Includes both native-tls and rustls implementations."
+Uses rustls-only implementation with platform certificate store integration."
 ```
 
 #### Automated Releases

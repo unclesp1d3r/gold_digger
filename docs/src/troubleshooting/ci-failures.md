@@ -28,9 +28,9 @@ This guide provides detailed troubleshooting steps for common CI/CD pipeline fai
 # Reproduce locally
 just build-all
 
-# Check specific feature combinations
-cargo build --no-default-features --features "json csv ssl"
-cargo build --no-default-features --features "json csv ssl-rustls"
+# Check TLS and non-TLS builds
+cargo build --release  # With TLS
+cargo build --no-default-features --features "json csv"  # Without TLS
 ```
 
 **Common Solutions:**
@@ -317,9 +317,9 @@ cargo check --no-default-features --features "feature1,feature2"
    # Check TLS backend conflicts
    just validate-deps
 
-   # Test individual features
-   cargo build --no-default-features --features ssl
-   cargo build --no-default-features --features ssl-rustls
+   # Test TLS and non-TLS builds
+   cargo build --release  # With TLS
+   cargo build --no-default-features --features "json csv"  # Without TLS
    ```
 
 ### Platform-Specific Dependencies
